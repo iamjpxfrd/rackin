@@ -5,6 +5,10 @@ dist/
 .env
 .env.local
 coverage/
+.agents
+.claude
+.impeccable
+
 
 # Per-machine Impeccable hook consent, not project design authority
 .impeccable/config.local.json
