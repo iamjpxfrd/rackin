@@ -1,0 +1,30 @@
+package com.rackin.backend.web;
+
+import com.rackin.backend.exception.MemberNotFoundException;
+import com.rackin.backend.web.dto.ErrorMessage;
+import com.rackin.backend.web.dto.FieldError;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.List;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(MemberNotFoundException.class)
+    public ResponseEntity<ErrorMessage> handleMemberNotFound(MemberNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorMessage(ex.getMessage()));
+    }
+
+    // Field-level detail (TRD Section 8) so the frontend can surface specific guidance.
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<List<FieldError>> handleValidation(MethodArgumentNotValidException ex) {
+        List<FieldError> errors = ex.getBindingResult().getFieldErrors().stream()
+                .map(fe -> new FieldError(fe.getField(), fe.getDefaultMessage()))
+                .toList();
+        return ResponseEntity.badRequest().body(errors);
+    }
+}
