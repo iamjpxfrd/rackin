@@ -5,11 +5,6 @@ dist/
 .env
 .env.local
 coverage/
-.claude
-.agents
 
-# Local secrets (DB_PASSWORD) — see backend/config/local.properties.example
-backend/config/local.properties
-
-# H2 dev database, replaced by PostgreSQL
-data/
+# Per-machine Impeccable hook consent, not project design authority
+.impeccable/config.local.json
