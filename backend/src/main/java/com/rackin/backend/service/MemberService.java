@@ -36,9 +36,7 @@ public class MemberService {
         memberRepository.save(member);
 
         Payment payment = paymentService.recordPayment(member, request.amount(), request.method(), null);
-        MembershipStatus status = !payment.getCoversUntil().isBefore(Instant.now())
-                ? MembershipStatus.active
-                : MembershipStatus.expired;
+        MembershipStatus status = paymentService.deriveStatus(payment.getCoversUntil());
 
         return new RegisterMemberResponse(member.getId(), status, payment.getCoversUntil());
     }

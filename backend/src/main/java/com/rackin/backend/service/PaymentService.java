@@ -1,15 +1,14 @@
 package com.rackin.backend.service;
 
+import com.rackin.backend.config.RackinProperties;
 import com.rackin.backend.exception.MemberNotFoundException;
 import com.rackin.backend.model.Member;
 import com.rackin.backend.model.MembershipStatus;
 import com.rackin.backend.model.Payment;
 import com.rackin.backend.model.PaymentMethod;
-import com.rackin.backend.repository.ExpiringMemberProjection;
 import com.rackin.backend.repository.MemberRepository;
 import com.rackin.backend.repository.PaymentRepository;
 import com.rackin.backend.web.dto.ExpiringMemberResponse;
-import com.rackin.backend.web.dto.MemberSummary;
 import com.rackin.backend.web.dto.PaymentResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,10 +24,13 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final MemberRepository memberRepository;
+    private final RackinProperties properties;
 
-    public PaymentService(PaymentRepository paymentRepository, MemberRepository memberRepository) {
+    public PaymentService(PaymentRepository paymentRepository, MemberRepository memberRepository,
+                          RackinProperties properties) {
         this.paymentRepository = paymentRepository;
         this.memberRepository = memberRepository;
+        this.properties = properties;
     }
 
     @Transactional
@@ -65,20 +67,21 @@ public class PaymentService {
                 .orElse(MembershipStatus.expired);
     }
 
+    // days == null means "use the pilot's configured threshold" — resolving that
+    // is a domain decision, so it happens here rather than in the controller.
     @Transactional(readOnly = true)
-    public List<ExpiringMemberResponse> getExpiring(int days) {
+    public List<ExpiringMemberResponse> getExpiring(Integer days) {
+        int window = days != null ? days : properties.expiringDaysDefault();
         Instant now = Instant.now();
-        Instant until = now.plus(days, ChronoUnit.DAYS);
+        Instant until = now.plus(window, ChronoUnit.DAYS);
         return paymentRepository.findExpiring(now, until).stream()
-                .map(this::toExpiringResponse)
+                .map(ExpiringMemberResponse::from)
                 .toList();
     }
 
-    private ExpiringMemberResponse toExpiringResponse(ExpiringMemberProjection p) {
-        return new ExpiringMemberResponse(new MemberSummary(p.getId(), p.getName()), p.getCoversUntil().toInstant());
-    }
-
-    private MembershipStatus deriveStatus(Instant coversUntil) {
+    // Package-private, not private: MemberService derives the same status after
+    // registration and must not carry a second copy of this rule.
+    MembershipStatus deriveStatus(Instant coversUntil) {
         return !coversUntil.isBefore(Instant.now()) ? MembershipStatus.active : MembershipStatus.expired;
     }
 }

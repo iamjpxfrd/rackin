@@ -1,17 +1,15 @@
 package com.rackin.backend.service;
 
+import com.rackin.backend.config.RackinProperties;
 import com.rackin.backend.exception.MemberNotFoundException;
 import com.rackin.backend.model.CheckIn;
 import com.rackin.backend.model.Member;
 import com.rackin.backend.repository.CheckInRepository;
-import com.rackin.backend.repository.LapsedMemberProjection;
 import com.rackin.backend.repository.MemberRepository;
 import com.rackin.backend.web.dto.CheckInRequest;
 import com.rackin.backend.web.dto.CheckInResponse;
 import com.rackin.backend.web.dto.LapsedMemberResponse;
-import com.rackin.backend.web.dto.LastCheckIn;
 import com.rackin.backend.web.dto.MemberBrief;
-import com.rackin.backend.web.dto.MemberSummary;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,10 +24,13 @@ public class CheckInService {
 
     private final CheckInRepository checkInRepository;
     private final MemberRepository memberRepository;
+    private final RackinProperties properties;
 
-    public CheckInService(CheckInRepository checkInRepository, MemberRepository memberRepository) {
+    public CheckInService(CheckInRepository checkInRepository, MemberRepository memberRepository,
+                          RackinProperties properties) {
         this.checkInRepository = checkInRepository;
         this.memberRepository = memberRepository;
+        this.properties = properties;
     }
 
     @Transactional
@@ -49,22 +50,17 @@ public class CheckInService {
                 .atStartOfDay(ZoneOffset.UTC).toInstant();
         long visitCount = checkInRepository.countByMember_IdAndTimestampGreaterThanEqual(member.getId(), monthStart);
 
-        MemberBrief memberBrief = new MemberBrief(member.getId(), member.getName(), member.getPlanType());
-        return new CheckInResponse(memberBrief, visitCount);
+        return new CheckInResponse(MemberBrief.from(member), visitCount);
     }
 
+    // days == null means "use the pilot's configured threshold" — resolving that
+    // is a domain decision, so it happens here rather than in the controller.
     @Transactional(readOnly = true)
-    public List<LapsedMemberResponse> getLapsed(int days) {
-        Instant cutoff = Instant.now().minus(days, ChronoUnit.DAYS);
+    public List<LapsedMemberResponse> getLapsed(Integer days) {
+        int window = days != null ? days : properties.lapsedDaysDefault();
+        Instant cutoff = Instant.now().minus(window, ChronoUnit.DAYS);
         return checkInRepository.findLapsed(cutoff).stream()
-                .map(this::toLapsedResponse)
+                .map(LapsedMemberResponse::from)
                 .toList();
-    }
-
-    private LapsedMemberResponse toLapsedResponse(LapsedMemberProjection p) {
-        LastCheckIn lastCheckIn = p.getLastCheckInTimestamp() != null
-                ? new LastCheckIn(p.getLastCheckInTimestamp().toInstant(), p.getLastCheckInMethod())
-                : null;
-        return new LapsedMemberResponse(new MemberSummary(p.getId(), p.getName()), lastCheckIn);
     }
 }
