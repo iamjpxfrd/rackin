@@ -1,0 +1,11 @@
+# Copy to config/local.properties (gitignored) and fill in your local password.
+#
+#   cp config/local.properties.example config/local.properties
+#
+# These define the placeholders that application-dev.properties resolves, so
+# only DB_PASSWORD is strictly required; the other two already default to the
+# local database created during backend setup.
+
+DB_PASSWORD=your-local-rackin_app-password
+# DB_URL=jdbc:postgresql://localhost:5432/rackin
+# DB_USERNAME=rackin_app
