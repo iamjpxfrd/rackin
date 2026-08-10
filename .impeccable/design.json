@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-10T00:00:00Z",
+  "title": "Design System: RackIn",
+  "extensions": {
+    "colorMeta": {
+      "ink-900": { "role": "neutral", "displayName": "Ink 900", "canonical": "#15181C", "tonalRamp": ["#0A0C0E", "#15181C", "#22262B", "#3A4046", "#5A6167", "#8A9198", "#C7CDD3", "#F1F2F0"] },
+      "steel-700": { "role": "neutral", "displayName": "Steel 700", "canonical": "#3A4046", "tonalRamp": ["#15181C", "#22262B", "#3A4046", "#565D64", "#7A8189", "#A3AAB1", "#C7CDD3", "#E8EAEC"] },
+      "steel-300": { "role": "neutral", "displayName": "Steel 300", "canonical": "#C7CDD3", "tonalRamp": ["#5A6167", "#7A8189", "#A3AAB1", "#C7CDD3", "#D6DADE", "#E3E6E8", "#EDEFF0", "#F7F8F8"] },
+      "chalk-50": { "role": "neutral", "displayName": "Chalk 50", "canonical": "#F1F2F0", "tonalRamp": ["#C7C9C5", "#D8D9D6", "#E5E6E4", "#F1F2F0", "#F5F6F5", "#F8F9F8", "#FBFBFA", "#FFFFFF"] },
+      "surface-white": { "role": "neutral", "displayName": "Surface White", "canonical": "#FFFFFF", "tonalRamp": ["#E8E8E8", "#EFEFEF", "#F5F5F5", "#F9F9F9", "#FBFBFB", "#FDFDFD", "#FFFFFF", "#FFFFFF"] },
+      "signal-yellow": { "role": "primary", "displayName": "Signal Yellow", "canonical": "#F2B705", "tonalRamp": ["#5C4602", "#8C6A03", "#BC8E04", "#D9A404", "#F2B705", "#F5C635", "#F8D670", "#FCEBB3"] },
+      "turf-green": { "role": "secondary", "displayName": "Turf Green", "canonical": "#3F8F5F", "tonalRamp": ["#173323", "#204531", "#2C603F", "#357750", "#3F8F5F", "#5CA97B", "#84C29C", "#B9DDC7"] },
+      "rubber-red": { "role": "secondary", "displayName": "Rubber Red", "canonical": "#C43D3D", "tonalRamp": ["#4A1717", "#651F1F", "#8C2A2A", "#A83333", "#C43D3D", "#D26666", "#E09898", "#EFC9C9"] }
+    },
+    "typographyMeta": {
+      "numeral": { "displayName": "Numeral", "purpose": "Numpad digits and large status numbers (visit counts, days-until-expiry). Must read from arm's length." },
+      "display": { "displayName": "Display", "purpose": "Confirmation card member name." },
+      "headline": { "displayName": "Headline", "purpose": "Screen titles." },
+      "label": { "displayName": "Label", "purpose": "Section eyebrows, uppercase and tracked." },
+      "body": { "displayName": "Body", "purpose": "List items, buttons, names." },
+      "mono": { "displayName": "Mono", "purpose": "Member numbers and fixed identifiers." },
+      "caption": { "displayName": "Caption", "purpose": "Timestamps and secondary metadata." }
+    },
+    "shadows": [
+      { "name": "key-rest", "value": "0 4px 0 #C7CDD3", "purpose": "Numpad key at rest — hard, mechanical shadow." },
+      { "name": "key-pressed", "value": "0 1px 0 #C7CDD3", "purpose": "Numpad key mid-press, paired with translateY(2px)." },
+      { "name": "card-elevation", "value": "0 12px 32px rgba(21, 24, 28, 0.18)", "purpose": "Confirmation card and overlays — soft, ambient, floating." }
+    ],
+    "motion": [
+      { "name": "key-press", "value": "transform 80ms ease-out, box-shadow 80ms ease-out", "purpose": "Numpad key press-depth feedback." },
+      { "name": "card-entrance", "value": "scale 150ms ease-out, opacity 150ms ease-out", "purpose": "Confirmation card scale+fade entrance, auto-dismiss after 2.5s." }
+    ],
+    "breakpoints": [
+      { "name": "portrait", "value": "0px" },
+      { "name": "landscape", "value": "900px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Numpad Key",
+      "kind": "button",
+      "refersTo": "numpad-key",
+      "description": "A single digit key on the check-in numpad — the signature component.",
+      "html": "<button class=\"ds-numpad-key\">7</button>",
+      "css": ".ds-numpad-key { width: 72px; height: 72px; background: #FFFFFF; color: #15181C; border: 1px solid #C7CDD3; border-radius: 6px; font-family: 'Archivo Black', system-ui, sans-serif; font-size: 40px; font-weight: 800; box-shadow: 0 4px 0 #C7CDD3; transition: transform 80ms ease-out, box-shadow 80ms ease-out; } .ds-numpad-key:active { transform: translateY(2px); box-shadow: 0 1px 0 #C7CDD3; } .ds-numpad-key:focus-visible { outline: 2px solid #3A4046; outline-offset: 2px; }"
+    },
+    {
+      "name": "Check-In Confirm Key",
+      "kind": "button",
+      "refersTo": "numpad-key-confirm",
+      "description": "Full-width primary action key; disabled until a valid number is entered.",
+      "html": "<button class=\"ds-confirm-key\">CHECK IN</button>",
+      "css": ".ds-confirm-key { width: 100%; height: 72px; background: #F2B705; color: #15181C; border: none; border-radius: 6px; font-family: Inter, system-ui, sans-serif; font-size: 18px; font-weight: 700; letter-spacing: 0.02em; box-shadow: 0 4px 0 #C9990A; transition: transform 80ms ease-out, box-shadow 80ms ease-out; } .ds-confirm-key:active { transform: translateY(2px); box-shadow: 0 1px 0 #C9990A; } .ds-confirm-key:disabled { background: #C7CDD3; color: #5A6167; box-shadow: none; } .ds-confirm-key:focus-visible { outline: 2px solid #3A4046; outline-offset: 2px; }"
+    },
+    {
+      "name": "Status Badge Active",
+      "kind": "chip",
+      "refersTo": "status-badge-active",
+      "description": "Active membership status, always paired with the text label.",
+      "html": "<span class=\"ds-badge ds-badge-active\"><span class=\"ds-badge-dot\"></span>Active</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; font-family: Inter, system-ui, sans-serif; font-size: 14px; font-weight: 500; } .ds-badge-dot { width: 6px; height: 6px; border-radius: 50%; } .ds-badge-active { background: rgba(63, 143, 95, 0.12); color: #3F8F5F; } .ds-badge-active .ds-badge-dot { background: #3F8F5F; }"
+    },
+    {
+      "name": "Status Badge Expired",
+      "kind": "chip",
+      "refersTo": "status-badge-expired",
+      "description": "Expired/lapsed membership status.",
+      "html": "<span class=\"ds-badge ds-badge-expired\"><span class=\"ds-badge-dot\"></span>Expired</span>",
+      "css": ".ds-badge-expired { background: rgba(196, 61, 61, 0.12); color: #C43D3D; } .ds-badge-expired .ds-badge-dot { background: #C43D3D; }"
+    },
+    {
+      "name": "Confirmation Card",
+      "kind": "card",
+      "refersTo": "confirmation-card",
+      "description": "Centered overlay shown on successful check-in; auto-dismisses after 2.5s.",
+      "html": "<div class=\"ds-confirmation-card\"><div class=\"ds-confirmation-name\">Maria Santos</div><div class=\"ds-confirmation-meta\">Visit #12 this month</div></div>",
+      "css": ".ds-confirmation-card { background: #FFFFFF; border-radius: 12px; padding: 32px; box-shadow: 0 12px 32px rgba(21, 24, 28, 0.18); text-align: center; } .ds-confirmation-name { font-family: Inter, system-ui, sans-serif; font-size: 32px; font-weight: 700; color: #15181C; } .ds-confirmation-meta { margin-top: 8px; font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 16px; font-weight: 500; color: #3A4046; }"
+    },
+    {
+      "name": "Tab Bar Item",
+      "kind": "nav",
+      "refersTo": "tab-bar-item",
+      "description": "One of four persistent bottom-tab destinations.",
+      "html": "<button class=\"ds-tab-item ds-tab-item-active\"><span class=\"ds-tab-label\">Check-In</span></button>",
+      "css": ".ds-tab-item { display: flex; align-items: center; justify-content: center; height: 64px; background: #F1F2F0; border: none; color: #3A4046; font-family: Inter, system-ui, sans-serif; font-size: 14px; font-weight: 400; } .ds-tab-item-active { color: #15181C; font-weight: 600; border-top: 2px solid #F2B705; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Gym Equipment Control Panel",
+    "overview": "RackIn's one screen-job is getting a staff member from \"who just walked in\" to \"checked in, confirmed\" in under two seconds, standing up, often one-handed, under variable light, repeated every twenty seconds at peak. That job is the brief — this is a tool that lives on a counter, closer in spirit to a point-of-sale terminal, a shop scale, or gym equipment itself than to a SaaS product or admin dashboard. The numpad is the signature element and the brand: every other screen stays quiet and functional so the numpad can read as a physical control — chunky, high-contrast, satisfying to press, styled after gym equipment keypads and weight-plate numerals rather than a generic phone dialer. The palette pulls from gym hardware itself: brushed steel, rubber flooring, chalk dust, and the one warning-tape yellow found on a loading bay.",
+    "keyCharacteristics": [
+      "The numpad is treated as a physical control, not a form input.",
+      "Near-neutral steel/chalk base keeps the interface calm and legible under variable front-desk lighting.",
+      "Color carries meaning only — yellow means press this, red/green mean expired/active — never decoration.",
+      "Flat, solid, pressable surfaces; no glassy neumorphism.",
+      "Minimal, purposeful motion only; nothing decorative or scroll-triggered."
+    ],
+    "rules": [
+      { "name": "The Meaning-Only Color Rule", "body": "Yellow, red, and green never decorate. Yellow means press this, green means active/paid, red means expired/lapsed — nothing else on screen carries color.", "section": "colors" },
+      { "name": "The Arm's-Length Rule", "body": "Numerals a staff member must read at a glance while standing never drop below the Numeral role's weight and size.", "section": "typography" },
+      { "name": "The One-Tap-Away Rule", "body": "Every core destination stays reachable in exactly one tap, always visible, no menu to open first.", "section": "layout" },
+      { "name": "The Mechanical-Not-Ambient Rule", "body": "Shadows on interactive controls are hard-edged and state-driven. Shadows on passive containers may be soft and ambient. Don't mix the two vocabularies on the same element.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do treat the numpad as a physical control, not a form: real press depth, a distinct confirm key.",
+      "Do reserve yellow, red, and green strictly for their assigned meanings.",
+      "Do pair every status color with a text label.",
+      "Do keep every touch target at least 56px (72px for numpad keys).",
+      "Do respect prefers-reduced-motion."
+    ],
+    "donts": [
+      "Don't use warm cream + terracotta serif, near-black + neon accent, or broadsheet hairline-newspaper styling.",
+      "Don't add a hamburger menu, nested navigation, or hide any of the four core destinations behind a menu.",
+      "Don't use signal-yellow as text-on-white.",
+      "Don't add decorative motion (parallax, page-load choreography, scroll-triggered reveals)."
+    ]
+  }
+}
