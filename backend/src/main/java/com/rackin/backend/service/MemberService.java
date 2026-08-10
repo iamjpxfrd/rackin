@@ -1,52 +1,59 @@
 package com.rackin.backend.service;
 
-import com.rackin.backend.model.Member;
-import com.rackin.backend.model.MembershipStatus;
-import com.rackin.backend.model.Payment;
-import com.rackin.backend.repository.MemberRepository;
 import com.rackin.backend.web.dto.RegisterMemberRequest;
 import com.rackin.backend.web.dto.RegisterMemberResponse;
 import com.rackin.backend.web.dto.StatusResponse;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
-import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 public class MemberService {
 
-    private final MemberRepository memberRepository;
+    // Two registrations racing can compute the same MAX(id)+1; the primary key
+    // rejects the loser, which then retries against the now-committed maximum.
+    // Every loser of a round recomputes the same next id, so without jitter they
+    // collide again and only one request clears per round. A few ms of spread
+    // breaks that up; measured at 30-way concurrency this clears all of them.
+    private static final int MAX_REGISTRATION_ATTEMPTS = 20;
+    private static final int RETRY_JITTER_MAX_MILLIS = 20;
+
+    private final MemberRegistrar registrar;
     private final PaymentService paymentService;
 
-    public MemberService(MemberRepository memberRepository, PaymentService paymentService) {
-        this.memberRepository = memberRepository;
+    public MemberService(MemberRegistrar registrar, PaymentService paymentService) {
+        this.registrar = registrar;
         this.paymentService = paymentService;
     }
 
-    @Transactional
+    // Deliberately not @Transactional: each attempt must run in its own
+    // transaction, and the call goes through the registrar's proxy so it does.
     public RegisterMemberResponse registerMember(RegisterMemberRequest request) {
-        Member member = new Member();
-        member.setId(nextMemberId());
-        member.setName(request.name().trim());
-        member.setPlanType(request.planType());
-        member.setCreatedAt(Instant.now());
-        member.setPhone(request.phone());
-        member.setClientUuid(request.clientUuid() != null ? request.clientUuid() : UUID.randomUUID());
-        memberRepository.save(member);
+        for (int attempt = 1; ; attempt++) {
+            try {
+                return registrar.register(request);
+            } catch (DataIntegrityViolationException ex) {
+                if (attempt == MAX_REGISTRATION_ATTEMPTS) {
+                    throw ex;
+                }
+                pauseBeforeRetry();
+            }
+        }
+    }
 
-        Payment payment = paymentService.recordPayment(member, request.amount(), request.method(), null);
-        MembershipStatus status = paymentService.deriveStatus(payment.getCoversUntil());
-
-        return new RegisterMemberResponse(member.getId(), status, payment.getCoversUntil());
+    private void pauseBeforeRetry() {
+        try {
+            Thread.sleep(ThreadLocalRandom.current().nextInt(1, RETRY_JITTER_MAX_MILLIS));
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while retrying registration", interrupted);
+        }
     }
 
     @Transactional(readOnly = true)
     public StatusResponse getStatus(String memberId) {
         return new StatusResponse(paymentService.getStatus(memberId));
-    }
-
-    private String nextMemberId() {
-        return String.valueOf(memberRepository.findMaxNumericId() + 1);
     }
 }
