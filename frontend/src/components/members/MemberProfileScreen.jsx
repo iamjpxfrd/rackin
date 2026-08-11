@@ -14,6 +14,8 @@ import {
   formatDate,
   formatDayMonth,
   formatTime,
+  planDuration,
+  planLabel,
 } from "../../domain/constants.js";
 import { ScreenHeader, SectionHeader, Panel } from "../ui/Layout.jsx";
 import StatusBadge from "../ui/StatusBadge.jsx";
@@ -51,7 +53,7 @@ export default function MemberProfileScreen({ memberId, onBack }) {
 
   const { member, status, isExpiringSoon, coversUntil } = profile;
   const gutter = statusGutter(profile);
-  const planLabel = member.planType === "weekly" ? "Weekly" : "Monthly";
+  const plan = planLabel(member.planType);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -72,7 +74,7 @@ export default function MemberProfileScreen({ memberId, onBack }) {
           <p className="flex items-center gap-2 font-body text-sm text-steel-700">
             <span className="font-mono text-base">#{member.id}</span>
             <span>
-              · {planLabel}
+              · {plan}
               {member.phone ? ` · ${member.phone}` : ""}
             </span>
           </p>
@@ -95,8 +97,7 @@ export default function MemberProfileScreen({ memberId, onBack }) {
                 : "No payment recorded"}
             </span>
             <span className="font-body text-sm text-steel-700">
-              {planLabel} plan · {member.planType === "weekly" ? "7" : "30"} days from
-              last payment
+              {plan} plan · {planDuration(member.planType)} from last payment
             </span>
           </div>
           <div className="flex w-36 shrink-0 items-center justify-end pr-4">

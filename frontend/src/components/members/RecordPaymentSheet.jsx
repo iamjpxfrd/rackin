@@ -10,12 +10,18 @@ import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { recordPayment, getLastPaymentAmount } from "../../domain/payments.js";
 import { computeCoversUntil, deriveStatus } from "../../domain/membership.js";
-import { CURRENCY_SYMBOL, PLAN_DAYS, formatDate } from "../../domain/constants.js";
+import {
+  CURRENCY_SYMBOL,
+  formatDate,
+  planDuration,
+  planLabel,
+} from "../../domain/constants.js";
 import Sheet from "../ui/Sheet.jsx";
 import Field from "../ui/Field.jsx";
 import ChoiceGroup from "../ui/ChoiceGroup.jsx";
 import PressKey from "../ui/PressKey.jsx";
 import StatusBadge from "../ui/StatusBadge.jsx";
+import TransferQr from "../ui/TransferQr.jsx";
 import ErrorBanner from "../checkin/ErrorBanner.jsx";
 
 const METHOD_OPTIONS = [
@@ -76,9 +82,7 @@ export default function RecordPaymentSheet({ profile, onClose, onRecorded }) {
   return (
     <Sheet
       title="Record payment"
-      subtitle={`${member.name} · #${member.id} · ${
-        member.planType === "weekly" ? "Weekly" : "Monthly"
-      }`}
+      subtitle={`${member.name} · #${member.id} · ${planLabel(member.planType)}`}
       onClose={onClose}
     >
       {saveError && <ErrorBanner message={saveError} />}
@@ -104,6 +108,7 @@ export default function RecordPaymentSheet({ profile, onClose, onRecorded }) {
         value={method}
         onChange={setMethod}
       />
+      {method === "transfer" && <TransferQr />}
 
       <div className="flex items-center gap-4 rounded-ds-sm bg-chalk-50 p-4">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -111,8 +116,8 @@ export default function RecordPaymentSheet({ profile, onClose, onRecorded }) {
             Covers until {formatDate(coversUntil)}
           </span>
           <span className="font-body text-sm text-steel-700">
-            {PLAN_DAYS[member.planType]} days from today ·{" "}
-            {member.planType === "weekly" ? "weekly" : "monthly"} plan
+            {planDuration(member.planType)} from today ·{" "}
+            {planLabel(member.planType).toLowerCase()} plan
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-2">

@@ -671,8 +671,13 @@ the next action, no apology, no exclamation marks.
 | `new.name` | Name |
 | `new.phone` | Phone · optional |
 | `new.plan` | Plan |
+| `new.session` | Session · 1 day |
 | `new.weekly` | Weekly · 7 days |
 | `new.monthly` | Monthly · 30 days |
+| `transfer.qr` | Have them scan to transfer |
+| `transfer.qrHint` | Record the payment once the transfer shows on their phone. |
+| `transfer.qrMissing` | No payment QR saved yet. |
+| `name.taken` | #{id} already uses this name. Registering makes a second member. |
 | `new.firstPayment` | First payment |
 | `new.preview` | Member #{id} · covers until {date} |
 | `new.confirm` | Register member |
@@ -766,6 +771,8 @@ No formal compliance target for the pilot (`PRODUCT.md`); this is the baseline:
 | **OD-3** | **Printing.** `app-flow.md` §7 promises "Print/View QR", but a budget Android tablet at a gym likely has no printer. | Ship `window.print()` + a print stylesheet (zero cost, no dependency), treat View/enlarge as the primary path, and drop Print if the pilot device can't. |
 | **OD-4** | **Tab label "Follow Up" vs "Lapsed."** §5.2 recommends the rename; `DESIGN.md` and `app-flow.md` currently say "Lapsed". | Rename. `app-flow.md` is updated alongside this spec; `DESIGN.md`'s tab-bar component spec needs the same one-word edit when implementation lands. |
 | **OD-5** | **Amount entry method.** The design system's numpad is the signature control; the amount field currently uses the device keyboard. | Device keyboard with `inputmode="decimal"` for the pilot. A second numpad on the payment sheet would compete with the brand's one signature control and cost vertical space on portrait. Revisit only if staff report the keyboard slows them down. |
+| **OD-6** | **The gym's payment QR asset.** Choosing `transfer` shows the gym's receiving QR, read from `frontend/public/payment-qr.png`. No such file exists, and PRODUCT.md forbids inventing one. | The gym saves their own GCash/bank QR at that path — a file swap, no code change. Until then the panel states that no QR is saved rather than showing a broken image, and cash/transfer still record normally. |
+| **OD-7** | **Backend rejects `session`.** `PlanType` is an enum of `weekly`/`monthly`, and `V1__create_member_payment_checkin.sql` carries `CHECK (plan_type IN ('weekly','monthly'))`. A synced session member would be refused. | Harmless today — sync is unimplemented and the backend is additive, never a dependency (Product Principle 4). Must be resolved before sync ships: add `session` to the enum and a migration widening the CHECK constraint. |
 
 ---
 

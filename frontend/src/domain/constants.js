@@ -11,8 +11,38 @@ export const EXPIRING_WITHIN_DAYS = 7;
 /**
  * Plan durations in days. Monthly is a flat 30 days, never a calendar
  * month — a deliberate pilot simplification (PRODUCT.md).
+ *
+ * `session` is a single-day drop-in: someone who pays at the desk, trains
+ * once, and leaves. It is a sale, not a membership, which is why it is
+ * treated differently on Follow Up (see followUp.js).
  */
-export const PLAN_DAYS = { weekly: 7, monthly: 30 };
+export const PLAN_DAYS = { session: 1, weekly: 7, monthly: 30 };
+
+/** Display order — shortest commitment first, matching how staff quote it. */
+export const PLAN_TYPES = ["session", "weekly", "monthly"];
+
+const PLAN_LABELS = { session: "Session", weekly: "Weekly", monthly: "Monthly" };
+
+/**
+ * One place that turns a stored plan type into words. Every screen calls
+ * this rather than testing `=== "weekly"`, so adding a fourth plan can
+ * never again leave a screen silently mislabelling it.
+ */
+export function planLabel(planType) {
+  return PLAN_LABELS[planType] ?? planType ?? "—";
+}
+
+/** "1 day" / "7 days" / "30 days", for stating duration at the point of choice. */
+export function planDuration(planType) {
+  const days = PLAN_DAYS[planType];
+  if (!days) return "";
+  return days === 1 ? "1 day" : `${days} days`;
+}
+
+/** A single-day drop-in rather than an ongoing membership. */
+export function isDropIn(planType) {
+  return planType === "session";
+}
 
 /**
  * Currency symbol shown beside amounts.

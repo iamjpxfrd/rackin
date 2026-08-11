@@ -1,7 +1,7 @@
 // Member registration and profile reads (frontend-spec.md §5.4, PRD 4.6/4.8).
 
 import { db, generateClientUuid, getNextMemberId } from "../../db/db.js";
-import { HISTORY_PAGE_SIZE } from "./constants.js";
+import { HISTORY_PAGE_SIZE, PLAN_TYPES } from "./constants.js";
 import { computeCoversUntil, deriveStatus, latestPaymentOf } from "./membership.js";
 
 /**
@@ -14,7 +14,7 @@ import { computeCoversUntil, deriveStatus, latestPaymentOf } from "./membership.
  *
  * @param {{
  *   name: string, phone?: string|null,
- *   planType: "weekly"|"monthly",
+ *   planType: "session"|"weekly"|"monthly",
  *   amount: number, paymentMethod: "cash"|"transfer",
  * }} input
  * @returns {Promise<{ member: object, payment: object }>}
@@ -30,7 +30,7 @@ export async function registerMember({
   if (!trimmedName) {
     throw new Error("Enter the member's name.");
   }
-  if (planType !== "weekly" && planType !== "monthly") {
+  if (!PLAN_TYPES.includes(planType)) {
     throw new Error("Choose a plan.");
   }
   const numericAmount = Number(amount);
@@ -139,6 +139,48 @@ export function filterMembers(rows, query) {
     ({ member }) =>
       member.name.toLowerCase().includes(needle) || member.id.includes(needle),
   );
+}
+
+/**
+ * Names already on the roster, for completing the one being typed.
+ *
+ * Names repeat at a single gym — shared surnames, families on the same
+ * plan — and the front desk is typing on a tablet keyboard mid-conversation.
+ * Completing from names the gym has actually used beats retyping, and it
+ * spells them consistently, which is what makes search find them later.
+ *
+ * Exact matches are surfaced (not blocked): two members may share a name,
+ * and the member number disambiguates (PRODUCT.md).
+ *
+ * @returns {Promise<Array<{ name: string, id: string }>>}
+ */
+export async function suggestNames(query, limit = 5) {
+  const needle = String(query ?? "").trim().toLowerCase();
+  if (needle.length < 2) return [];
+
+  const members = await db.members.toArray();
+  const seen = new Set();
+  const matches = [];
+
+  for (const member of members) {
+    const lower = member.name.toLowerCase();
+    if (!lower.includes(needle)) continue;
+    if (seen.has(lower)) continue;
+    seen.add(lower);
+    matches.push({ name: member.name, id: member.id, startsWith: lower.startsWith(needle) });
+  }
+
+  return matches
+    // Prefix matches first — that is what the typist is reaching for.
+    .sort((a, b) =>
+      a.startsWith === b.startsWith
+        ? a.name.localeCompare(b.name)
+        : a.startsWith
+          ? -1
+          : 1,
+    )
+    .slice(0, limit)
+    .map(({ name, id }) => ({ name, id }));
 }
 
 function startOfUtcMonth(date) {

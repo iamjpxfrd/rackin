@@ -7,19 +7,28 @@
 import { useState } from "react";
 import { registerMember } from "../../domain/members.js";
 import { computeCoversUntil } from "../../domain/membership.js";
-import { CURRENCY_SYMBOL, formatDate } from "../../domain/constants.js";
+import {
+  CURRENCY_SYMBOL,
+  PLAN_TYPES,
+  formatDate,
+  planDuration,
+  planLabel,
+} from "../../domain/constants.js";
 import { ScreenHeader, SectionHeader } from "../ui/Layout.jsx";
 import Field from "../ui/Field.jsx";
 import ChoiceGroup from "../ui/ChoiceGroup.jsx";
 import PressKey from "../ui/PressKey.jsx";
+import TransferQr from "../ui/TransferQr.jsx";
+import NameField from "./NameField.jsx";
 import ErrorBanner from "../checkin/ErrorBanner.jsx";
 
-const PLAN_OPTIONS = [
+const PLAN_OPTIONS = PLAN_TYPES.map((value) => ({
+  value,
+  label: planLabel(value).toUpperCase(),
   // Durations stated at the point of choice, so the flat-30-day rule is
   // legible before staff commit rather than discovered later.
-  { value: "weekly", label: "WEEKLY", detail: "7 days" },
-  { value: "monthly", label: "MONTHLY", detail: "30 days" },
-];
+  detail: planDuration(value),
+}));
 
 const METHOD_OPTIONS = [
   { value: "cash", label: "CASH" },
@@ -82,7 +91,7 @@ export default function NewMemberScreen({ nextMemberId, onRegistered }) {
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 pb-4 pt-2">
         <section className="flex flex-col gap-4">
           <SectionHeader>Member</SectionHeader>
-          <Field
+          <NameField
             label="Name"
             value={name}
             onChange={(next) => {
@@ -90,7 +99,6 @@ export default function NewMemberScreen({ nextMemberId, onRegistered }) {
               if (fieldErrors.name) setFieldErrors((e) => ({ ...e, name: undefined }));
             }}
             error={fieldErrors.name}
-            autoComplete="name"
           />
           <Field
             label="Phone · optional"
@@ -129,6 +137,7 @@ export default function NewMemberScreen({ nextMemberId, onRegistered }) {
             value={paymentMethod}
             onChange={setPaymentMethod}
           />
+          {paymentMethod === "transfer" && <TransferQr />}
         </section>
       </div>
 

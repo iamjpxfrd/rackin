@@ -5,7 +5,7 @@
 // (PRODUCT.md — Positioning). This file is that claim.
 
 import { db } from "../../db/db.js";
-import { EXPIRING_WITHIN_DAYS, LAPSED_AFTER_DAYS } from "./constants.js";
+import { EXPIRING_WITHIN_DAYS, LAPSED_AFTER_DAYS, isDropIn } from "./constants.js";
 import { daysBetween, deriveStatus, latestPaymentOf } from "./membership.js";
 import { groupBy } from "./members.js";
 
@@ -75,7 +75,12 @@ function selectExpiring(snapshots) {
       (row) =>
         row.status === "active" &&
         row.daysRemaining !== null &&
-        row.daysRemaining <= EXPIRING_WITHIN_DAYS,
+        row.daysRemaining <= EXPIRING_WITHIN_DAYS &&
+        // A one-day drop-in is inside the 7-day window from the moment it is
+        // sold, so including sessions would put every day-pass on this list
+        // and drown the memberships actually worth a call. Nothing is being
+        // saved by phoning someone whose plan was only ever one day.
+        !isDropIn(row.member.planType),
     )
     .sort((a, b) => a.daysRemaining - b.daysRemaining);
 }

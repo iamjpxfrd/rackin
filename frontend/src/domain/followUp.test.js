@@ -16,11 +16,12 @@ async function seed({
   lastVisitDaysAgo = null,
   coversInDays = null,
   registeredDaysAgo = 400,
+  planType = "monthly",
 }) {
   await db.members.add({
     id,
     name,
-    planType: "monthly",
+    planType,
     phone: null,
     createdAt: iso(-registeredDaysAgo),
   });
@@ -142,6 +143,30 @@ describe("getExpiringMembers", () => {
 
     const ids = (await getExpiringMembers(NOW)).map((r) => r.member.id);
     expect(ids).toEqual(["1002", "1001", "1003"]);
+  });
+
+  it("never lists a one-day session, which is inside the window from the moment it is sold", async () => {
+    await seed({
+      id: "1001",
+      name: "Drop In",
+      planType: "session",
+      lastVisitDaysAgo: 0,
+      coversInDays: 1,
+      registeredDaysAgo: 0,
+    });
+    expect(await getExpiringMembers(NOW)).toHaveLength(0);
+  });
+
+  it("still lists weekly members, which sit inside the same window", async () => {
+    // Guards the exclusion above from widening into "short plans don't count".
+    await seed({
+      id: "1001",
+      name: "Weekly Member",
+      planType: "weekly",
+      lastVisitDaysAgo: 1,
+      coversInDays: 3,
+    });
+    expect(await getExpiringMembers(NOW)).toHaveLength(1);
   });
 });
 

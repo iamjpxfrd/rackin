@@ -80,6 +80,144 @@ describe("registration flow", () => {
   });
 });
 
+describe("session plan", () => {
+  it("offers a one-day session alongside weekly and monthly", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /\+ New/ }));
+    const session = await screen.findByRole("radio", { name: /SESSION/i });
+    expect(session).toBeInTheDocument();
+    expect(within(session).getByText("1 day")).toBeInTheDocument();
+  });
+
+  it("registers a session member covered for a single day", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await registerThroughUi(user, { name: "Drop In", plan: "SESSION" });
+    await screen.findByText("Drop In is in");
+
+    // By member, not by auto-increment id: resetDatabase clears rows but
+    // Dexie keeps counting, so ids do not restart at 1 between tests.
+    const [payment] = await db.payments.where("memberId").equals("1001").toArray();
+    const days = Math.round(
+      (new Date(payment.coversUntil) - new Date(payment.paidAt)) / 86_400_000,
+    );
+    expect(days).toBe(1);
+  });
+
+  it("labels a session member as Session, not Monthly, on their profile", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await registerThroughUi(user, { name: "Drop In", plan: "SESSION" });
+    await screen.findByText("Drop In is in");
+    await user.click(screen.getByRole("button", { name: /Members/ }));
+    await user.click(await screen.findByRole("button", { name: /Drop In/ }));
+
+    expect(await screen.findByText(/· Session/)).toBeInTheDocument();
+    expect(screen.getByText(/Session plan · 1 day/)).toBeInTheDocument();
+  });
+
+  it("keeps day-passes off the Follow Up expiring list", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    // A session is inside the 7-day window the instant it is sold; listing it
+    // would bury the memberships worth calling.
+    await registerThroughUi(user, { name: "Drop In", plan: "SESSION" });
+    await screen.findByText("Drop In is in");
+    await user.click(screen.getByRole("button", { name: /Follow Up/ }));
+
+    expect(await screen.findByText("Nobody needs a call today.")).toBeInTheDocument();
+  });
+});
+
+describe("transfer QR", () => {
+  it("reveals the payment QR when transfer is chosen, and not for cash", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: /\+ New/ }));
+    await user.click(await screen.findByRole("radio", { name: /CASH/i }));
+    expect(screen.queryByText(/Have them scan to transfer/i)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("radio", { name: /TRANSFER/i }));
+    expect(await screen.findByText(/Have them scan to transfer/i)).toBeInTheDocument();
+  });
+
+  it("offers the same QR when recording a transfer for an existing member", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await registerThroughUi(user, { name: "Placeholder Name" });
+    await screen.findByText("Placeholder Name is in");
+    await user.click(screen.getByRole("button", { name: /Members/ }));
+    await user.click(await screen.findByRole("button", { name: /Placeholder Name/ }));
+    await user.click(await screen.findByRole("button", { name: /RECORD PAYMENT/i }));
+
+    const sheet = await screen.findByRole("dialog");
+    await user.click(within(sheet).getByRole("radio", { name: /TRANSFER/i }));
+    expect(within(sheet).getByText(/Have them scan to transfer/i)).toBeInTheDocument();
+  });
+});
+
+describe("name completion", () => {
+  it("offers a matching name from the roster and fills it on tap", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await registerThroughUi(user, { name: "Placeholder Surname" });
+    await screen.findByText("Placeholder Surname is in");
+    await user.click(screen.getByRole("button", { name: /Done/i }));
+
+    await user.click(screen.getByRole("button", { name: /\+ New/ }));
+    const nameInput = await screen.findByLabelText("Name");
+    await user.type(nameInput, "Place");
+
+    const suggestion = await screen.findByRole("button", { name: /Placeholder Surname/ });
+    await user.click(suggestion);
+
+    expect(nameInput).toHaveValue("Placeholder Surname");
+  });
+
+  it("warns that a name is already taken without blocking the registration", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await registerThroughUi(user, { name: "Placeholder Name" });
+    await screen.findByText("Placeholder Name is in");
+    await user.click(screen.getByRole("button", { name: /Done/i }));
+
+    await user.click(screen.getByRole("button", { name: /\+ New/ }));
+    await user.type(await screen.findByLabelText("Name"), "Placeholder Name");
+
+    expect(await screen.findByText(/#1001 already uses this name/)).toBeInTheDocument();
+    // Surfaced, never blocked — two members may share a name (PRODUCT.md).
+    await user.click(screen.getByRole("radio", { name: /MONTHLY/i }));
+    await user.type(screen.getByLabelText("Amount"), "500");
+    await user.click(screen.getByRole("radio", { name: /CASH/i }));
+    expect(screen.getByRole("button", { name: /REGISTER MEMBER/i })).toBeEnabled();
+  });
+
+  it("stays quiet until two characters are typed", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await registerThroughUi(user, { name: "Placeholder Surname" });
+    await screen.findByText("Placeholder Surname is in");
+    await user.click(screen.getByRole("button", { name: /Done/i }));
+
+    await user.click(screen.getByRole("button", { name: /\+ New/ }));
+    await user.type(await screen.findByLabelText("Name"), "P");
+
+    expect(
+      screen.queryByRole("button", { name: /Placeholder Surname/ }),
+    ).not.toBeInTheDocument();
+  });
+});
+
 describe("members roster", () => {
   it("lists a registered member with their status", async () => {
     const user = userEvent.setup();

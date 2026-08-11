@@ -5,6 +5,7 @@
 // aligned no matter how long the names beside it get, and the Arm's-Length
 // Rule keeps the digits at Numeral scale (DESIGN.md).
 
+import { planLabel } from "../../domain/constants.js";
 import StatusBadge from "./StatusBadge.jsx";
 
 /** Gutter contents for a member whose coverage is about to end. */
@@ -29,7 +30,7 @@ export default function UrgencyRow({ row, mode, onSelect }) {
       ? expiringGutter(row.daysRemaining)
       : lapsedGutter(row.daysSinceVisit);
 
-  const planLabel = member.planType === "weekly" ? "Weekly" : "Monthly";
+  const plan = planLabel(member.planType);
 
   return (
     <button
@@ -49,7 +50,7 @@ export default function UrgencyRow({ row, mode, onSelect }) {
           {member.name}
         </span>
         <span className="flex items-center gap-1.5 font-body text-sm text-steel-700">
-          {planLabel} ·
+          {plan} ·
           {member.phone ? (
             <span>{member.phone}</span>
           ) : (

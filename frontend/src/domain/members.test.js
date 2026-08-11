@@ -1,6 +1,12 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { db, resetDatabase } from "../../db/db.js";
-import { registerMember, getMemberProfile, listMembers, filterMembers } from "./members.js";
+import {
+  registerMember,
+  getMemberProfile,
+  listMembers,
+  filterMembers,
+  suggestNames,
+} from "./members.js";
 import { recordPayment, getLastPaymentAmount } from "./payments.js";
 
 const VALID = {
@@ -146,6 +152,65 @@ describe("filterMembers", () => {
     await registerMember(VALID);
     const rows = await listMembers();
     expect(filterMembers(rows, "  ")).toHaveLength(1);
+  });
+});
+
+describe("session plan", () => {
+  it("covers exactly one day", async () => {
+    const { member } = await registerMember({ ...VALID, planType: "session" });
+    const profile = await getMemberProfile(member.id);
+    expect(profile.daysRemaining).toBe(1);
+    expect(profile.status).toBe("active");
+  });
+
+  it("is expired the day after it was sold", async () => {
+    const { member } = await registerMember({ ...VALID, planType: "session" });
+    await db.payments.where("memberId").equals(member.id).modify({
+      paidAt: "2026-01-01T00:00:00.000Z",
+      coversUntil: "2026-01-02T00:00:00.000Z",
+    });
+    expect((await getMemberProfile(member.id)).status).toBe("expired");
+  });
+});
+
+describe("suggestNames", () => {
+  it("returns nothing until two characters are typed", async () => {
+    await registerMember({ ...VALID, name: "Placeholder Name" });
+    expect(await suggestNames("P")).toEqual([]);
+  });
+
+  it("completes a partially typed name from the roster", async () => {
+    await registerMember({ ...VALID, name: "Placeholder Surname" });
+    const matches = await suggestNames("Place");
+    expect(matches).toHaveLength(1);
+    expect(matches[0].name).toBe("Placeholder Surname");
+    expect(matches[0].id).toBe("1001");
+  });
+
+  it("matches mid-name too, for a shared surname", async () => {
+    await registerMember({ ...VALID, name: "First Sharedsurname" });
+    expect(await suggestNames("shared")).toHaveLength(1);
+  });
+
+  it("ranks prefix matches above mid-name ones", async () => {
+    await registerMember({ ...VALID, name: "Other Cruz" });
+    await registerMember({ ...VALID, name: "Cruz Placeholder" });
+
+    const names = (await suggestNames("cruz")).map((m) => m.name);
+    expect(names[0]).toBe("Cruz Placeholder");
+  });
+
+  it("collapses duplicates so the same name is offered once", async () => {
+    await registerMember({ ...VALID, name: "Placeholder Name" });
+    await registerMember({ ...VALID, name: "Placeholder Name" });
+    expect(await suggestNames("Placeholder")).toHaveLength(1);
+  });
+
+  it("caps the list so it never covers the form", async () => {
+    for (let i = 0; i < 9; i += 1) {
+      await registerMember({ ...VALID, name: `Placeholder Name ${i}` });
+    }
+    expect(await suggestNames("Placeholder")).toHaveLength(5);
   });
 });
 
