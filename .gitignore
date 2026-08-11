@@ -6,6 +6,7 @@ dist/
 .env.local
 coverage/
 .agents
+.agents/skills
 .claude
 .impeccable
 
