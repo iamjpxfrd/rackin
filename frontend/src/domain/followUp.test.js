@@ -10,8 +10,20 @@ function iso(daysFromNow) {
 }
 
 /** Seeds one member with an optional last visit and coverage end. */
-async function seed({ id, name, lastVisitDaysAgo = null, coversInDays = null }) {
-  await db.members.add({ id, name, planType: "monthly", phone: null });
+async function seed({
+  id,
+  name,
+  lastVisitDaysAgo = null,
+  coversInDays = null,
+  registeredDaysAgo = 400,
+}) {
+  await db.members.add({
+    id,
+    name,
+    planType: "monthly",
+    phone: null,
+    createdAt: iso(-registeredDaysAgo),
+  });
   if (coversInDays !== null) {
     await db.payments.add({
       memberId: id,
@@ -62,6 +74,33 @@ describe("getLapsedMembers", () => {
     const rows = await getLapsedMembers(NOW);
     expect(rows[0].member.id).toBe("1002");
     expect(rows[0].daysSinceVisit).toBeNull();
+  });
+
+  it("does not flag a member who registered today and hasn't visited yet", async () => {
+    // Registration is not an absence. Listing someone an hour after signup
+    // is what teaches the owner to ignore the list.
+    await seed({ id: "1001", name: "Just Joined", registeredDaysAgo: 0 });
+    expect(await getLapsedMembers(NOW)).toHaveLength(0);
+  });
+
+  it("flags a never-visited member once 14 days have passed since registration", async () => {
+    await seed({ id: "1001", name: "Signed Up Then Vanished", registeredDaysAgo: 14 });
+    const rows = await getLapsedMembers(NOW);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].daysSinceVisit).toBeNull();
+  });
+
+  it("still waits out the threshold for a member who registered 13 days ago", async () => {
+    await seed({ id: "1001", name: "Almost", registeredDaysAgo: 13 });
+    expect(await getLapsedMembers(NOW)).toHaveLength(0);
+  });
+
+  it("orders never-visited members by how long ago they registered", async () => {
+    await seed({ id: "1001", name: "Recent Signup", registeredDaysAgo: 20 });
+    await seed({ id: "1002", name: "Old Signup", registeredDaysAgo: 60 });
+
+    const ids = (await getLapsedMembers(NOW)).map((r) => r.member.id);
+    expect(ids).toEqual(["1002", "1001"]);
   });
 
   it("uses the most recent visit, not the oldest", async () => {

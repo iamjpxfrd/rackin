@@ -37,9 +37,47 @@ async function loadMemberSnapshots(now) {
       member,
       lastVisitAt,
       daysSinceVisit: lastVisitAt ? daysBetween(lastVisitAt, nowIso) : null,
+      // How long this member has been silent. For someone who has never
+      // checked in, silence is measured from the day they registered — a
+      // member who signed up an hour ago has not "stopped coming", and
+      // putting them on the call list on day one is exactly what would
+      // teach the owner to ignore it.
+      daysSinceContact: lastVisitAt
+        ? daysBetween(lastVisitAt, nowIso)
+        : member.createdAt
+          ? daysBetween(member.createdAt, nowIso)
+          : Infinity,
       ...deriveStatus(latestPaymentOf(paymentsByMember.get(member.id)), now),
     };
   });
+}
+
+/** Members who have been silent for 14+ days, longest silence first. */
+function selectLapsed(snapshots) {
+  return snapshots
+    .filter((row) => row.daysSinceContact >= LAPSED_AFTER_DAYS)
+    .sort((a, b) => {
+      // Never-visited members sort above everyone: someone who signed up
+      // and never came is the most lapsed case there is.
+      if (a.daysSinceVisit === null && b.daysSinceVisit === null) {
+        return b.daysSinceContact - a.daysSinceContact;
+      }
+      if (a.daysSinceVisit === null) return -1;
+      if (b.daysSinceVisit === null) return 1;
+      return b.daysSinceVisit - a.daysSinceVisit;
+    });
+}
+
+/** Members whose coverage ends within 7 days, soonest first. */
+function selectExpiring(snapshots) {
+  return snapshots
+    .filter(
+      (row) =>
+        row.status === "active" &&
+        row.daysRemaining !== null &&
+        row.daysRemaining <= EXPIRING_WITHIN_DAYS,
+    )
+    .sort((a, b) => a.daysRemaining - b.daysRemaining);
 }
 
 /**
@@ -50,20 +88,7 @@ async function loadMemberSnapshots(now) {
  * @param {Date} [now]
  */
 export async function getLapsedMembers(now = new Date()) {
-  const snapshots = await loadMemberSnapshots(now);
-
-  return snapshots
-    .filter(
-      (row) => row.daysSinceVisit === null || row.daysSinceVisit >= LAPSED_AFTER_DAYS,
-    )
-    .sort((a, b) => {
-      if (a.daysSinceVisit === null && b.daysSinceVisit === null) {
-        return a.member.name.localeCompare(b.member.name);
-      }
-      if (a.daysSinceVisit === null) return -1;
-      if (b.daysSinceVisit === null) return 1;
-      return b.daysSinceVisit - a.daysSinceVisit;
-    });
+  return selectLapsed(await loadMemberSnapshots(now));
 }
 
 /**
@@ -74,16 +99,7 @@ export async function getLapsedMembers(now = new Date()) {
  * @param {Date} [now]
  */
 export async function getExpiringMembers(now = new Date()) {
-  const snapshots = await loadMemberSnapshots(now);
-
-  return snapshots
-    .filter(
-      (row) =>
-        row.status === "active" &&
-        row.daysRemaining !== null &&
-        row.daysRemaining <= EXPIRING_WITHIN_DAYS,
-    )
-    .sort((a, b) => a.daysRemaining - b.daysRemaining);
+  return selectExpiring(await loadMemberSnapshots(now));
 }
 
 /**
@@ -93,28 +109,5 @@ export async function getExpiringMembers(now = new Date()) {
  */
 export async function getFollowUp(now = new Date()) {
   const snapshots = await loadMemberSnapshots(now);
-
-  const expiring = snapshots
-    .filter(
-      (row) =>
-        row.status === "active" &&
-        row.daysRemaining !== null &&
-        row.daysRemaining <= EXPIRING_WITHIN_DAYS,
-    )
-    .sort((a, b) => a.daysRemaining - b.daysRemaining);
-
-  const lapsed = snapshots
-    .filter(
-      (row) => row.daysSinceVisit === null || row.daysSinceVisit >= LAPSED_AFTER_DAYS,
-    )
-    .sort((a, b) => {
-      if (a.daysSinceVisit === null && b.daysSinceVisit === null) {
-        return a.member.name.localeCompare(b.member.name);
-      }
-      if (a.daysSinceVisit === null) return -1;
-      if (b.daysSinceVisit === null) return 1;
-      return b.daysSinceVisit - a.daysSinceVisit;
-    });
-
-  return { expiring, lapsed };
+  return { expiring: selectExpiring(snapshots), lapsed: selectLapsed(snapshots) };
 }
