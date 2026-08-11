@@ -1,8 +1,11 @@
-import { Hash, Clock, Users, UserPlus } from "lucide-react";
+import { Hash, PhoneCall, Users, UserPlus } from "lucide-react";
 
+// "Lapsed" named a state; the tab now holds two (expiring soon + stopped
+// coming) and one job. "Follow Up" names the job — and the pilot's success
+// condition is the owner acting on it (frontend-spec.md §5.2).
 const TABS = [
   { id: "checkin", label: "Check-In", icon: Hash },
-  { id: "lapsed", label: "Lapsed", icon: Clock },
+  { id: "followup", label: "Follow Up", icon: PhoneCall },
   { id: "members", label: "Members", icon: Users },
   { id: "new", label: "+ New", icon: UserPlus },
 ];
