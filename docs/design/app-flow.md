@@ -10,8 +10,11 @@ Persistent bottom/side tab bar, always visible, four destinations —
 matches the design system's tab bar spec:
 
 ```
-[Check-In] [Lapsed] [Members] [+ New]
+[Check-In] [Follow Up] [Members] [+ New]
 ```
+
+Tab 2 was renamed from "Lapsed" to "Follow Up" when expiring-soon merged
+into it — see `frontend-spec.md` §3.2 and §5.2.
 
 No hamburger menu, no nested navigation — staff need every core
 destination one tap away at all times (PRD 4.1–4.9 all live behind
@@ -107,20 +110,27 @@ right; stacks on portrait).
 Feed updates live as any check-in flow (4.1–4.3) completes — no
 manual refresh, no navigation required.
 
-## 6. Flow: Lapsed members — PRD 4.5
+## 6. Flow: Follow Up — lapsed + expiring soon — PRD 4.5, 4.9
 
 ```
-[Lapsed tab]
+[Follow Up tab]
        │
        ▼
-List: members with no check-in in 14+ days,
-sorted oldest-last-visit-first
+Section 1 — Expiring soon: coverage ends within 7 days,
+            soonest-first (acting here prevents a lapse)
+Section 2 — Stopped coming: no check-in in 14+ days,
+            oldest-last-visit-first; never-visited sorts oldest
        │
-       ├─ empty state: "No one's fallen off in the last 14 days."
+       ├─ both empty: "Nobody needs a call today."
        │
        └─ tap a member row ──► Member Profile screen
                                 (see Flow 8)
 ```
+
+Both sections answer one question — who needs a call today — so they
+live on one screen; the Members tab stays a pure roster. A member who
+qualifies for both appears in both (two different reasons to call).
+Prevention sits above cure, hence expiring-soon first.
 
 Single-purpose screen — no filtering/sorting controls in the pilot
 (per PRD open question: thresholds may become configurable later,
@@ -195,21 +205,23 @@ Status updates (Expired ──► Active) immediately
 ──► back to Member Profile, updated status visible
 ```
 
-## 10. Flow: Members list + status + expiring soon — PRD 4.8, 4.9
+## 10. Flow: Members list + status — PRD 4.8
 
 ```
 [Members tab]
        │
        ▼
-Full member list, each row shows status badge
+Full member list, name-ascending, each row shows status badge
 (Active / Expired / Expiring soon — per design system status badge spec)
        │
-       ├─ "Expiring Soon" section at top:
-       │   members with coversUntil within 7 days,
-       │   soonest-first
+       ├─ search filters in place, by name or member number
        │
        └─ tap any row ──► Member Profile (Flow 8)
 ```
+
+No pinned "Expiring Soon" section here — it moved to the Follow Up tab
+(Flow 6), so the roster stays flat and a name is always where the
+alphabet says it is.
 
 ## 11. Offline behavior — PRD 4.10 (cross-cutting, not a discrete flow)
 
@@ -226,10 +238,11 @@ must satisfy, per ADR-001 and PRD 4.10.
                     └───────────────┘
         ┌──────────┬──────────┬──────────┬──────────┐
         ▼           ▼          ▼          ▼
-   Check-In      Lapsed     Members    + New
-   (numpad/       List       List      Registration
-    QR/search      │          │            │
-    + feed)        ▼          ▼            ▼
+   Check-In    Follow Up    Members    + New
+   (numpad/     Expiring     List      Registration
+    QR/search   + Lapsed      │            │
+    + feed)        │          │            │
+        │          ▼          ▼            ▼
         │      Member    Member Profile  Success
         │      Profile        │        (QR code)
         │          │          │            │
