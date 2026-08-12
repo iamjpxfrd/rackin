@@ -210,6 +210,7 @@ Scope is held small on purpose so the pilot is finishable and testable:
 ## 📚 Documentation
 
 - [ADR-001 — Check-in input methods & offline architecture](docs/architecture/ADR-001-checkin-input-and-offline-architecture.md)
+- [ADR-002 — Why the backend was built before the pilot required it](docs/architecture/ADR-002-build-the-backend-before-the-pilot.md)
 - [PRD — User stories & acceptance criteria](docs/architecture/prd.md)
 - [TRD — Domain contract & sync API](docs/architecture/trd.md)
 - [Backend Schema — Tables, constraints, indexes](docs/architecture/backend-schema.md)
