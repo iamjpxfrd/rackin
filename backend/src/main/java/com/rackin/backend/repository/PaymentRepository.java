@@ -8,10 +8,15 @@ import org.springframework.data.repository.query.Param;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     Optional<Payment> findFirstByMember_IdOrderByPaidAtDesc(String memberId);
+
+    // The tablet's idempotency key (TRD 7) — a replayed payment must not
+    // extend the member's coverage a second time.
+    Optional<Payment> findByClientUuid(UUID clientUuid);
 
     // DISTINCT ON (backend-schema.md 6.2) is Postgres-only; a correlated
     // subquery for "latest payment per member" is portable to H2 as well.

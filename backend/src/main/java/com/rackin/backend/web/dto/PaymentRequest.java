@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.UUID;
 
 public record PaymentRequest(
@@ -17,6 +18,10 @@ public record PaymentRequest(
         @Schema(description = "How the payment was made", example = "transfer")
         @NotNull(message = "method is required") PaymentMethod method,
         @Schema(description = "Tablet-generated idempotency key. Leave blank to let the server generate one.")
-        UUID clientUuid
+        UUID clientUuid,
+        @Schema(description = "When the member actually paid, which may predate this request if the "
+                + "gym was offline. Coverage is counted from this moment, not from arrival, so a "
+                + "late sync never silently extends a membership (TRD 7).")
+        Instant paidAt
 ) {
 }

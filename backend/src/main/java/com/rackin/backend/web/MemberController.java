@@ -38,13 +38,19 @@ public class MemberController {
     @Operation(
             summary = "Register a member",
             description = "Creates a member together with their first payment, assigning the next "
-                    + "sequential member id. `clientUuid` is the tablet's idempotency key, stored "
-                    + "under a unique index; omit it and the server generates one.")
+                    + "sequential member id unless the tablet supplies one it already assigned "
+                    + "offline. `clientUuid` is the tablet's idempotency key: replaying one returns "
+                    + "the original registration rather than creating a second member.")
     @ApiResponses({
-            @ApiResponse(responseCode = "201", description = "Member registered"),
+            @ApiResponse(responseCode = "201", description = "Member registered, or the original "
+                    + "registration replayed for a repeated clientUuid"),
             @ApiResponse(responseCode = "400", description = "Validation failed",
                     content = @Content(mediaType = "application/json",
-                            array = @ArraySchema(schema = @Schema(implementation = FieldError.class))))
+                            array = @ArraySchema(schema = @Schema(implementation = FieldError.class)))),
+            @ApiResponse(responseCode = "409", description = "The supplied memberId belongs to a "
+                    + "different member",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorMessage.class)))
     })
     @PostMapping
     public ResponseEntity<RegisterMemberResponse> register(@Valid @RequestBody RegisterMemberRequest request) {

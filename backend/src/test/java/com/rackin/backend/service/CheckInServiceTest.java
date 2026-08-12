@@ -67,7 +67,7 @@ class CheckInServiceTest {
         when(checkInRepository.countByMember_IdAndTimestampGreaterThanEqual(eq("1114"), any(Instant.class)))
                 .thenReturn(12L);
 
-        CheckInResponse response = checkInService.checkIn(new CheckInRequest("1114", CheckInMethod.numpad, null));
+        CheckInResponse response = checkInService.checkIn(new CheckInRequest("1114", CheckInMethod.numpad, null, null));
 
         assertThat(response.member().id()).isEqualTo("1114");
         assertThat(response.member().name()).isEqualTo("Ana Reyes");
@@ -79,7 +79,7 @@ class CheckInServiceTest {
     void checkIn_whenMemberNotFound_shouldThrowAndNeverSave() {
         when(memberRepository.findById("9999")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> checkInService.checkIn(new CheckInRequest("9999", CheckInMethod.numpad, null)))
+        assertThatThrownBy(() -> checkInService.checkIn(new CheckInRequest("9999", CheckInMethod.numpad, null, null)))
                 .isInstanceOf(MemberNotFoundException.class)
                 .hasMessage("No member found for #9999");
         verify(checkInRepository, never()).save(any());
@@ -92,7 +92,7 @@ class CheckInServiceTest {
         when(checkInRepository.countByMember_IdAndTimestampGreaterThanEqual(eq("1114"), any(Instant.class)))
                 .thenReturn(0L);
 
-        checkInService.checkIn(new CheckInRequest("1114", CheckInMethod.qr, null));
+        checkInService.checkIn(new CheckInRequest("1114", CheckInMethod.qr, null, null));
 
         ArgumentCaptor<CheckIn> captor = ArgumentCaptor.forClass(CheckIn.class);
         verify(checkInRepository).save(captor.capture());
@@ -108,11 +108,47 @@ class CheckInServiceTest {
                 .thenReturn(0L);
         UUID clientUuid = UUID.randomUUID();
 
-        checkInService.checkIn(new CheckInRequest("1114", CheckInMethod.search, clientUuid));
+        checkInService.checkIn(new CheckInRequest("1114", CheckInMethod.search, clientUuid, null));
 
         ArgumentCaptor<CheckIn> captor = ArgumentCaptor.forClass(CheckIn.class);
         verify(checkInRepository).save(captor.capture());
         assertThat(captor.getValue().getClientUuid()).isEqualTo(clientUuid);
+    }
+
+    @Test
+    void checkIn_whenClientUuidAlreadyRecorded_shouldNotSaveTwiceButStillAnswer() {
+        Member member = member("1114");
+        UUID clientUuid = UUID.randomUUID();
+        when(memberRepository.findById("1114")).thenReturn(Optional.of(member));
+        when(checkInRepository.findByClientUuid(clientUuid)).thenReturn(Optional.of(new CheckIn()));
+        when(checkInRepository.countByMember_IdAndTimestampGreaterThanEqual(eq("1114"), any(Instant.class)))
+                .thenReturn(12L);
+
+        CheckInResponse response = checkInService.checkIn(
+                new CheckInRequest("1114", CheckInMethod.numpad, clientUuid, null));
+
+        // A replayed sync must not inflate the visit count staff read off the
+        // confirmation card, but it still gets a truthful answer (TRD 7).
+        verify(checkInRepository, never()).save(any());
+        assertThat(response.visitCountThisMonth()).isEqualTo(12L);
+    }
+
+    @Test
+    void checkIn_whenTimestampProvided_shouldRecordWhenTheyWalkedInNotWhenSynced() {
+        Member member = member("1114");
+        when(memberRepository.findById("1114")).thenReturn(Optional.of(member));
+        when(checkInRepository.countByMember_IdAndTimestampGreaterThanEqual(eq("1114"), any(Instant.class)))
+                .thenReturn(1L);
+        // Checked in this morning; the tablet only reached the network tonight.
+        Instant walkedIn = Instant.now().minus(9, ChronoUnit.HOURS);
+
+        checkInService.checkIn(new CheckInRequest("1114", CheckInMethod.numpad, null, walkedIn));
+
+        ArgumentCaptor<CheckIn> captor = ArgumentCaptor.forClass(CheckIn.class);
+        verify(checkInRepository).save(captor.capture());
+        // Without this a day of offline check-ins all land at sync time and the
+        // lapsed report reads them as one simultaneous rush.
+        assertThat(captor.getValue().getTimestamp()).isEqualTo(walkedIn);
     }
 
     @Test

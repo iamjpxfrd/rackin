@@ -17,6 +17,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -34,26 +35,39 @@ public class PaymentService {
     }
 
     @Transactional
-    public PaymentResponse recordPayment(String memberId, BigDecimal amount, PaymentMethod method, UUID clientUuid) {
+    public PaymentResponse recordPayment(String memberId, BigDecimal amount, PaymentMethod method,
+                                         UUID clientUuid, Instant paidAt) {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new MemberNotFoundException(memberId));
-        Payment payment = recordPayment(member, amount, method, clientUuid);
+        Payment payment = recordPayment(member, amount, method, clientUuid, paidAt);
         return new PaymentResponse(payment.getCoversUntil(), deriveStatus(payment.getCoversUntil()));
     }
 
     // Used by MemberService during registration, where the member was just
     // persisted in the same transaction — avoids a redundant lookup.
-    Payment recordPayment(Member member, BigDecimal amount, PaymentMethod method, UUID clientUuid) {
-        Instant paidAt = Instant.now();
-        Instant coversUntil = paidAt.plus(PlanDurations.days(member.getPlanType()), ChronoUnit.DAYS);
+    Payment recordPayment(Member member, BigDecimal amount, PaymentMethod method, UUID clientUuid, Instant paidAt) {
+        UUID idempotencyKey = clientUuid != null ? clientUuid : UUID.randomUUID();
+
+        // A sync retried after a lost response must not extend coverage twice —
+        // that would hand the member a free period nobody paid for (TRD 7).
+        Optional<Payment> alreadyRecorded = paymentRepository.findByClientUuid(idempotencyKey);
+        if (alreadyRecorded.isPresent()) {
+            return alreadyRecorded.get();
+        }
+
+        // Coverage counts from when the member actually paid, not from when the
+        // tablet managed to reach the network. A payment taken offline on Monday
+        // and synced on Friday still expires on Monday + plan duration.
+        Instant paidAtOrNow = paidAt != null ? paidAt : Instant.now();
+        Instant coversUntil = paidAtOrNow.plus(PlanDurations.days(member.getPlanType()), ChronoUnit.DAYS);
 
         Payment payment = new Payment();
         payment.setMember(member);
         payment.setAmount(amount);
         payment.setMethod(method);
-        payment.setPaidAt(paidAt);
+        payment.setPaidAt(paidAtOrNow);
         payment.setCoversUntil(coversUntil);
-        payment.setClientUuid(clientUuid != null ? clientUuid : UUID.randomUUID());
+        payment.setClientUuid(idempotencyKey);
         return paymentRepository.save(payment);
     }
 
@@ -65,6 +79,15 @@ public class PaymentService {
         return paymentRepository.findFirstByMember_IdOrderByPaidAtDesc(memberId)
                 .map(payment -> deriveStatus(payment.getCoversUntil()))
                 .orElse(MembershipStatus.expired);
+    }
+
+    // Coverage end of the member's latest payment, for replaying a registration
+    // response. Empty when they have no payment at all, which registration makes
+    // impossible but a hand-seeded row could not.
+    @Transactional(readOnly = true)
+    public Optional<Instant> getCoversUntil(String memberId) {
+        return paymentRepository.findFirstByMember_IdOrderByPaidAtDesc(memberId)
+                .map(Payment::getCoversUntil);
     }
 
     // days == null means "use the pilot's configured threshold" — resolving that

@@ -39,9 +39,10 @@ public class PaymentController {
 
     @Operation(
             summary = "Record a payment",
-            description = "Extends coverage to now + the member's plan duration (weekly = 7 days, "
-                    + "monthly = a flat 30 days). `clientUuid` is the tablet's idempotency key, "
-                    + "stored under a unique index; omit it and the server generates one.")
+            description = "Extends coverage to `paidAt` + the member's plan duration (session = 1 day, "
+                    + "weekly = 7 days, monthly = a flat 30 days). `clientUuid` is the tablet's "
+                    + "idempotency key: replaying one returns the original payment's coverage rather "
+                    + "than extending the membership a second time.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Payment recorded"),
             @ApiResponse(responseCode = "400", description = "Validation failed",
@@ -54,7 +55,7 @@ public class PaymentController {
     @PostMapping
     public ResponseEntity<PaymentResponse> recordPayment(@Valid @RequestBody PaymentRequest request) {
         PaymentResponse response = paymentService.recordPayment(
-                request.memberId(), request.amount(), request.method(), request.clientUuid());
+                request.memberId(), request.amount(), request.method(), request.clientUuid(), request.paidAt());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
