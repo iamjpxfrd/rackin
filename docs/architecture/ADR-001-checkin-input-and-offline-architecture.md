@@ -1,8 +1,20 @@
 # ADR-001: Architecture for Offline-First Gym Check-In System
 
-**Status:** Proposed
+**Status:** Accepted — amended by [ADR-002](ADR-002-build-the-backend-before-the-pilot.md)
 **Date:** 2026-07-09
 **Deciders:** Gym owner, staff (end users), dev (you)
+
+> **Amendment (2026-08-12).** The timing of the backend has changed. This
+> ADR defers cloud sync until after the pilot (see Action Item 7 and the
+> `(disabled v1)` sync queue below); the backend and one-way sync were in
+> fact built first, for reasons ADR-002 records — data durability for
+> payment records, a planned owner dashboard, and demonstrable server-side
+> engineering.
+>
+> **Everything else in this ADR still holds.** The tablet remains the
+> source of truth, the backend is an optional target no user-facing flow
+> waits on, and check-in still works with zero network. Only the schedule
+> changed, not the guarantee.
 
 ## Context
 
@@ -243,3 +255,6 @@ used before investing in printed cards for every member.
    search usage
 7. [ ] Pilot at one gym; review `method` usage and lapsed/expiring
    list engagement before deciding on cloud sync or a second device
+   — *superseded in part by ADR-002: the sync target was built ahead of
+   this review. The second-device question is untouched and still gated
+   on the pilot.*

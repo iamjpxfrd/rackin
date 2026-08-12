@@ -150,7 +150,7 @@ export default function MemberProfileScreen({ memberId, onBack }) {
                       <span className="w-26 shrink-0 font-mono text-base text-ink-900">
                         {formatDayMonth(visit.timestamp)}
                       </span>
-                      <span className="w-20 shrink-0 font-mono text-base text-steel-700">
+                      <span className="w-24 shrink-0 whitespace-nowrap text-right font-mono text-base text-steel-700">
                         {formatTime(visit.timestamp)}
                       </span>
                       <span className="min-w-0 flex-1 font-body text-base text-steel-700">

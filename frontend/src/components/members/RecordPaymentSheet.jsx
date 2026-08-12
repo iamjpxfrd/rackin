@@ -9,6 +9,7 @@
 import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { recordPayment, getLastPaymentAmount } from "../../domain/payments.js";
+import { getOnDesk } from "../../domain/staff.js";
 import { computeCoversUntil, deriveStatus } from "../../domain/membership.js";
 import {
   CURRENCY_SYMBOL,
@@ -19,6 +20,7 @@ import {
 import Sheet from "../ui/Sheet.jsx";
 import Field from "../ui/Field.jsx";
 import ChoiceGroup from "../ui/ChoiceGroup.jsx";
+import TakenBy from "../staff/TakenBy.jsx";
 import PressKey from "../ui/PressKey.jsx";
 import StatusBadge from "../ui/StatusBadge.jsx";
 import TransferQr from "../ui/TransferQr.jsx";
@@ -39,12 +41,23 @@ export default function RecordPaymentSheet({ profile, onClose, onRecorded }) {
   const [error, setError] = useState(null);
   const [saveError, setSaveError] = useState(null);
   const [saving, setSaving] = useState(false);
+  // Defaults to the shift and is confirmed below, so a handover nobody
+  // remembered to record surfaces here rather than in a month-end discrepancy.
+  //
+  // `undefined` until the lookup lands, never null: null is a real answer
+  // meaning nobody is signed in, and the domain preserves it. Starting at null
+  // made a payment submitted before the lookup resolved silently unattributed
+  // while somebody was in fact on the desk.
+  const [takenBy, setTakenBy] = useState(undefined);
 
   useEffect(() => {
     let cancelled = false;
     // Prefilled from this member's own history — never an invented price.
     getLastPaymentAmount(member.id).then((last) => {
       if (!cancelled && last !== null) setAmount(String(last));
+    });
+    getOnDesk().then((person) => {
+      if (!cancelled) setTakenBy(person);
     });
     return () => {
       cancelled = true;
@@ -68,7 +81,15 @@ export default function RecordPaymentSheet({ profile, onClose, onRecorded }) {
     setSaving(true);
     setSaveError(null);
     try {
-      await recordPayment({ memberId: member.id, amount: numericAmount, method });
+      // Passed explicitly, including when null: an unattributed payment is a
+      // truthful record, and refusing to take money because nobody signed in
+      // would be the app obstructing the transaction it exists to record.
+      await recordPayment({
+        memberId: member.id,
+        amount: numericAmount,
+        method,
+        recordedBy: takenBy,
+      });
       onRecorded();
     } catch (err) {
       // Sheet stays open with values intact — never a toast, the sheet is
@@ -109,6 +130,8 @@ export default function RecordPaymentSheet({ profile, onClose, onRecorded }) {
         onChange={setMethod}
       />
       {method === "transfer" && <TransferQr />}
+
+      <TakenBy value={takenBy} onChange={setTakenBy} />
 
       <div className="flex items-center gap-4 rounded-ds-sm bg-chalk-50 p-4">
         <div className="flex min-w-0 flex-1 flex-col gap-1">

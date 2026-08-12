@@ -4,8 +4,9 @@
 // steps with a save-and-continue. Field order matches how staff actually
 // talk: name → phone → plan → money; the conversation reaches money last.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { registerMember } from "../../domain/members.js";
+import { getOnDesk } from "../../domain/staff.js";
 import { computeCoversUntil } from "../../domain/membership.js";
 import {
   CURRENCY_SYMBOL,
@@ -19,6 +20,7 @@ import Field from "../ui/Field.jsx";
 import ChoiceGroup from "../ui/ChoiceGroup.jsx";
 import PressKey from "../ui/PressKey.jsx";
 import TransferQr from "../ui/TransferQr.jsx";
+import TakenBy from "../staff/TakenBy.jsx";
 import NameField from "./NameField.jsx";
 import ErrorBanner from "../checkin/ErrorBanner.jsx";
 
@@ -45,6 +47,23 @@ export default function NewMemberScreen({ nextMemberId, onRegistered }) {
   const [fieldErrors, setFieldErrors] = useState({});
   const [saveError, setSaveError] = useState(null);
   const [saving, setSaving] = useState(false);
+  // Registering takes the first payment, so it is attributed exactly as a
+  // renewal is — the money does not care which screen it came through.
+  //
+  // `undefined` until the lookup lands (see RecordPaymentSheet): null is the
+  // real answer for nobody signed in, and must not be produced by a form that
+  // was simply submitted quickly.
+  const [takenBy, setTakenBy] = useState(undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+    getOnDesk().then((person) => {
+      if (!cancelled) setTakenBy(person);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const numericAmount = Number(amount);
   const amountIsValid = Number.isFinite(numericAmount) && numericAmount > 0;
@@ -73,6 +92,7 @@ export default function NewMemberScreen({ nextMemberId, onRegistered }) {
         planType,
         amount: numericAmount,
         paymentMethod,
+        recordedBy: takenBy,
       });
       onRegistered(member);
     } catch (err) {
@@ -138,6 +158,8 @@ export default function NewMemberScreen({ nextMemberId, onRegistered }) {
             onChange={setPaymentMethod}
           />
           {paymentMethod === "transfer" && <TransferQr />}
+
+          <TakenBy value={takenBy} onChange={setTakenBy} />
         </section>
       </div>
 

@@ -8,6 +8,7 @@ import com.rackin.backend.web.dto.MemberSummary;
 import com.rackin.backend.web.dto.PaymentResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -25,6 +26,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+// Security is exercised by ApiKeySecurityTest. These verify controller and
+// DTO behaviour, and threading a key through every request would only make
+// each assertion harder to read without testing anything new.
+@AutoConfigureMockMvc(addFilters = false)
 @WebMvcTest(PaymentController.class)
 class PaymentControllerTest {
 
@@ -37,7 +42,7 @@ class PaymentControllerTest {
     @Test
     void recordPayment_withValidRequest_shouldReturn201() throws Exception {
         Instant coversUntil = Instant.parse("2026-08-11T00:00:00Z");
-        when(paymentService.recordPayment(eq("1114"), any(), any(), isNull(), isNull()))
+        when(paymentService.recordPayment(eq("1114"), any(), any(), isNull(), isNull(), isNull(), isNull()))
                 .thenReturn(new PaymentResponse(coversUntil, MembershipStatus.active));
 
         String body = """
@@ -54,7 +59,7 @@ class PaymentControllerTest {
 
     @Test
     void recordPayment_whenMemberNotFound_shouldReturn404() throws Exception {
-        when(paymentService.recordPayment(eq("9999"), any(), any(), isNull(), isNull()))
+        when(paymentService.recordPayment(eq("9999"), any(), any(), isNull(), isNull(), isNull(), isNull()))
                 .thenThrow(new MemberNotFoundException("9999"));
 
         String body = """

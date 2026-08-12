@@ -88,6 +88,18 @@ backend API (Section 5) is required to mirror it.
 
 ## 5. Backend API contract (Spring Boot sync layer)
 
+**Every endpoint below requires `Authorization: Bearer <RACKIN_API_KEY>`.**
+Without it the response is `401` with an empty body — never a redirect to
+a login page, since the caller is a sync queue and an HTML page is worse
+than useless to it. `/actuator/health` and the Swagger endpoints are the
+only exceptions.
+
+The key authenticates the *device*, not a person. It ships in the
+tablet's bundle and is therefore readable by anyone holding the tablet;
+it closes the API to the internet rather than securing it outright, which
+is the ceiling for a browser client (ADR-002).
+
+
 Mirrors the frontend domain functions 1:1 — the backend does not
 introduce new business logic, only persistence and a network
 transport for it, per ADR-001's "additive, not a rewrite" principle.

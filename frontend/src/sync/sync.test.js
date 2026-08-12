@@ -15,10 +15,13 @@ import {
 } from "./outbox.js";
 import { syncNow } from "./sync.js";
 
-// A backend to push to. Without this the drain short-circuits by design, which
-// is the offline-only build rather than the behaviour under test here.
+// A backend to push to, and a key to reach it with. Both are stubbed rather
+// than inherited from a local .env file: sync is configured only when both are
+// present, so a machine without .env.local would otherwise see every drain
+// short-circuit and fail these for a reason that has nothing to do with them.
 beforeEach(async () => {
   vi.stubEnv("VITE_RACKIN_API_URL", "http://localhost:8080");
+  vi.stubEnv("VITE_RACKIN_API_KEY", "test-api-key");
   await resetDatabase();
 });
 

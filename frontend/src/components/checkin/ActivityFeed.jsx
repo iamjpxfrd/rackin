@@ -1,15 +1,11 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { Hash, ScanLine, Search } from "lucide-react";
 import { getTodaysActivity } from "../../domain/checkIn.js";
+// Imported rather than redefined: this file used to carry its own copy, and two
+// copies of a format are two places for it to drift.
+import { formatTime } from "../../domain/constants.js";
 
 const METHOD_ICON = { numpad: Hash, qr: ScanLine, search: Search };
-
-function formatTime(isoTimestamp) {
-  return new Date(isoTimestamp).toLocaleTimeString(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 // The live-updating equivalent of the old logbook page (PRD 4.4) — re-runs
 // automatically on every local write via Dexie's liveQuery, no manual
@@ -39,7 +35,10 @@ export default function ActivityFeed() {
                   key={entry.id}
                   className="flex h-14 items-center gap-3 border-b border-steel-300 px-4 last:border-b-0"
                 >
-                  <span className="w-14 shrink-0 font-mono text-sm text-steel-700">
+                  {/* Wide enough for "10:02 AM" and nowrap so the meridiem can
+                      never drop under the number; right aligned so the colons
+                      line up down the column. */}
+                  <span className="w-20 shrink-0 whitespace-nowrap text-right font-mono text-sm text-steel-700">
                     {formatTime(entry.timestamp)}
                   </span>
                   <span className="w-14 shrink-0 font-mono text-sm text-steel-700">

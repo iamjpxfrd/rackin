@@ -24,6 +24,7 @@ RackIn is built around one interaction the front desk already performs, and ever
 - **📋 Live Activity Feed:** The live-updating equivalent of the old logbook page — timestamp, member, and check-in method, most recent first, updating without a manual refresh.
 - **📉 Automatic Lapsed-Member Detection:** Surfaces every member with no check-in in 14+ days, oldest-visit-first. This is the single thing a paper logbook can never do, and the primary reason the system is worth building.
 - **⏳ Expiring-Soon Detection:** Flags members whose plan lapses within 7 days, soonest-first, so staff can give a heads-up before a membership quietly runs out.
+- **🧑‍💼 Staff Attribution:** Shifts change, so every check-in and payment records who was on the desk. Staff sign in once per shift; the payment sheet confirms who it will credit, with a one-tap override — so a handover nobody remembered to record is caught at the money rather than at month end. Attribution, not authentication: there is no password, deliberately, because a shared PIN would make every record *look* verified while being unverifiable.
 - **💳 Registration & Payment in One Action:** New member, plan type, first payment, auto-assigned member number, and generated QR code — one flow, no double entry, no separate system.
 - **📴 Offline as a Hard Requirement:** Every feature above functions fully with the device offline. There is no "waiting for connection" state anywhere in the app, by design — not graceful degradation, a constraint.
 
@@ -85,6 +86,33 @@ The backend API will be available at `http://localhost:8080`. Flyway owns the sc
 ```
 
 The backend is an **optional sync target, not a dependency** for any core flow. It is scheduled last precisely so the product loop is validated before the infrastructure is built. See [ADR-001](docs/architecture/ADR-001-checkin-input-and-offline-architecture.md).
+
+---
+
+## 🔐 Authentication
+
+Every `/api/**` endpoint requires a shared key on the `Authorization` header:
+
+```
+Authorization: Bearer <RACKIN_API_KEY>
+```
+
+The backend **refuses to start** without `RACKIN_API_KEY` set — the same rule the project already applies to `DB_PASSWORD`. An API that answers with the gym's full membership and payment history must never come up open, and a default key would be worse than none: the app would look protected while accepting a key anyone can read in the repository.
+
+`/actuator/health` and the Swagger endpoints stay open. Health carries no gym data and a deploy has to be able to ask whether the service is up; Swagger describes the shape of the API rather than its contents, and is disabled outright in the `prod` profile.
+
+**A key, not a login, because the client is a device.** There is no user model here — staff attribution records *who was at the desk* and proves nothing (that's the point of it). Per-person authentication belongs with the owner dashboard, where the caller is a human and the threat is someone outside the gym.
+
+### ⚠️ What this does and does not protect
+
+| | |
+| --- | --- |
+| ✅ **Stops** | Anyone who can reach the host reading or writing the gym's data. Before this, that was every unauthenticated request. |
+| ❌ **Does not stop** | Someone holding the tablet. The key ships inside the browser bundle, so devtools reveals it. |
+
+That second row is a real limit, not an oversight: **a browser application cannot hold a secret from its own user.** Anything shipped to the client is readable by whoever has the client. What the key buys is turning "anyone who finds the URL" into "anyone who has the tablet" — a meaningful step for a device that sits behind a front desk, and the honest ceiling for this class of client.
+
+Do not read this section as "the API is secure". Read it as "the API is closed to the internet".
 
 ---
 
@@ -186,6 +214,18 @@ await window.rackinSync.push()           // push now, without waiting for a trig
 await window.rackinSync.retryRejected()  // re-queue refusals after fixing the cause
 await window.rackinSync.resync()         // rebuild the queue from every local record
 await window.rackinSync.wipeLocal()      // erase local data — next member is #1001 again
+await window.rackinSync.wipeLocal({ keepStaff: true })   // …but keep the staff list
+```
+
+**Clearing test data between runs** takes both sides, tablet first — otherwise a
+sync repopulates the backend in between:
+
+```js
+await window.rackinSync.wipeLocal({ keepStaff: true })   // then reload the page
+```
+
+```bash
+psql -U rackin_app -h localhost -d rackin -f docs/how-to/flush-all-data.sql
 ```
 
 `resync()` is the answer when the backend's copy has diverged and the tablet's version is the one to trust, which it always is. It is safe to run repeatedly: the backend dedupes on `clientUuid`, so records already there are accepted as no-ops and only the genuinely missing ones are written.
@@ -210,6 +250,7 @@ Scope is held small on purpose so the pilot is finishable and testable:
 ## 📚 Documentation
 
 - [ADR-001 — Check-in input methods & offline architecture](docs/architecture/ADR-001-checkin-input-and-offline-architecture.md)
+- [ADR-002 — Why the backend was built before the pilot required it](docs/architecture/ADR-002-build-the-backend-before-the-pilot.md)
 - [PRD — User stories & acceptance criteria](docs/architecture/prd.md)
 - [TRD — Domain contract & sync API](docs/architecture/trd.md)
 - [Backend Schema — Tables, constraints, indexes](docs/architecture/backend-schema.md)
@@ -222,6 +263,7 @@ Scope is held small on purpose so the pilot is finishable and testable:
 
 - [Run the Backend Locally](docs/how-to/run-the-backend-locally.md) — database setup, credentials, troubleshooting
 - [Inspect the Database](docs/how-to/inspect-the-database.sql) — ready-to-run queries for checking what synced
+- [Flush All Data](docs/how-to/flush-all-data.sql) — **destructive**; clears pilot test data from the backend
 
 ---
 

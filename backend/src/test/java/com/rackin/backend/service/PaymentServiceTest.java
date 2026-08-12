@@ -66,7 +66,7 @@ class PaymentServiceTest {
         when(memberRepository.findById("1001")).thenReturn(Optional.of(member));
         when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        PaymentResponse response = paymentService.recordPayment("1001", new BigDecimal("1200.00"), PaymentMethod.cash, null, null);
+        PaymentResponse response = paymentService.recordPayment("1001", new BigDecimal("1200.00"), PaymentMethod.cash, null, null, null, null);
 
         assertThat(response.status()).isEqualTo(MembershipStatus.active);
         assertThat(response.coversUntil()).isAfter(Instant.now());
@@ -76,7 +76,7 @@ class PaymentServiceTest {
     void recordPayment_whenMemberNotFound_shouldThrowAndNeverSave() {
         when(memberRepository.findById("9999")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> paymentService.recordPayment("9999", new BigDecimal("1200.00"), PaymentMethod.cash, null, null))
+        assertThatThrownBy(() -> paymentService.recordPayment("9999", new BigDecimal("1200.00"), PaymentMethod.cash, null, null, null, null))
                 .isInstanceOf(MemberNotFoundException.class)
                 .hasMessage("No member found for #9999");
         verify(paymentRepository, never()).save(any());
@@ -89,7 +89,7 @@ class PaymentServiceTest {
         when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Instant before = Instant.now();
-        PaymentResponse response = paymentService.recordPayment("1001", new BigDecimal("300.00"), PaymentMethod.cash, null, null);
+        PaymentResponse response = paymentService.recordPayment("1001", new BigDecimal("300.00"), PaymentMethod.cash, null, null, null, null);
         Instant after = Instant.now();
 
         assertThat(response.coversUntil()).isBetween(before.plus(7, ChronoUnit.DAYS), after.plus(7, ChronoUnit.DAYS));
@@ -102,7 +102,7 @@ class PaymentServiceTest {
         when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Instant before = Instant.now();
-        PaymentResponse response = paymentService.recordPayment("1001", new BigDecimal("1200.00"), PaymentMethod.cash, null, null);
+        PaymentResponse response = paymentService.recordPayment("1001", new BigDecimal("1200.00"), PaymentMethod.cash, null, null, null, null);
         Instant after = Instant.now();
 
         assertThat(response.coversUntil()).isBetween(before.plus(30, ChronoUnit.DAYS), after.plus(30, ChronoUnit.DAYS));
@@ -114,7 +114,7 @@ class PaymentServiceTest {
         when(memberRepository.findById("1001")).thenReturn(Optional.of(member));
         when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        paymentService.recordPayment("1001", new BigDecimal("1200.00"), PaymentMethod.cash, null, null);
+        paymentService.recordPayment("1001", new BigDecimal("1200.00"), PaymentMethod.cash, null, null, null, null);
 
         ArgumentCaptor<Payment> captor = ArgumentCaptor.forClass(Payment.class);
         verify(paymentRepository).save(captor.capture());
@@ -128,7 +128,7 @@ class PaymentServiceTest {
         when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
         UUID clientUuid = UUID.randomUUID();
 
-        paymentService.recordPayment("1001", new BigDecimal("1200.00"), PaymentMethod.cash, clientUuid, null);
+        paymentService.recordPayment("1001", new BigDecimal("1200.00"), PaymentMethod.cash, clientUuid, null, null, null);
 
         ArgumentCaptor<Payment> captor = ArgumentCaptor.forClass(Payment.class);
         verify(paymentRepository).save(captor.capture());
@@ -147,7 +147,7 @@ class PaymentServiceTest {
         when(paymentRepository.findByClientUuid(clientUuid)).thenReturn(Optional.of(original));
 
         PaymentResponse response = paymentService.recordPayment(
-                "1001", new BigDecimal("1200.00"), PaymentMethod.cash, clientUuid, null);
+                "1001", new BigDecimal("1200.00"), PaymentMethod.cash, clientUuid, null, null, null);
 
         // The whole point of TRD 7's idempotency: a retried sync must not hand
         // the member another 30 days nobody paid for.
@@ -164,12 +164,45 @@ class PaymentServiceTest {
         Instant paidAt = Instant.now().minus(4, ChronoUnit.DAYS);
 
         PaymentResponse response = paymentService.recordPayment(
-                "1001", new BigDecimal("300.00"), PaymentMethod.cash, null, paidAt);
+                "1001", new BigDecimal("300.00"), PaymentMethod.cash, null, paidAt, null, null);
 
         // Three days of coverage left, not seven — syncing late must not silently
         // extend a membership past what the member actually bought.
         assertThat(response.coversUntil()).isEqualTo(paidAt.plus(7, ChronoUnit.DAYS));
         assertThat(response.coversUntil()).isBefore(Instant.now().plus(4, ChronoUnit.DAYS));
+    }
+
+    @Test
+    void recordPayment_shouldStoreWhoTookTheMoney() {
+        Member member = member("1001", PlanType.monthly);
+        when(memberRepository.findById("1001")).thenReturn(Optional.of(member));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        paymentService.recordPayment("1001", new BigDecimal("1200.00"), PaymentMethod.cash,
+                null, null, "staff-ana", "Ana Reyes");
+
+        ArgumentCaptor<Payment> captor = ArgumentCaptor.forClass(Payment.class);
+        verify(paymentRepository).save(captor.capture());
+        // The name is stored alongside the id, not looked up from it: correcting
+        // a spelling later must not rewrite who took this payment.
+        assertThat(captor.getValue().getRecordedById()).isEqualTo("staff-ana");
+        assertThat(captor.getValue().getRecordedByName()).isEqualTo("Ana Reyes");
+    }
+
+    @Test
+    void recordPayment_whenNobodyIsSignedIn_shouldRecordItUnattributedRatherThanRefuse() {
+        Member member = member("1001", PlanType.monthly);
+        when(memberRepository.findById("1001")).thenReturn(Optional.of(member));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        paymentService.recordPayment("1001", new BigDecimal("1200.00"), PaymentMethod.cash,
+                null, null, null, null);
+
+        // Refusing would mean the app declines to record money the gym has
+        // already taken, which is a worse record than an unattributed one.
+        ArgumentCaptor<Payment> captor = ArgumentCaptor.forClass(Payment.class);
+        verify(paymentRepository).save(captor.capture());
+        assertThat(captor.getValue().getRecordedById()).isNull();
     }
 
     @Test

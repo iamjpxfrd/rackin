@@ -14,8 +14,10 @@ import { startSync } from "./sync.js";
 
 let stop = () => {};
 
+// Both stubbed, never inherited from a local .env file — see sync.test.js.
 beforeEach(async () => {
   vi.stubEnv("VITE_RACKIN_API_URL", "http://localhost:8080");
+  vi.stubEnv("VITE_RACKIN_API_KEY", "test-api-key");
   await resetDatabase();
 });
 

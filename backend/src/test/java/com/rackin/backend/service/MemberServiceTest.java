@@ -33,7 +33,7 @@ class MemberServiceTest {
     private PaymentService paymentService;
 
     private final RegisterMemberRequest request = new RegisterMemberRequest(
-            "Maria Santos", PlanType.monthly, new BigDecimal("1200.00"), PaymentMethod.cash, null, null, null, null, null);
+            "Maria Santos", PlanType.monthly, new BigDecimal("1200.00"), PaymentMethod.cash, null, null, null, null, null, null, null);
 
     @Test
     void registerMember_whenNoConflict_shouldReturnOnFirstAttempt() {

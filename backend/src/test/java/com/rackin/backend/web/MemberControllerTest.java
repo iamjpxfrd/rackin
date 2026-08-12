@@ -11,6 +11,7 @@ import com.rackin.backend.web.dto.RegisterMemberResponse;
 import com.rackin.backend.web.dto.StatusResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -26,6 +27,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+// Security is exercised by ApiKeySecurityTest. These verify controller and
+// DTO behaviour, and threading a key through every request would only make
+// each assertion harder to read without testing anything new.
+@AutoConfigureMockMvc(addFilters = false)
 @WebMvcTest(MemberController.class)
 class MemberControllerTest {
 
@@ -41,7 +46,7 @@ class MemberControllerTest {
     @Test
     void register_withValidRequest_shouldReturn201WithBody() throws Exception {
         RegisterMemberRequest request = new RegisterMemberRequest(
-                "Maria Santos", PlanType.monthly, new BigDecimal("1200.00"), PaymentMethod.cash, null, null, null, null, null);
+                "Maria Santos", PlanType.monthly, new BigDecimal("1200.00"), PaymentMethod.cash, null, null, null, null, null, null, null);
         Instant coversUntil = Instant.parse("2026-09-09T00:00:00Z");
         when(memberService.registerMember(any())).thenReturn(
                 new RegisterMemberResponse("1001", MembershipStatus.active, coversUntil));

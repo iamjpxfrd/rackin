@@ -36,16 +36,18 @@ public class PaymentService {
 
     @Transactional
     public PaymentResponse recordPayment(String memberId, BigDecimal amount, PaymentMethod method,
-                                         UUID clientUuid, Instant paidAt) {
+                                         UUID clientUuid, Instant paidAt, String recordedById,
+                                         String recordedByName) {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new MemberNotFoundException(memberId));
-        Payment payment = recordPayment(member, amount, method, clientUuid, paidAt);
+        Payment payment = recordPayment(member, amount, method, clientUuid, paidAt, recordedById, recordedByName);
         return new PaymentResponse(payment.getCoversUntil(), deriveStatus(payment.getCoversUntil()));
     }
 
     // Used by MemberService during registration, where the member was just
     // persisted in the same transaction — avoids a redundant lookup.
-    Payment recordPayment(Member member, BigDecimal amount, PaymentMethod method, UUID clientUuid, Instant paidAt) {
+    Payment recordPayment(Member member, BigDecimal amount, PaymentMethod method, UUID clientUuid,
+                          Instant paidAt, String recordedById, String recordedByName) {
         UUID idempotencyKey = clientUuid != null ? clientUuid : UUID.randomUUID();
 
         // A sync retried after a lost response must not extend coverage twice —
@@ -68,6 +70,12 @@ public class PaymentService {
         payment.setPaidAt(paidAtOrNow);
         payment.setCoversUntil(coversUntil);
         payment.setClientUuid(idempotencyKey);
+        // Stored exactly as the tablet reported it, including null. The backend
+        // has no staff list to validate against — the tablet owns that (ADR-001)
+        // — and rejecting an unattributed payment would refuse to record money
+        // the gym has already taken.
+        payment.setRecordedById(recordedById);
+        payment.setRecordedByName(recordedByName);
         return paymentRepository.save(payment);
     }
 

@@ -64,7 +64,16 @@ Edit `config/local.properties`:
 
 ```properties
 DB_PASSWORD=the-password-you-just-set
+RACKIN_API_KEY=paste-a-generated-key-here
 ```
+
+Generate the key with `openssl rand -base64 32`. **Both are required** — the
+backend refuses to start without either, deliberately: the sync API answers with
+the gym's full membership and payment history, and an app that starts with a
+guessed key looks protected while accepting a key anyone can read.
+
+The frontend needs the *same* key in `frontend/.env.local` as
+`VITE_RACKIN_API_KEY`, or every sync request comes back `401`.
 
 This file is gitignored. `application.properties` imports it with
 `optional:file:`, so its absence is not an error — CI and production supply
@@ -142,11 +151,29 @@ The role exists but has no password, or the password in
 `config/local.properties` does not match. Re-run step 2's second command to set
 it, then make the two agree.
 
-**`Could not resolve placeholder 'DB_PASSWORD'`**
+**`Could not resolve placeholder 'DB_PASSWORD'`** (or `'RACKIN_API_KEY'`)
 
-`config/local.properties` is missing or does not define `DB_PASSWORD`. Complete
-step 3. Confirm the file is at `backend/config/local.properties` — the import
-path is relative to the `backend/` directory.
+`config/local.properties` is missing or does not define it. Complete step 3.
+Confirm the file is at `backend/config/local.properties` — the import path is
+relative to the `backend/` directory.
+
+**`rackin.api-key is not set`**
+
+The property resolved to an empty value. It must be a real key; blank is refused
+on purpose, so the API cannot come up open.
+
+**Every request returns `401`**
+
+The key in `frontend/.env.local` does not match the one in
+`backend/config/local.properties`, or Vite was not restarted after the file
+changed — it reads `.env` files only at startup. Check with:
+
+```bash
+curl -i -H "Authorization: Bearer $YOUR_KEY" http://localhost:8080/api/checkins/lapsed
+```
+
+A `401` there means the key is wrong. A `200` means the backend is fine and the
+problem is on the frontend side.
 
 **`Schema-validation: missing table [member]`**
 

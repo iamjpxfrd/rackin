@@ -36,8 +36,13 @@ public class CorsConfig implements WebMvcConfigurer {
         registry.addMapping("/api/**")
                 .allowedOrigins(allowedOrigins.toArray(String[]::new))
                 .allowedMethods("GET", "POST")
-                // The sync push carries no cookies or auth header; allowing
-                // credentials would widen this for nothing.
+                // Named explicitly rather than left to the "*" default: the
+                // tablet's key travels on Authorization, and a browser silently
+                // strips a header the preflight did not allow — which would
+                // surface as a 401 with no clue that CORS was the cause.
+                .allowedHeaders("Authorization", "Content-Type")
+                // The key is a bearer token on a header, not a cookie, so the
+                // credentials flag buys nothing and would only widen this.
                 .allowCredentials(false)
                 .maxAge(3600);
     }

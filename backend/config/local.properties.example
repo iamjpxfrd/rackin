@@ -9,3 +9,14 @@
 DB_PASSWORD=your-local-rackin_app-password
 # DB_URL=jdbc:postgresql://localhost:5432/rackin
 # DB_USERNAME=rackin_app
+
+# Shared key the tablet presents on every sync request. Required — the backend
+# refuses to start without it, because the API answers with the gym's full
+# membership and payment history and must never come up open.
+#
+# Generate one:
+#   openssl rand -base64 32
+#
+# The frontend needs the SAME value in frontend/.env.local as
+# VITE_RACKIN_API_KEY, or every sync request comes back 401.
+RACKIN_API_KEY=generate-your-own-do-not-use-this-value

@@ -215,6 +215,10 @@ function exposeDevHelpers(push) {
      * Erase every local record and the queue with it, returning this tablet to
      * a fresh install — the next member registered is #1001 again.
      *
+     * Pass `{ keepStaff: true }` to keep the staff list and who is on the desk,
+     * which is usually what you want when clearing test data: the roster is
+     * throwaway, the staff list was set up deliberately.
+     *
      * Local only. It cannot reach the backend, which keeps whatever was already
      * pushed; clearing that side is a separate, deliberate act.
      */
