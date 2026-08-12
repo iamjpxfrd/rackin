@@ -224,11 +224,16 @@ export async function getNextMemberId() {
  * Wipe all local data. Dev/testing convenience only — never exposed
  * in the staff-facing UI.
  */
-export async function resetDatabase() {
+export async function resetDatabase({ keepStaff = false } = {}) {
   await db.members.clear();
   await db.payments.clear();
   await db.checkIns.clear();
+  // Cleared with the records: a queue describing rows that no longer exist
+  // would push a member the tablet cannot show.
   await db.outbox.clear();
-  await db.staff.clear();
-  await db.deviceState.clear();
+
+  if (!keepStaff) {
+    await db.staff.clear();
+    await db.deviceState.clear();
+  }
 }

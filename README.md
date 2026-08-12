@@ -187,6 +187,18 @@ await window.rackinSync.push()           // push now, without waiting for a trig
 await window.rackinSync.retryRejected()  // re-queue refusals after fixing the cause
 await window.rackinSync.resync()         // rebuild the queue from every local record
 await window.rackinSync.wipeLocal()      // erase local data — next member is #1001 again
+await window.rackinSync.wipeLocal({ keepStaff: true })   // …but keep the staff list
+```
+
+**Clearing test data between runs** takes both sides, tablet first — otherwise a
+sync repopulates the backend in between:
+
+```js
+await window.rackinSync.wipeLocal({ keepStaff: true })   // then reload the page
+```
+
+```bash
+psql -U rackin_app -h localhost -d rackin -f docs/how-to/flush-all-data.sql
 ```
 
 `resync()` is the answer when the backend's copy has diverged and the tablet's version is the one to trust, which it always is. It is safe to run repeatedly: the backend dedupes on `clientUuid`, so records already there are accepted as no-ops and only the genuinely missing ones are written.
@@ -224,6 +236,7 @@ Scope is held small on purpose so the pilot is finishable and testable:
 
 - [Run the Backend Locally](docs/how-to/run-the-backend-locally.md) — database setup, credentials, troubleshooting
 - [Inspect the Database](docs/how-to/inspect-the-database.sql) — ready-to-run queries for checking what synced
+- [Flush All Data](docs/how-to/flush-all-data.sql) — **destructive**; clears pilot test data from the backend
 
 ---
 
