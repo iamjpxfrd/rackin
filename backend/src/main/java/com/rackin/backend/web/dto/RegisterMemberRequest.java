@@ -41,6 +41,11 @@ public record RegisterMemberRequest(
         Instant createdAt,
         @Schema(description = "Idempotency key of the initial payment, distinct from the member's. "
                 + "Omit and the server generates one.")
-        UUID paymentClientUuid
+        UUID paymentClientUuid,
+        @Schema(description = "Stable id of the staff member who took the registration payment. "
+                + "Attribution, not authentication. Null is valid.")
+        @Size(max = 64, message = "recordedById must be at most 64 chars") String recordedById,
+        @Schema(description = "That staff member's name as it stood at the time.")
+        @Size(max = 100, message = "recordedByName must be at most 100 chars") String recordedByName
 ) {
 }

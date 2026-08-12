@@ -41,7 +41,7 @@ class MemberControllerTest {
     @Test
     void register_withValidRequest_shouldReturn201WithBody() throws Exception {
         RegisterMemberRequest request = new RegisterMemberRequest(
-                "Maria Santos", PlanType.monthly, new BigDecimal("1200.00"), PaymentMethod.cash, null, null, null, null, null);
+                "Maria Santos", PlanType.monthly, new BigDecimal("1200.00"), PaymentMethod.cash, null, null, null, null, null, null, null);
         Instant coversUntil = Instant.parse("2026-09-09T00:00:00Z");
         when(memberService.registerMember(any())).thenReturn(
                 new RegisterMemberResponse("1001", MembershipStatus.active, coversUntil));

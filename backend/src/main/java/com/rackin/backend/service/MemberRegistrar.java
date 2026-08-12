@@ -74,7 +74,8 @@ public class MemberRegistrar {
         memberRepository.saveAndFlush(member);
 
         Payment payment = paymentService.recordPayment(
-                member, request.amount(), request.method(), request.paymentClientUuid(), createdAt);
+                member, request.amount(), request.method(), request.paymentClientUuid(), createdAt,
+                request.recordedById(), request.recordedByName());
         MembershipStatus status = paymentService.deriveStatus(payment.getCoversUntil());
 
         return new RegisterMemberResponse(member.getId(), status, payment.getCoversUntil());

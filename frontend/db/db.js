@@ -46,6 +46,28 @@ db.version(2).stores({
   outbox: "++id, clientUuid, status",
 }).upgrade(backfillOutbox);
 
+// Version 3 adds staff attribution: who was on the desk when a visit was
+// logged or money changed hands.
+//
+// Additive again, and deliberately not backfilled. Records written before this
+// version carry no `recordedBy`, which is the truthful answer — the tablet did
+// not know at the time and guessing now would invent an accountable party for
+// a payment nobody can actually vouch for.
+db.version(3).stores({
+  ...CORE_STORES,
+  outbox: "++id, clientUuid, status",
+
+  // The gym's own staff. Names come from the gym (PRODUCT.md forbids inventing
+  // pilot specifics). `retiredAt` rather than deletion: someone who has left
+  // still took payments last month, and their name has to keep resolving.
+  staff: "id, name, retiredAt, clientUuid",
+
+  // Device-local UI state that must survive a reload — currently only who is
+  // on the desk. Kept in Dexie rather than localStorage so useLiveQuery reacts
+  // to a shift change without a bespoke event listener.
+  deviceState: "key",
+});
+
 /**
  * Queue everything this tablet recorded before the outbox existed.
  *
@@ -59,6 +81,17 @@ db.version(2).stores({
  * double-queue on a later reload, and a tablet that starts fresh at version 2
  * never runs it at all, because it has no version 1 data to migrate.
  */
+// Attribution as stored on a record, or nulls for anything written before
+// version 3. Read from the record rather than from whoever is on the desk now:
+// a rebuild of the queue must re-send who was actually responsible at the time,
+// not credit today's shift with last month's payments.
+function attributionOf(record) {
+  return {
+    recordedById: record?.recordedById ?? null,
+    recordedByName: record?.recordedByName ?? null,
+  };
+}
+
 export async function backfillOutbox(tx) {
   const members = await tx.table("members").toArray();
   if (members.length === 0) return;
@@ -117,6 +150,9 @@ export async function backfillOutbox(tx) {
       clientUuid: member.clientUuid,
       paymentClientUuid: first.clientUuid,
       createdAt: member.createdAt,
+      // Null on anything written before version 3, which is the truthful
+      // answer rather than an absence to be filled in.
+      ...attributionOf(first),
     });
     registered.add(member.id);
   }
@@ -136,6 +172,7 @@ export async function backfillOutbox(tx) {
       method: payment.method,
       clientUuid: payment.clientUuid,
       paidAt: payment.paidAt,
+      ...attributionOf(payment),
     });
   }
 
@@ -149,6 +186,7 @@ export async function backfillOutbox(tx) {
       method: checkIn.method,
       clientUuid: checkIn.clientUuid,
       timestamp: checkIn.timestamp,
+      ...attributionOf(checkIn),
     });
   }
 }
@@ -191,4 +229,6 @@ export async function resetDatabase() {
   await db.payments.clear();
   await db.checkIns.clear();
   await db.outbox.clear();
+  await db.staff.clear();
+  await db.deviceState.clear();
 }

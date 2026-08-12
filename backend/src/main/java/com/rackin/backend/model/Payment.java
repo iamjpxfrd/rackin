@@ -25,7 +25,8 @@ import java.util.UUID;
 @Table(name = "payment", indexes = {
         @Index(name = "idx_payment_member_id", columnList = "member_id"),
         @Index(name = "idx_payment_covers_until", columnList = "covers_until"),
-        @Index(name = "idx_payment_client_uuid", columnList = "client_uuid", unique = true)
+        @Index(name = "idx_payment_client_uuid", columnList = "client_uuid", unique = true),
+        @Index(name = "idx_payment_recorded_by", columnList = "recorded_by_id, paid_at")
 })
 @Getter
 @Setter
@@ -58,4 +59,15 @@ public class Payment {
 
     @Column(name = "client_uuid", nullable = false, unique = true)
     private UUID clientUuid;
+
+    // Who the tablet was told was on the desk — attribution, not authentication.
+    // Nullable and staying that way: records written before attribution existed,
+    // or while nobody was signed in, honestly have no name to give.
+    @Column(name = "recorded_by_id", length = 64)
+    private String recordedById;
+
+    // The name as it stood when the money changed hands. Denormalised so
+    // correcting a spelling later cannot rewrite who took a payment in March.
+    @Column(name = "recorded_by_name", length = 100)
+    private String recordedByName;
 }

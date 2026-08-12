@@ -4,6 +4,7 @@ import { db, generateClientUuid, getNextMemberId } from "../../db/db.js";
 import { enqueue } from "../sync/outbox.js";
 import { HISTORY_PAGE_SIZE, PLAN_TYPES } from "./constants.js";
 import { computeCoversUntil, deriveStatus, latestPaymentOf } from "./membership.js";
+import { attributionFor, getOnDesk } from "./staff.js";
 
 /**
  * Registers a member and records their first payment in ONE action —
@@ -17,6 +18,7 @@ import { computeCoversUntil, deriveStatus, latestPaymentOf } from "./membership.
  *   name: string, phone?: string|null,
  *   planType: "session"|"weekly"|"monthly",
  *   amount: number, paymentMethod: "cash"|"transfer",
+ *   recordedBy?: object|null,
  * }} input
  * @returns {Promise<{ member: object, payment: object }>}
  */
@@ -26,6 +28,7 @@ export async function registerMember({
   planType,
   amount,
   paymentMethod,
+  recordedBy,
 }) {
   const trimmedName = String(name ?? "").trim();
   if (!trimmedName) {
@@ -43,6 +46,13 @@ export async function registerMember({
   }
 
   const trimmedPhone = String(phone ?? "").trim() || null;
+
+  // Registration takes money, so its payment is attributed exactly as a
+  // renewal is. Resolved before the transaction opens — Dexie transactions do
+  // not survive an await on a table they were not given.
+  const attribution = attributionFor(
+    recordedBy === undefined ? await getOnDesk() : recordedBy,
+  );
 
   // db.outbox joins the transaction so the queue entry commits with the rows it
   // describes. Queuing afterwards would leave a crash-sized window in which the
@@ -69,6 +79,7 @@ export async function registerMember({
       paidAt: createdAt,
       coversUntil: computeCoversUntil(createdAt, planType),
       clientUuid: generateClientUuid(),
+      ...attribution,
     };
     const paymentId = await db.payments.add(payment);
 
@@ -86,6 +97,7 @@ export async function registerMember({
       clientUuid: member.clientUuid,
       paymentClientUuid: payment.clientUuid,
       createdAt,
+      ...attribution,
     });
 
     return { member, payment: { ...payment, id: paymentId } };

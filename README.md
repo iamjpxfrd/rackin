@@ -24,6 +24,7 @@ RackIn is built around one interaction the front desk already performs, and ever
 - **📋 Live Activity Feed:** The live-updating equivalent of the old logbook page — timestamp, member, and check-in method, most recent first, updating without a manual refresh.
 - **📉 Automatic Lapsed-Member Detection:** Surfaces every member with no check-in in 14+ days, oldest-visit-first. This is the single thing a paper logbook can never do, and the primary reason the system is worth building.
 - **⏳ Expiring-Soon Detection:** Flags members whose plan lapses within 7 days, soonest-first, so staff can give a heads-up before a membership quietly runs out.
+- **🧑‍💼 Staff Attribution:** Shifts change, so every check-in and payment records who was on the desk. Staff sign in once per shift; the payment sheet confirms who it will credit, with a one-tap override — so a handover nobody remembered to record is caught at the money rather than at month end. Attribution, not authentication: there is no password, deliberately, because a shared PIN would make every record *look* verified while being unverifiable.
 - **💳 Registration & Payment in One Action:** New member, plan type, first payment, auto-assigned member number, and generated QR code — one flow, no double entry, no separate system.
 - **📴 Offline as a Hard Requirement:** Every feature above functions fully with the device offline. There is no "waiting for connection" state anywhere in the app, by design — not graceful degradation, a constraint.
 

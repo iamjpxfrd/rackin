@@ -49,4 +49,13 @@ public class CheckIn {
 
     @Column(name = "client_uuid", nullable = false, unique = true)
     private UUID clientUuid;
+
+    // Whoever was signed in on the tablet at the time. Attribution, not
+    // authentication — see Payment for the reasoning; a misattributed visit is
+    // trivia, but the same stamp on a payment is the accountability record.
+    @Column(name = "recorded_by_id", length = 64)
+    private String recordedById;
+
+    @Column(name = "recorded_by_name", length = 100)
+    private String recordedByName;
 }

@@ -53,6 +53,10 @@ public class CheckInService {
             checkIn.setTimestamp(request.timestamp() != null ? request.timestamp() : Instant.now());
             checkIn.setMethod(request.method());
             checkIn.setClientUuid(idempotencyKey);
+            // As reported by the tablet, null included. The backend holds no
+            // staff list to check against — the tablet owns it (ADR-001).
+            checkIn.setRecordedById(request.recordedById());
+            checkIn.setRecordedByName(request.recordedByName());
             checkInRepository.save(checkIn);
         }
 

@@ -4,6 +4,7 @@
 
 import { db, generateClientUuid } from "../../db/db.js";
 import { enqueue } from "../sync/outbox.js";
+import { attributionFor, getOnDesk } from "./staff.js";
 
 /**
  * @param {string} memberId
@@ -32,14 +33,19 @@ export async function checkInMember(memberId, method) {
   // second session.
   const alreadyCheckedInAt = await lastCheckInToday(memberId);
 
+  // Whoever signed in for this shift, stamped automatically. A check-in is a
+  // fast, high-frequency action, so it takes the shift default without asking
+  // — unlike a payment, which confirms (domain/staff.js).
+  const attribution = attributionFor(await getOnDesk());
+
   // Check-in row and queue entry commit together, so a visit recorded at the
   // desk can never go missing from the backend (sync/outbox.js).
   await db.transaction("rw", db.checkIns, db.outbox, async () => {
-    await db.checkIns.add({ memberId, timestamp, method, clientUuid });
+    await db.checkIns.add({ memberId, timestamp, method, clientUuid, ...attribution });
     // timestamp travels with it: a day of offline check-ins pushed at closing
     // time must land at the hours members actually walked in, not all at once
     // (TRD 7).
-    await enqueue("checkin", { memberId, method, clientUuid, timestamp });
+    await enqueue("checkin", { memberId, method, clientUuid, timestamp, ...attribution });
   });
 
   const visitCountThisMonth = await countVisitsThisMonth(memberId);

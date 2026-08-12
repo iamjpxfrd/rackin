@@ -46,12 +46,12 @@ class MemberRegistrarTest {
         Instant coversUntil = Instant.now().plusSeconds(3600);
         Payment payment = new Payment();
         payment.setCoversUntil(coversUntil);
-        when(paymentService.recordPayment(any(Member.class), any(BigDecimal.class), any(PaymentMethod.class), isNull(), any(Instant.class)))
+        when(paymentService.recordPayment(any(Member.class), any(BigDecimal.class), any(PaymentMethod.class), isNull(), any(Instant.class), isNull(), isNull()))
                 .thenReturn(payment);
         when(paymentService.deriveStatus(coversUntil)).thenReturn(MembershipStatus.active);
 
         RegisterMemberRequest request = new RegisterMemberRequest(
-                "Maria Santos", PlanType.monthly, new BigDecimal("1200.00"), PaymentMethod.cash, null, null, null, null, null);
+                "Maria Santos", PlanType.monthly, new BigDecimal("1200.00"), PaymentMethod.cash, null, null, null, null, null, null, null);
 
         RegisterMemberResponse response = registrar.register(request);
 
@@ -66,12 +66,12 @@ class MemberRegistrarTest {
         when(memberRepository.findMaxNumericId()).thenReturn(1217);
         Payment payment = new Payment();
         payment.setCoversUntil(Instant.now());
-        when(paymentService.recordPayment(any(Member.class), any(BigDecimal.class), any(PaymentMethod.class), isNull(), any(Instant.class)))
+        when(paymentService.recordPayment(any(Member.class), any(BigDecimal.class), any(PaymentMethod.class), isNull(), any(Instant.class), isNull(), isNull()))
                 .thenReturn(payment);
         when(paymentService.deriveStatus(any(Instant.class))).thenReturn(MembershipStatus.active);
 
         RegisterMemberRequest request = new RegisterMemberRequest(
-                "Diego Santos", PlanType.weekly, new BigDecimal("300.00"), PaymentMethod.transfer, null, null, null, null, null);
+                "Diego Santos", PlanType.weekly, new BigDecimal("300.00"), PaymentMethod.transfer, null, null, null, null, null, null, null);
 
         RegisterMemberResponse response = registrar.register(request);
 
@@ -84,12 +84,12 @@ class MemberRegistrarTest {
         when(memberRepository.findMaxNumericId()).thenReturn(1000);
         Payment payment = new Payment();
         payment.setCoversUntil(Instant.now());
-        when(paymentService.recordPayment(any(Member.class), any(BigDecimal.class), any(PaymentMethod.class), isNull(), any(Instant.class)))
+        when(paymentService.recordPayment(any(Member.class), any(BigDecimal.class), any(PaymentMethod.class), isNull(), any(Instant.class), isNull(), isNull()))
                 .thenReturn(payment);
         when(paymentService.deriveStatus(any(Instant.class))).thenReturn(MembershipStatus.active);
 
         RegisterMemberRequest request = new RegisterMemberRequest(
-                "  Maria Santos  ", PlanType.monthly, new BigDecimal("1200.00"), PaymentMethod.cash, null, null, null, null, null);
+                "  Maria Santos  ", PlanType.monthly, new BigDecimal("1200.00"), PaymentMethod.cash, null, null, null, null, null, null, null);
 
         registrar.register(request);
 
@@ -104,13 +104,13 @@ class MemberRegistrarTest {
         when(memberRepository.findMaxNumericId()).thenReturn(1000);
         Payment payment = new Payment();
         payment.setCoversUntil(Instant.now());
-        when(paymentService.recordPayment(any(Member.class), any(BigDecimal.class), any(PaymentMethod.class), isNull(), any(Instant.class)))
+        when(paymentService.recordPayment(any(Member.class), any(BigDecimal.class), any(PaymentMethod.class), isNull(), any(Instant.class), isNull(), isNull()))
                 .thenReturn(payment);
         when(paymentService.deriveStatus(any(Instant.class))).thenReturn(MembershipStatus.active);
         UUID clientUuid = UUID.randomUUID();
 
         RegisterMemberRequest request = new RegisterMemberRequest(
-                "Maria Santos", PlanType.monthly, new BigDecimal("1200.00"), PaymentMethod.cash, null, clientUuid, null, null, null);
+                "Maria Santos", PlanType.monthly, new BigDecimal("1200.00"), PaymentMethod.cash, null, clientUuid, null, null, null, null, null);
 
         registrar.register(request);
 
@@ -125,12 +125,12 @@ class MemberRegistrarTest {
         when(memberRepository.findMaxNumericId()).thenReturn(1000);
         Payment payment = new Payment();
         payment.setCoversUntil(Instant.now());
-        when(paymentService.recordPayment(any(Member.class), any(BigDecimal.class), any(PaymentMethod.class), isNull(), any(Instant.class)))
+        when(paymentService.recordPayment(any(Member.class), any(BigDecimal.class), any(PaymentMethod.class), isNull(), any(Instant.class), isNull(), isNull()))
                 .thenReturn(payment);
         when(paymentService.deriveStatus(any(Instant.class))).thenReturn(MembershipStatus.active);
 
         RegisterMemberRequest request = new RegisterMemberRequest(
-                "Maria Santos", PlanType.monthly, new BigDecimal("1200.00"), PaymentMethod.cash, null, null, null, null, null);
+                "Maria Santos", PlanType.monthly, new BigDecimal("1200.00"), PaymentMethod.cash, null, null, null, null, null, null, null);
 
         registrar.register(request);
 
@@ -146,12 +146,12 @@ class MemberRegistrarTest {
         Payment payment = new Payment();
         payment.setCoversUntil(Instant.now());
         when(paymentService.recordPayment(any(Member.class), any(BigDecimal.class), any(PaymentMethod.class),
-                isNull(), any(Instant.class))).thenReturn(payment);
+                isNull(), any(Instant.class), isNull(), isNull())).thenReturn(payment);
         when(paymentService.deriveStatus(any(Instant.class))).thenReturn(MembershipStatus.active);
 
         RegisterMemberRequest request = new RegisterMemberRequest(
                 "Maria Santos", PlanType.monthly, new BigDecimal("1200.00"), PaymentMethod.cash, null, null,
-                "1042", null, null);
+                "1042", null, null, null, null);
 
         RegisterMemberResponse response = registrar.register(request);
 
@@ -168,7 +168,7 @@ class MemberRegistrarTest {
 
         RegisterMemberRequest request = new RegisterMemberRequest(
                 "Maria Santos", PlanType.monthly, new BigDecimal("1200.00"), PaymentMethod.cash, null, null,
-                "1042", null, null);
+                "1042", null, null, null, null);
 
         // Distinct from the id race MemberService retries: this id belongs to
         // someone else and no number of attempts will free it.
@@ -185,13 +185,13 @@ class MemberRegistrarTest {
         Payment payment = new Payment();
         payment.setCoversUntil(Instant.now());
         when(paymentService.recordPayment(any(Member.class), any(BigDecimal.class), any(PaymentMethod.class),
-                isNull(), any(Instant.class))).thenReturn(payment);
+                isNull(), any(Instant.class), isNull(), isNull())).thenReturn(payment);
         when(paymentService.deriveStatus(any(Instant.class))).thenReturn(MembershipStatus.active);
         Instant registeredOnTablet = Instant.parse("2026-08-11T02:15:00Z");
 
         RegisterMemberRequest request = new RegisterMemberRequest(
                 "Maria Santos", PlanType.monthly, new BigDecimal("1200.00"), PaymentMethod.cash, null, null,
-                null, registeredOnTablet, null);
+                null, registeredOnTablet, null, null, null);
 
         registrar.register(request);
 
@@ -203,7 +203,7 @@ class MemberRegistrarTest {
         // member existed would be incoherent.
         ArgumentCaptor<Instant> paidAtCaptor = ArgumentCaptor.forClass(Instant.class);
         verify(paymentService).recordPayment(any(Member.class), any(BigDecimal.class), any(PaymentMethod.class),
-                isNull(), paidAtCaptor.capture());
+                isNull(), paidAtCaptor.capture(), isNull(), isNull());
         assertThat(paidAtCaptor.getValue()).isEqualTo(registeredOnTablet);
     }
 
@@ -213,17 +213,17 @@ class MemberRegistrarTest {
         when(memberRepository.findMaxNumericId()).thenReturn(1000);
         Payment payment = new Payment();
         payment.setCoversUntil(Instant.now());
-        when(paymentService.recordPayment(any(Member.class), eq(new BigDecimal("1200.00")), eq(PaymentMethod.cash), isNull(), any(Instant.class)))
+        when(paymentService.recordPayment(any(Member.class), eq(new BigDecimal("1200.00")), eq(PaymentMethod.cash), isNull(), any(Instant.class), isNull(), isNull()))
                 .thenReturn(payment);
         when(paymentService.deriveStatus(any(Instant.class))).thenReturn(MembershipStatus.active);
 
         RegisterMemberRequest request = new RegisterMemberRequest(
-                "Maria Santos", PlanType.monthly, new BigDecimal("1200.00"), PaymentMethod.cash, "09171234567", null, null, null, null);
+                "Maria Santos", PlanType.monthly, new BigDecimal("1200.00"), PaymentMethod.cash, "09171234567", null, null, null, null, null, null);
 
         registrar.register(request);
 
         ArgumentCaptor<Member> captor = ArgumentCaptor.forClass(Member.class);
-        verify(paymentService).recordPayment(captor.capture(), eq(new BigDecimal("1200.00")), eq(PaymentMethod.cash), isNull(), any(Instant.class));
+        verify(paymentService).recordPayment(captor.capture(), eq(new BigDecimal("1200.00")), eq(PaymentMethod.cash), isNull(), any(Instant.class), isNull(), isNull());
         assertThat(captor.getValue().getId()).isEqualTo("1001");
         assertThat(captor.getValue().getPhone()).isEqualTo("09171234567");
         assertThat(captor.getValue().getPlanType()).isEqualTo(PlanType.monthly);

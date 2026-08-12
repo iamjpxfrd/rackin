@@ -55,7 +55,8 @@ public class PaymentController {
     @PostMapping
     public ResponseEntity<PaymentResponse> recordPayment(@Valid @RequestBody PaymentRequest request) {
         PaymentResponse response = paymentService.recordPayment(
-                request.memberId(), request.amount(), request.method(), request.clientUuid(), request.paidAt());
+                request.memberId(), request.amount(), request.method(), request.clientUuid(),
+                request.paidAt(), request.recordedById(), request.recordedByName());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
