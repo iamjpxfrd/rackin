@@ -1,6 +1,7 @@
 // Recording payments for existing members (frontend-spec.md §5.4, PRD 4.7).
 
 import { db, generateClientUuid } from "../../db/db.js";
+import { enqueue } from "../sync/outbox.js";
 import { computeCoversUntil, deriveStatus, latestPaymentOf } from "./membership.js";
 
 /**
@@ -34,7 +35,22 @@ export async function recordPayment({ memberId, amount, method }) {
     coversUntil,
     clientUuid: generateClientUuid(),
   };
-  const id = await db.payments.add(payment);
+
+  // Payment row and queue entry commit together, so a payment can never be
+  // taken locally and then silently never pushed (sync/outbox.js).
+  const id = await db.transaction("rw", db.payments, db.outbox, async () => {
+    const paymentId = await db.payments.add(payment);
+    // paidAt travels with it: the backend counts coverage from when the member
+    // paid, not from whenever this tablet next finds a network (TRD 7).
+    await enqueue("payment", {
+      memberId,
+      amount: numericAmount,
+      method,
+      clientUuid: payment.clientUuid,
+      paidAt,
+    });
+    return paymentId;
+  });
 
   return {
     payment: { ...payment, id },

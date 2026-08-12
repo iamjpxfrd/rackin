@@ -208,12 +208,31 @@ Matches 3.5. Response: `{ "status": "active" | "expired" }`
 
 ## 7. Sync behavior (tablet ↔ backend)
 
-**Not required for the pilot** (ADR-001), specified here so it's
-ready when needed:
+**Implemented.** Still not *required* for the pilot (ADR-001) — a build
+with no `VITE_RACKIN_API_URL` set runs offline-only and every flow works
+unchanged. Writes queue regardless, so pointing a later build at a
+backend pushes the accumulated history rather than starting from empty.
 
-- **Trigger:** on network availability detected (browser `online`
-  event), not polled continuously — avoids battery/resource drain on
-  a device that may be offline for hours.
+Frontend: `src/sync/` (`outbox.js` queue, `api.js` transport,
+`sync.js` runner). Backend: the Section 5 endpoints, made idempotent on
+`clientUuid` and accepting the tablet's own ids and timestamps.
+
+- **Triggers:** three, each covering a case the others miss. This
+  section originally specified only the second; that alone left a
+  member registered on an already-online tablet sitting in the queue
+  until the app was next reloaded, which is how the gap was found.
+  1. **After every local write.** The common case when the gym's wifi
+     is working: staff register someone and it reaches the backend
+     seconds later. No `online` event fires here, because the tablet
+     never went offline.
+  2. **On the browser `online` event.** The tablet was offline and has
+     just regained a network; drain whatever accumulated.
+  3. **On a retry timer, but only while the queue is non-empty.** The
+     browser reports `online` for a wifi network with no route to the
+     backend, and fires no event when that route returns. The timer
+     stops the moment the queue drains, so an idle tablet polls
+     nothing — still no continuous polling, and no battery drain on a
+     device left on the front desk all day.
 - **Direction:** one-way push, tablet → backend, for the pilot. The
   tablet remains authoritative; the backend does not push changes
   back down in v1 (no multi-device conflict resolution needed yet,
@@ -222,13 +241,27 @@ ready when needed:
   payments) since the last successful sync, sent as a batch via the
   endpoints in Section 5, in creation order.
 - **Idempotency:** each local record carries a client-generated UUID
-  in addition to its local auto-increment id; the backend upserts on
-  that UUID so a retried sync after a partial failure never
-  duplicates a check-in or payment.
+  in addition to its local auto-increment id; the backend looks up
+  that UUID before inserting and replays the original result, so a
+  retried sync after a partial failure never duplicates a check-in,
+  double-counts a visit, or extends a membership twice.
+- **Ordering:** the queue drains in insertion order and **stops at the
+  first retryable failure** rather than skipping past it. A payment or
+  check-in that reached the backend before its registration would be
+  refused outright, so continuing past a gap would turn one transient
+  failure into a run of permanent rejections.
+- **Timestamps:** every operation carries the moment it actually
+  happened. Without this a day of offline check-ins would all land at
+  sync time and read as one simultaneous rush, and a payment taken on
+  Monday and synced on Friday would silently gain four days of
+  coverage.
 - **Failure handling:** on any sync failure, the queue is left intact
   and retried on the next `online` event — sync failure is silent to
   staff (no error banner), since it never blocks any local flow
-  (PRD 4.10).
+  (PRD 4.10). The one exception to retrying is a `4xx`: the backend
+  understood the request and refused it, so it is marked `rejected`,
+  kept for debugging, and skipped by every later drain. Retrying it
+  would wedge the queue behind a record that can never succeed.
 
 ## 8. Error handling principles
 

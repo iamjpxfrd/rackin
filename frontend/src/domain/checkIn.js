@@ -3,6 +3,7 @@
 // logic per input path (ADR-001).
 
 import { db, generateClientUuid } from "../../db/db.js";
+import { enqueue } from "../sync/outbox.js";
 
 /**
  * @param {string} memberId
@@ -15,11 +16,17 @@ export async function checkInMember(memberId, method) {
     throw new Error(`No member found for #${memberId}`);
   }
 
-  await db.checkIns.add({
-    memberId,
-    timestamp: new Date().toISOString(),
-    method,
-    clientUuid: generateClientUuid(),
+  const timestamp = new Date().toISOString();
+  const clientUuid = generateClientUuid();
+
+  // Check-in row and queue entry commit together, so a visit recorded at the
+  // desk can never go missing from the backend (sync/outbox.js).
+  await db.transaction("rw", db.checkIns, db.outbox, async () => {
+    await db.checkIns.add({ memberId, timestamp, method, clientUuid });
+    // timestamp travels with it: a day of offline check-ins pushed at closing
+    // time must land at the hours members actually walked in, not all at once
+    // (TRD 7).
+    await enqueue("checkin", { memberId, method, clientUuid, timestamp });
   });
 
   const visitCountThisMonth = await countVisitsThisMonth(memberId);

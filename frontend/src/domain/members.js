@@ -1,6 +1,7 @@
 // Member registration and profile reads (frontend-spec.md §5.4, PRD 4.6/4.8).
 
 import { db, generateClientUuid, getNextMemberId } from "../../db/db.js";
+import { enqueue } from "../sync/outbox.js";
 import { HISTORY_PAGE_SIZE, PLAN_TYPES } from "./constants.js";
 import { computeCoversUntil, deriveStatus, latestPaymentOf } from "./membership.js";
 
@@ -43,7 +44,11 @@ export async function registerMember({
 
   const trimmedPhone = String(phone ?? "").trim() || null;
 
-  return db.transaction("rw", db.members, db.payments, async () => {
+  // db.outbox joins the transaction so the queue entry commits with the rows it
+  // describes. Queuing afterwards would leave a crash-sized window in which the
+  // member exists locally but is never pushed — invisible, since the tablet
+  // would still show them (sync/outbox.js).
+  return db.transaction("rw", db.members, db.payments, db.outbox, async () => {
     const id = await getNextMemberId();
     const createdAt = new Date().toISOString();
 
@@ -66,6 +71,22 @@ export async function registerMember({
       clientUuid: generateClientUuid(),
     };
     const paymentId = await db.payments.add(payment);
+
+    // One operation, not two, mirroring POST /api/members: registration and its
+    // first payment are a single action on the backend as well (TRD 5).
+    // memberId carries this tablet's number so the backend keeps it rather than
+    // assigning its own — the QR card is already printed with it.
+    await enqueue("register", {
+      memberId: id,
+      name: trimmedName,
+      planType,
+      phone: trimmedPhone,
+      amount: numericAmount,
+      method: paymentMethod,
+      clientUuid: member.clientUuid,
+      paymentClientUuid: payment.clientUuid,
+      createdAt,
+    });
 
     return { member, payment: { ...payment, id: paymentId } };
   });
