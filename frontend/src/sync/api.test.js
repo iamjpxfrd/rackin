@@ -4,6 +4,7 @@ import { isSyncConfigured, postJson, SyncRejectedError, syncBaseUrl } from "./ap
 
 beforeEach(() => {
   vi.stubEnv("VITE_RACKIN_API_URL", "http://localhost:8080");
+  vi.stubEnv("VITE_RACKIN_API_KEY", "test-api-key");
 });
 
 function respondWith({ status, statusText = "", body = null, ok = status < 400 }) {
@@ -24,9 +25,30 @@ describe("configuration", () => {
     expect(isSyncConfigured()).toBe(false);
   });
 
+  it("treats a build with a backend but no key as offline-only too", () => {
+    vi.stubEnv("VITE_RACKIN_API_KEY", "");
+
+    // Sending anyway would collect a 401 per record, and since a 4xx is
+    // permanent that would mark the gym's whole history rejected rather than
+    // leaving it queued for a correctly configured build.
+    expect(isSyncConfigured()).toBe(false);
+  });
+
   it("strips a trailing slash so paths never double up", () => {
     vi.stubEnv("VITE_RACKIN_API_URL", "http://localhost:8080/");
     expect(syncBaseUrl()).toBe("http://localhost:8080");
+  });
+});
+
+describe("sending the key", () => {
+  it("presents it as a bearer token on every request", async () => {
+    const fetchImpl = respondWith({ status: 201, body: {} });
+
+    await postJson("/api/members", { name: "Maria Santos" }, { fetchImpl });
+
+    const [, options] = fetchImpl.mock.calls[0];
+    expect(options.headers.Authorization).toBe("Bearer test-api-key");
+    expect(options.headers["Content-Type"]).toBe("application/json");
   });
 });
 

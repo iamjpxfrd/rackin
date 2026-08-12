@@ -26,9 +26,29 @@ export function syncBaseUrl() {
   return String(configured).trim().replace(/\/+$/, "");
 }
 
-/** Whether this build has a backend to push to at all. */
+/**
+ * The shared key the backend expects, or "" when this build has none.
+ *
+ * Worth being clear about what this is: a key inside a browser bundle is not a
+ * secret from whoever holds the tablet — devtools reveals it. It closes the API
+ * to the internet, not to the device's user. That is the honest limit of any
+ * credential a browser app can carry, and the reason real per-person
+ * authentication belongs with the owner dashboard rather than here (ADR-002).
+ */
+export function syncApiKey() {
+  const configured = import.meta.env?.VITE_RACKIN_API_KEY ?? "";
+  return String(configured).trim();
+}
+
+/**
+ * Whether this build has a backend to push to at all.
+ *
+ * Both parts are required. A URL without a key would queue writes, send them,
+ * and collect a 401 on every one — which, since 4xx is permanent, would mark
+ * the gym's entire history as rejected rather than retrying it later.
+ */
 export function isSyncConfigured() {
-  return syncBaseUrl() !== "";
+  return syncBaseUrl() !== "" && syncApiKey() !== "";
 }
 
 /**
@@ -39,7 +59,10 @@ export function isSyncConfigured() {
 export async function postJson(path, body, { fetchImpl = fetch } = {}) {
   const response = await fetchImpl(`${syncBaseUrl()}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${syncApiKey()}`,
+    },
     body: JSON.stringify(body),
   });
 

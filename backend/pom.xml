@@ -47,6 +47,17 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
+		<!--
+			The sync API is reachable by whoever can reach the host, and answers
+			with the gym's entire membership and payment history. Spring Security
+			rather than a bare servlet filter: the owner dashboard will need real
+			user authentication later, and adding it to an existing filter chain
+			is additive where bolting it onto a hand-rolled check is a rewrite.
+		-->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
 		<!-- OpenAPI 3 spec + Swagger UI at /swagger-ui.html for manual API testing -->
 		<dependency>
 			<groupId>org.springdoc</groupId>

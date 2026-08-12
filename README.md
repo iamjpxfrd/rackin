@@ -89,6 +89,33 @@ The backend is an **optional sync target, not a dependency** for any core flow. 
 
 ---
 
+## 🔐 Authentication
+
+Every `/api/**` endpoint requires a shared key on the `Authorization` header:
+
+```
+Authorization: Bearer <RACKIN_API_KEY>
+```
+
+The backend **refuses to start** without `RACKIN_API_KEY` set — the same rule the project already applies to `DB_PASSWORD`. An API that answers with the gym's full membership and payment history must never come up open, and a default key would be worse than none: the app would look protected while accepting a key anyone can read in the repository.
+
+`/actuator/health` and the Swagger endpoints stay open. Health carries no gym data and a deploy has to be able to ask whether the service is up; Swagger describes the shape of the API rather than its contents, and is disabled outright in the `prod` profile.
+
+**A key, not a login, because the client is a device.** There is no user model here — staff attribution records *who was at the desk* and proves nothing (that's the point of it). Per-person authentication belongs with the owner dashboard, where the caller is a human and the threat is someone outside the gym.
+
+### ⚠️ What this does and does not protect
+
+| | |
+| --- | --- |
+| ✅ **Stops** | Anyone who can reach the host reading or writing the gym's data. Before this, that was every unauthenticated request. |
+| ❌ **Does not stop** | Someone holding the tablet. The key ships inside the browser bundle, so devtools reveals it. |
+
+That second row is a real limit, not an oversight: **a browser application cannot hold a secret from its own user.** Anything shipped to the client is readable by whoever has the client. What the key buys is turning "anyone who finds the URL" into "anyone who has the tablet" — a meaningful step for a device that sits behind a front desk, and the honest ceiling for this class of client.
+
+Do not read this section as "the API is secure". Read it as "the API is closed to the internet".
+
+---
+
 ## 📖 API Reference (Swagger)
 
 With the backend running, the API documents itself:

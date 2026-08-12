@@ -213,8 +213,16 @@ user-facing flow ever wait on it" — and the answer to the second stays no.
        synced late lands as the record it actually was
 4. [x] Ship one-way push from the tablet, off by default and additive
 5. [x] Record this decision (this ADR) and update ADR-001 to point at it
-6. [ ] **Authentication before any internet-reachable deployment** — the
-       API is currently open, which the dashboard makes untenable
+6. [x] **Close the API to anonymous callers** — done. A shared key on
+       `Authorization: Bearer`, required at startup so the service cannot
+       come up open. This is device authentication, and its ceiling is
+       low by construction: the key ships in the tablet's browser bundle,
+       so it stops anyone who can reach the host, not anyone holding the
+       tablet. A browser client cannot hold a secret from its own user.
+6a. [ ] **Per-person authentication for the dashboard** — the remaining
+       half, and a different problem. The dashboard's caller is a human
+       outside the gym, so it needs real accounts, not a shared key, and
+       the shared key must not be what guards it
 7. [ ] **Solve id allocation before a second tablet** (OD-8 in
        `frontend-spec.md`). Not required by the dashboard; required by any
        second writer

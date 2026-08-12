@@ -8,6 +8,7 @@ import com.rackin.backend.web.dto.MemberSummary;
 import com.rackin.backend.web.dto.PaymentResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -25,6 +26,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+// Security is exercised by ApiKeySecurityTest. These verify controller and
+// DTO behaviour, and threading a key through every request would only make
+// each assertion harder to read without testing anything new.
+@AutoConfigureMockMvc(addFilters = false)
 @WebMvcTest(PaymentController.class)
 class PaymentControllerTest {
 
