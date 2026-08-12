@@ -37,7 +37,7 @@ class PaymentControllerTest {
     @Test
     void recordPayment_withValidRequest_shouldReturn201() throws Exception {
         Instant coversUntil = Instant.parse("2026-08-11T00:00:00Z");
-        when(paymentService.recordPayment(eq("1114"), any(), any(), isNull()))
+        when(paymentService.recordPayment(eq("1114"), any(), any(), isNull(), isNull()))
                 .thenReturn(new PaymentResponse(coversUntil, MembershipStatus.active));
 
         String body = """
@@ -54,7 +54,7 @@ class PaymentControllerTest {
 
     @Test
     void recordPayment_whenMemberNotFound_shouldReturn404() throws Exception {
-        when(paymentService.recordPayment(eq("9999"), any(), any(), isNull()))
+        when(paymentService.recordPayment(eq("9999"), any(), any(), isNull(), isNull()))
                 .thenThrow(new MemberNotFoundException("9999"));
 
         String body = """

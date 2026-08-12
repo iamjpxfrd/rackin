@@ -11,7 +11,10 @@ import Dexie from "dexie";
 
 export const db = new Dexie("rackin");
 
-db.version(1).stores({
+// Exported so a test can build an equivalent version-1 database, seed it, and
+// exercise the real upgrade path. A backfill that has never actually run
+// against version-1 data is not one anybody should trust a gym's history to.
+export const CORE_STORES = {
   // id is the sequential member number (string), assigned locally.
   // phone is optional (Decision Record: phone & thresholds).
   members: "id, name, planType, phone, createdAt, clientUuid",
@@ -21,7 +24,134 @@ db.version(1).stores({
 
   // Auto-increment local id; method is one of numpad|qr|search.
   checkIns: "++id, memberId, timestamp, method, clientUuid",
-});
+};
+
+db.version(1).stores(CORE_STORES);
+
+// Version 2 adds the sync outbox (TRD 7). Purely additive — an existing tablet
+// upgrades in place and keeps every local record, since the source of truth is
+// still IndexedDB and the outbox only describes what has yet to be pushed.
+db.version(2).stores({
+  ...CORE_STORES,
+
+  // The queue of local writes not yet accepted by the backend.
+  //
+  // ++id is the ordering guarantee, not just a key: registrations must reach
+  // the backend before the payments and check-ins that reference them, or the
+  // member does not exist yet and the write is refused. Draining in insertion
+  // order preserves the order the front desk actually did things in.
+  //
+  // clientUuid is indexed so a record can be found without scanning, and is
+  // unique per queued operation — it is the same key the backend dedupes on.
+  outbox: "++id, clientUuid, status",
+}).upgrade(backfillOutbox);
+
+/**
+ * Queue everything this tablet recorded before the outbox existed.
+ *
+ * Without this, a tablet already in use at the gym would sync only what it did
+ * from the upgrade onwards, and its entire history to date would sit on the
+ * device looking perfectly healthy while never reaching the backend — the worst
+ * kind of data loss, because nothing anywhere reports it.
+ *
+ * Dexie runs an upgrade function exactly once per device, on the transition
+ * from version 1 to version 2. That is the idempotency guarantee: this cannot
+ * double-queue on a later reload, and a tablet that starts fresh at version 2
+ * never runs it at all, because it has no version 1 data to migrate.
+ */
+export async function backfillOutbox(tx) {
+  const members = await tx.table("members").toArray();
+  if (members.length === 0) return;
+
+  const payments = await tx.table("payments").toArray();
+  const checkIns = await tx.table("checkIns").toArray();
+  const outbox = tx.table("outbox");
+
+  const paymentsByMember = new Map();
+  for (const payment of payments) {
+    const bucket = paymentsByMember.get(payment.memberId);
+    if (bucket) bucket.push(payment);
+    else paymentsByMember.set(payment.memberId, [payment]);
+  }
+  for (const bucket of paymentsByMember.values()) {
+    bucket.sort((a, b) => String(a.paidAt).localeCompare(String(b.paidAt)));
+  }
+
+  const queue = (kind, body) =>
+    outbox.add({
+      kind,
+      body,
+      clientUuid: body.clientUuid ?? null,
+      queuedAt: new Date().toISOString(),
+      attempts: 0,
+      status: "pending",
+      lastError: null,
+    });
+
+  // Registrations first, oldest member first. Everything below references a
+  // member, and the backend refuses a payment or check-in for someone it has
+  // never heard of.
+  const registered = new Set();
+  const oldestFirst = [...members].sort((a, b) =>
+    String(a.createdAt).localeCompare(String(b.createdAt)),
+  );
+
+  for (const member of oldestFirst) {
+    // A member's first payment is part of registering them, exactly as
+    // POST /api/members expects — not a separate operation.
+    const first = paymentsByMember.get(member.id)?.[0];
+    if (!first) {
+      // Registration writes the member and their first payment in one
+      // transaction, so this cannot happen. If it somehow has, the backend
+      // would reject the registration for a missing amount; leaving the member
+      // local-only is the more honest outcome than queueing a certain failure.
+      continue;
+    }
+    await queue("register", {
+      memberId: member.id,
+      name: member.name,
+      planType: member.planType,
+      phone: member.phone ?? null,
+      amount: first.amount,
+      method: first.method,
+      clientUuid: member.clientUuid,
+      paymentClientUuid: first.clientUuid,
+      createdAt: member.createdAt,
+    });
+    registered.add(member.id);
+  }
+
+  // Renewals: every payment except the one already carried by its registration.
+  const renewals = [];
+  for (const [memberId, bucket] of paymentsByMember) {
+    if (!registered.has(memberId)) continue;
+    renewals.push(...bucket.slice(1));
+  }
+  renewals.sort((a, b) => String(a.paidAt).localeCompare(String(b.paidAt)));
+
+  for (const payment of renewals) {
+    await queue("payment", {
+      memberId: payment.memberId,
+      amount: payment.amount,
+      method: payment.method,
+      clientUuid: payment.clientUuid,
+      paidAt: payment.paidAt,
+    });
+  }
+
+  const visits = checkIns
+    .filter((checkIn) => registered.has(checkIn.memberId))
+    .sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp)));
+
+  for (const checkIn of visits) {
+    await queue("checkin", {
+      memberId: checkIn.memberId,
+      method: checkIn.method,
+      clientUuid: checkIn.clientUuid,
+      timestamp: checkIn.timestamp,
+    });
+  }
+}
 
 /**
  * Generate a client-side UUID for a new record.
@@ -60,4 +190,5 @@ export async function resetDatabase() {
   await db.members.clear();
   await db.payments.clear();
   await db.checkIns.clear();
+  await db.outbox.clear();
 }

@@ -7,6 +7,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
@@ -32,6 +33,15 @@ public class MemberService {
     // transaction, and the call goes through the registrar's proxy so it does.
     public RegisterMemberResponse registerMember(RegisterMemberRequest request) {
         for (int attempt = 1; ; attempt++) {
+            // Checked before every attempt, not just the first: a replay racing
+            // its own original loses the clientUuid unique index below, and on
+            // the next pass the winner is committed and visible here. Without
+            // this the loser would retry until it exhausted its attempts and
+            // then fail a registration that had in fact succeeded.
+            Optional<RegisterMemberResponse> alreadyRegistered = registrar.findAlreadyRegistered(request);
+            if (alreadyRegistered.isPresent()) {
+                return alreadyRegistered.get();
+            }
             try {
                 return registrar.register(request);
             } catch (DataIntegrityViolationException ex) {

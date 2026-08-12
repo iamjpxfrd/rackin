@@ -7,10 +7,16 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 public interface CheckInRepository extends JpaRepository<CheckIn, Long> {
 
     long countByMember_IdAndTimestampGreaterThanEqual(String memberId, Instant monthStart);
+
+    // The tablet's idempotency key (TRD 7) — a replayed check-in must not
+    // inflate the member's visit count.
+    Optional<CheckIn> findByClientUuid(UUID clientUuid);
 
     // Cutoff is computed in the service layer (now - days) rather than in SQL,
     // since Postgres/H2 interval syntax isn't portable (backend-schema.md 6.1).

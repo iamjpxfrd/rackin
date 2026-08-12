@@ -38,12 +38,23 @@ public class CheckInService {
         Member member = memberRepository.findById(request.memberId())
                 .orElseThrow(() -> new MemberNotFoundException(request.memberId()));
 
-        CheckIn checkIn = new CheckIn();
-        checkIn.setMember(member);
-        checkIn.setTimestamp(Instant.now());
-        checkIn.setMethod(request.method());
-        checkIn.setClientUuid(request.clientUuid() != null ? request.clientUuid() : UUID.randomUUID());
-        checkInRepository.save(checkIn);
+        UUID idempotencyKey = request.clientUuid() != null ? request.clientUuid() : UUID.randomUUID();
+
+        // A sync retried after a lost response must not count the same visit
+        // twice — the member's monthly count is what staff read off the
+        // confirmation card (TRD 7). The count below is recomputed either way,
+        // so a replay still answers with the current truth.
+        if (checkInRepository.findByClientUuid(idempotencyKey).isEmpty()) {
+            CheckIn checkIn = new CheckIn();
+            checkIn.setMember(member);
+            // The moment the member walked in, not the moment the tablet found
+            // a network — a day's offline check-ins would otherwise all land at
+            // sync time and read as one simultaneous rush.
+            checkIn.setTimestamp(request.timestamp() != null ? request.timestamp() : Instant.now());
+            checkIn.setMethod(request.method());
+            checkIn.setClientUuid(idempotencyKey);
+            checkInRepository.save(checkIn);
+        }
 
         Instant monthStart = Instant.now().atZone(ZoneOffset.UTC)
                 .toLocalDate().withDayOfMonth(1)

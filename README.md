@@ -55,21 +55,68 @@ npm run dev
 
 The frontend runs entirely in the browser and requires no backend to be running — local persistence is the source of truth. This is the only step needed for the pilot deployment.
 
+To also push to a backend, copy `frontend/.env.example` to `.env.local` and set the API URL. Leaving it unset is a supported configuration, not a broken one: the app runs offline-only, and writes still queue, so setting it later pushes the accumulated history rather than starting from empty.
+
+```properties
+VITE_RACKIN_API_URL=http://localhost:8080
+```
+
+Vite reads this at startup — restart `npm run dev` after changing it.
+
 ### 3. Backend Setup (Spring Boot — optional):
 
 - Navigate to the `backend` directory.
-- Requires JDK 21.
-- Runs against H2 out of the box for local development; PostgreSQL is the production target.
+- Requires **JDK 21** and **PostgreSQL 16+**. Local development runs the same engine as production, deliberately: the repositories use native SQL with Postgres-specific behaviour, and developing against H2 would leave those paths untested until deploy. H2 is used only by the test suite.
+- Create the database and supply `DB_PASSWORD` first — see [Run the Backend Locally](docs/how-to/run-the-backend-locally.md), which covers role creation, the credential file, and troubleshooting.
 
 **Start the backend:**
 
 ```bash
-./mvnw spring-boot:run
+./mvnw spring-boot:run          # Git Bash / macOS / Linux
+.\mvnw.cmd spring-boot:run      # PowerShell
 ```
 
-The backend API will be available at `http://localhost:8080`
+The backend API will be available at `http://localhost:8080`. Flyway owns the schema and applies migrations on startup; Hibernate runs with `ddl-auto=validate` and will refuse to start on a mismatch rather than altering anything itself.
 
-The backend is an **optional sync target, not a dependency** for any core flow. It is scheduled last (Phase 8) precisely so the product loop is validated before the infrastructure is built. See [ADR-001](docs/architecture/ADR-001-checkin-input-and-offline-architecture.md).
+**Run the tests** — these need no database at all, so they work before you have finished the steps above:
+
+```bash
+./mvnw test
+```
+
+The backend is an **optional sync target, not a dependency** for any core flow. It is scheduled last precisely so the product loop is validated before the infrastructure is built. See [ADR-001](docs/architecture/ADR-001-checkin-input-and-offline-architecture.md).
+
+---
+
+## 📖 API Reference (Swagger)
+
+With the backend running, the API documents itself:
+
+| | |
+| --- | --- |
+| **Swagger UI** | [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html) |
+| **OpenAPI spec** | [http://localhost:8080/v3/api-docs](http://localhost:8080/v3/api-docs) |
+
+Both are **disabled in the `prod` profile** — the public sync target ships no API explorer.
+
+Every endpoint mirrors a frontend domain function 1:1. The backend introduces no business logic of its own, only persistence and a network transport for it (TRD §5).
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/members` | Register a member **and** their first payment, in one call |
+| `GET` | `/api/members/{id}/status` | Derived membership status |
+| `POST` | `/api/checkins` | Record a check-in |
+| `GET` | `/api/checkins/lapsed?days=14` | Members who have stopped coming |
+| `POST` | `/api/payments` | Record a renewal |
+| `GET` | `/api/payments/expiring?days=7` | Memberships about to lapse |
+
+Three things about these that are easy to miss, and all three exist because the client is a tablet that may have been offline for hours:
+
+- **`clientUuid` is an idempotency key, not a comment.** Replaying a request returns the original result rather than creating a second member, double-counting a visit, or extending a membership twice.
+- **Writes accept the tablet's own timestamps** (`createdAt`, `paidAt`, `timestamp`). A check-in recorded at 6am and pushed at 9pm is stored at 6am. Omit them and the server fills them in.
+- **Registration accepts a `memberId` the tablet already assigned offline**, because that number is printed on the member's QR card. A `409` means the number belongs to someone else.
+
+Try it: `POST /api/members` on an empty database returns `"memberId": "1001"` — ids are sequential strings starting at 1001. To inspect what landed, see [inspect-the-database.sql](docs/how-to/inspect-the-database.sql).
 
 ---
 
@@ -81,15 +128,20 @@ React Frontend (Vite - Port 5173)
 Domain Layer (checkInMember / registerMember / recordPayment)
        ↓
 IndexedDB via Dexie  ← SOURCE OF TRUTH
-       ↓
-Sync Queue (optional, fires on browser `online` event)
-       ↓
+       │
+       ├── local record  ──┐
+       └── outbox entry  ──┘  one transaction, so a queued write cannot be lost
+                 ↓
+Sync Queue (optional — after each write, on `online`, and on a retry timer)
+                 ↓
 Spring Boot Backend (Port 8080)
-       ↓
-PostgreSQL (H2 for local dev)
+                 ↓
+PostgreSQL
 ```
 
 The domain layer sits between UI and storage so that numpad, QR scan, and name search all call the **same** `checkInMember(memberId, method)` function — no duplicated business logic per input method. The sync step is drawn deliberately outside the critical path: nothing in check-in waits on it, checks its status, or degrades if it never runs.
+
+The local record and its queue entry commit **together**. Queuing after the write would leave a crash window in which a member exists on the tablet but is never pushed — the worst kind of loss, because the tablet would still show them and nothing anywhere would report it.
 
 ---
 
@@ -101,8 +153,10 @@ The domain layer sits between UI and storage so that numpad, QR scan, and name s
 - **Backend**: Spring Boot 3.5 (Java 21, Spring Data JPA, Bean Validation)
 - **Database**:
   - IndexedDB (on-tablet, authoritative)
-  - PostgreSQL (backend sync target)
-  - H2 (local backend development)
+  - PostgreSQL (backend sync target, and local development — same engine as production)
+  - H2 (backend test suite only, so tests need no running database)
+- **Schema migrations**: Flyway (`ddl-auto=validate` — Hibernate never alters a schema)
+- **API docs**: springdoc-openapi → Swagger UI, disabled in production
 - **QR Generation & Scanning**: Client-side JS libraries — no server round-trip, no per-member cost
 - **Hosting (pilot)**: Static build, served from the tablet itself — $0, no infrastructure required
 
@@ -114,9 +168,27 @@ RackIn treats connectivity as absent by default rather than as a degraded case:
 
 1. **Local writes only**: Every check-in, registration, and payment is written to IndexedDB immediately. No network call sits in any user-facing path.
 2. **Client-assigned identity**: `member.id` is a sequential string (`"1001"`, `"1002"`, …) assigned on the tablet — a database auto-increment can't be assigned safely offline, which is why the id is not an integer PK.
-3. **Sync idempotency**: Every local record carries a client-generated `clientUuid`. The backend upserts on that key, so a retried or interrupted sync can never duplicate a check-in or payment.
-4. **One-way push**: Sync runs tablet → backend only, batched, triggered on the browser's `online` event rather than polled. The tablet stays authoritative; no multi-device conflict resolution is needed at pilot scope.
-5. **Silent failure**: Sync errors never surface to staff. The queue stays intact and retries — a sync failure has zero impact on gym operations, so surfacing it would only create confusion with no actionable next step.
+3. **Sync idempotency**: Every local record carries a client-generated `clientUuid`. The backend looks it up before writing and replays the original result, so a sync retried after a lost response can never duplicate a member, inflate a visit count, or extend a membership twice.
+4. **Real timestamps, not arrival times**: Each queued write carries the moment it actually happened. Without this, a day of offline check-ins pushed at closing time would land together and read as one simultaneous rush — and the lapsed report reads exactly that data.
+5. **One-way push**: Sync runs tablet → backend only. The tablet stays authoritative and the backend never pushes changes down; with one device at pilot scope there is nothing to reconcile, and two-way sync would introduce conflict resolution the product does not need. A record created directly on the backend will therefore never appear on the tablet.
+6. **Three triggers**: after every local write (the common case when the wifi works), on the browser's `online` event (drain what accumulated offline), and on a retry timer that runs **only while the queue is non-empty** — covering wifi that reports `online` but has no route to the backend, which fires no event when the route returns. The timer stops when the queue drains, so an idle tablet polls nothing.
+7. **Ordered draining**: the queue drains oldest-first and stops at the first retryable failure rather than skipping past it. A payment that outran its registration would be refused for an unknown member, turning one transient failure into a run of permanent ones.
+8. **Silent failure**: Sync errors never surface to staff. The queue stays intact and retries — a sync failure has zero impact on gym operations, so surfacing it would only create confusion with no actionable next step. A `4xx` is the one thing not retried: the backend understood the request and refused it, so it is set aside and kept for debugging instead of wedging everything behind it.
+
+### Checking on sync
+
+Because failures are silent by design, there is no UI that will ever tell you a record did not arrive. Dev builds expose the queue on the console instead (stripped from production):
+
+```js
+await window.rackinSync.pending()        // still waiting to be pushed
+await window.rackinSync.rejected()       // refused by the backend, reason on lastError
+await window.rackinSync.push()           // push now, without waiting for a trigger
+await window.rackinSync.retryRejected()  // re-queue refusals after fixing the cause
+await window.rackinSync.resync()         // rebuild the queue from every local record
+await window.rackinSync.wipeLocal()      // erase local data — next member is #1001 again
+```
+
+`resync()` is the answer when the backend's copy has diverged and the tablet's version is the one to trust, which it always is. It is safe to run repeatedly: the backend dedupes on `clientUuid`, so records already there are accepted as no-ops and only the genuinely missing ones are written.
 
 ---
 
@@ -144,6 +216,12 @@ Scope is held small on purpose so the pilot is finishable and testable:
 - [System Design — Consolidated architecture view](docs/architecture/system-design.md)
 - [App Flow — Screen-to-screen paths](docs/design/app-flow.md)
 - [Design System — Visual language & component specs](docs/design/design-system.md)
+- [Frontend Spec — Screen-by-screen behaviour & open decisions](docs/design/frontend-spec.md)
+
+**How-to guides**
+
+- [Run the Backend Locally](docs/how-to/run-the-backend-locally.md) — database setup, credentials, troubleshooting
+- [Inspect the Database](docs/how-to/inspect-the-database.sql) — ready-to-run queries for checking what synced
 
 ---
 
@@ -185,7 +263,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## ⚠️ Disclaimer
 
-**During the pilot, the tablet is the only copy of the data.** IndexedDB on a single device is the source of truth, and cloud sync is not enabled — if the tablet is lost, wiped, or damaged, the gym's check-in and payment history goes with it. This is an accepted pilot-scope risk, not an oversight; the paper logbook remains the fallback until the device is replaced. Do not treat RackIn as a system of record for financial or membership disputes until backend sync is deployed.
+**Unless a backend is configured, the tablet is the only copy of the data.** IndexedDB on a single device is the source of truth, and sync is off by default — if the tablet is lost, wiped, or damaged, the gym's check-in and payment history goes with it. This is an accepted pilot-scope risk, not an oversight; the paper logbook remains the fallback until the device is replaced.
+
+Sync is implemented and can be switched on by setting `VITE_RACKIN_API_URL`, which removes that single-copy risk. It does **not** yet make RackIn safe as a system of record for financial or membership disputes: the backend is a push target, not a verified ledger, and a record refused by the backend is set aside silently by design. Reconcile against the tablet before relying on either side in a dispute.
+
+**One device only.** The tablet and backend both assign member numbers starting at 1001, by different formulas that agree only while a single tablet is the sole writer. Adding a second device without solving id allocation will collide — and the failure is not clean: a colliding registration is refused while the payments that reference it are accepted onto whichever member already holds that number. Tracked as OD-8 in the [frontend spec](docs/design/frontend-spec.md).
 
 ---
 

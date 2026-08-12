@@ -9,6 +9,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.UUID;
 
 public record RegisterMemberRequest(
@@ -23,6 +24,23 @@ public record RegisterMemberRequest(
         @Schema(description = "Optional contact number", example = "09171234567")
         String phone,
         @Schema(description = "Tablet-generated idempotency key. Leave blank to let the server generate one.")
-        UUID clientUuid
+        UUID clientUuid,
+
+        // The three fields below exist for the tablet's sync push (TRD 7). A
+        // human registering through Swagger or a future admin UI omits all
+        // three and the server fills them in, which is the pre-sync behaviour
+        // unchanged.
+
+        @Schema(description = "Id the tablet already assigned this member offline. Omit and the "
+                + "server assigns the next sequential id. Supplying one is how a synced member "
+                + "keeps the number printed on their QR card (backend-schema.md 7).",
+                example = "1217")
+        @Size(max = 20, message = "memberId must be at most 20 chars") String memberId,
+        @Schema(description = "When the member actually registered on the tablet, which may be hours "
+                + "before this request if the gym was offline. Omit for the current time.")
+        Instant createdAt,
+        @Schema(description = "Idempotency key of the initial payment, distinct from the member's. "
+                + "Omit and the server generates one.")
+        UUID paymentClientUuid
 ) {
 }

@@ -1,5 +1,6 @@
 package com.rackin.backend.web;
 
+import com.rackin.backend.exception.MemberIdConflictException;
 import com.rackin.backend.exception.MemberNotFoundException;
 import com.rackin.backend.web.dto.ErrorMessage;
 import com.rackin.backend.web.dto.FieldError;
@@ -17,6 +18,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MemberNotFoundException.class)
     public ResponseEntity<ErrorMessage> handleMemberNotFound(MemberNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorMessage(ex.getMessage()));
+    }
+
+    // 409 rather than 400: the request is well-formed and would have succeeded
+    // against a different backend. The tablet's sync queue treats it as
+    // permanent and stops retrying, which a 5xx would not do.
+    @ExceptionHandler(MemberIdConflictException.class)
+    public ResponseEntity<ErrorMessage> handleMemberIdConflict(MemberIdConflictException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorMessage(ex.getMessage()));
     }
 
     // Field-level detail (TRD Section 8) so the frontend can surface specific guidance.

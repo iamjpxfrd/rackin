@@ -22,10 +22,17 @@ public class OpenApiConfig {
                                 Sync endpoints for the Rackin gym tablet.
 
                                 All writes carry a `clientUuid` so a tablet that retries after an offline
-                                spell does not double-record. Membership status is derived from payment
-                                coverage, never stored.
+                                spell does not double-record: replaying one returns the original result
+                                instead of creating a second member, payment, or visit. Membership
+                                status is derived from payment coverage, never stored.
 
-                                Enum values are lowercase (`weekly`/`monthly`, `cash`/`transfer`,
+                                Writes also accept the tablet's own timestamps (`createdAt`, `paidAt`,
+                                `timestamp`) and its `memberId`. A gym with no wifi records everything
+                                offline and pushes hours later, so a record that arrives late must still
+                                land at the time it happened and keep the member number already printed
+                                on that member's QR card. Omit them and the server fills them in.
+
+                                Enum values are lowercase (`session`/`weekly`/`monthly`, `cash`/`transfer`,
                                 `numpad`/`qr`/`search`) to match the tablet's contract verbatim."""))
                 .servers(List.of(new Server()
                         .url("http://localhost:" + port)
