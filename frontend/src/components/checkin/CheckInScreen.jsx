@@ -24,8 +24,11 @@ export default function CheckInScreen() {
     setSubmitting(true);
     setError(null);
     try {
-      const { member, visitCountThisMonth } = await checkInMember(memberId, method);
-      setConfirmation({ member, visitCountThisMonth });
+      const { member, visitCountThisMonth, alreadyCheckedInAt } = await checkInMember(
+        memberId,
+        method,
+      );
+      setConfirmation({ member, visitCountThisMonth, alreadyCheckedInAt });
       setNumpadValue("");
     } catch (err) {
       setError(
@@ -102,6 +105,7 @@ export default function CheckInScreen() {
         <ConfirmationCard
           member={confirmation.member}
           visitCountThisMonth={confirmation.visitCountThisMonth}
+          alreadyCheckedInAt={confirmation.alreadyCheckedInAt}
           onDismiss={() => setConfirmation(null)}
         />
       )}

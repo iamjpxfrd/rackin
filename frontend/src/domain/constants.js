@@ -86,10 +86,21 @@ export function formatDayMonth(isoDate) {
   });
 }
 
-/** Clock time for visit rows: "09:14". */
+/**
+ * Clock time for visit rows: "9:14 AM".
+ *
+ * The locale is pinned, like formatDate's, rather than following the device.
+ * Left to the device this returned "09:14 AM" on some tablets and "09:14" on
+ * others, so a fixed column width was right for one and wrapped the AM/PM onto
+ * a second line for the other. A log of times has to be one predictable shape.
+ *
+ * Hour is `numeric`, not `2-digit`: no leading zero, so the column is right
+ * aligned and the colons line up down the list.
+ */
 export function formatTime(isoTimestamp) {
-  return new Date(isoTimestamp).toLocaleTimeString(undefined, {
-    hour: "2-digit",
+  return new Date(isoTimestamp).toLocaleTimeString("en-US", {
+    hour: "numeric",
     minute: "2-digit",
+    hour12: true,
   });
 }
