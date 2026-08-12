@@ -43,7 +43,12 @@ export default function RecordPaymentSheet({ profile, onClose, onRecorded }) {
   const [saving, setSaving] = useState(false);
   // Defaults to the shift and is confirmed below, so a handover nobody
   // remembered to record surfaces here rather than in a month-end discrepancy.
-  const [takenBy, setTakenBy] = useState(null);
+  //
+  // `undefined` until the lookup lands, never null: null is a real answer
+  // meaning nobody is signed in, and the domain preserves it. Starting at null
+  // made a payment submitted before the lookup resolved silently unattributed
+  // while somebody was in fact on the desk.
+  const [takenBy, setTakenBy] = useState(undefined);
 
   useEffect(() => {
     let cancelled = false;

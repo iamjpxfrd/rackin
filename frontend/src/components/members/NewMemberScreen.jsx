@@ -49,7 +49,11 @@ export default function NewMemberScreen({ nextMemberId, onRegistered }) {
   const [saving, setSaving] = useState(false);
   // Registering takes the first payment, so it is attributed exactly as a
   // renewal is — the money does not care which screen it came through.
-  const [takenBy, setTakenBy] = useState(null);
+  //
+  // `undefined` until the lookup lands (see RecordPaymentSheet): null is the
+  // real answer for nobody signed in, and must not be produced by a form that
+  // was simply submitted quickly.
+  const [takenBy, setTakenBy] = useState(undefined);
 
   useEffect(() => {
     let cancelled = false;

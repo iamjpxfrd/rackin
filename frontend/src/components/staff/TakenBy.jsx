@@ -14,6 +14,9 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { UserRound } from "lucide-react";
 import { listStaff, setOnDesk } from "../../domain/staff.js";
 
+// `value` is undefined while the shift lookup is still in flight and null once
+// it has landed on nobody — displayed the same, but only the second is a
+// decision the caller may act on.
 export default function TakenBy({ value, onChange }) {
   const staff = useLiveQuery(() => listStaff(), [], []);
   const [choosing, setChoosing] = useState(false);

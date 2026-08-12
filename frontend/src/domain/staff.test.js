@@ -124,6 +124,39 @@ describe("attribution on records", () => {
     expect(payment.recordedByName).toBe("Ana Reyes");
   });
 
+  it("falls back to the shift when the caller has not decided yet", async () => {
+    const ana = await signIn("Ana Reyes");
+    const { member } = await registerDefaultMember();
+
+    // What a payment sheet submitted before its shift lookup resolved looks
+    // like. Treating that as "deliberately nobody" silently dropped the name
+    // off real payments while somebody was in fact on the desk.
+    const { payment } = await recordPayment({
+      memberId: member.id,
+      amount: 1200,
+      method: "cash",
+      recordedBy: undefined,
+    });
+
+    expect(payment.recordedById).toBe(ana.id);
+  });
+
+  it("distinguishes 'nobody is signed in' from 'not decided yet'", async () => {
+    const ana = await signIn("Ana Reyes");
+    const { member } = await registerDefaultMember();
+
+    const explicit = await recordPayment({
+      memberId: member.id,
+      amount: 100,
+      method: "cash",
+      recordedBy: null,
+    });
+
+    // An explicit null overrides the shift: staff said this one was not them.
+    expect(explicit.payment.recordedById).toBeNull();
+    expect(await getOnDesk()).toEqual(expect.objectContaining({ id: ana.id }));
+  });
+
   it("records an unattributed payment rather than refusing it", async () => {
     await clearOnDesk();
     const { member } = await registerDefaultMember();
