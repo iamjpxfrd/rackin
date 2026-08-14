@@ -291,7 +291,7 @@ If these are genuinely true, that's the signal to invest in cloud sync, a second
 
 | Profile                                                                      | Name                  | Role                       | GitHub Username                            |
 | ---------------------------------------------------------------------------- | --------------------- | -------------------------- | ------------------------------------------ |
-| <img src="https://avatars.githubusercontent.com/u/112413548?v=4" width="50"> | Darwin Darryl Largoza | Developer / UI-UX Designer | [@iamjpxfrd](https://github.com/iamjpxfrd) |
+| <img src="https://avatars.githubusercontent.com/u/112413548?v=4" width="50"> | Darwin Darryl Jean E. Largoza | Developer / UI-UX Designer | [@iamjpxfrd](https://github.com/iamjpxfrd) |
 
 ---
 
