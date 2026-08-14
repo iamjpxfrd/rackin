@@ -56,13 +56,21 @@ npm run dev
 
 The frontend runs entirely in the browser and requires no backend to be running — local persistence is the source of truth. This is the only step needed for the pilot deployment.
 
-To also push to a backend, copy `frontend/.env.example` to `.env.local` and set the API URL. Leaving it unset is a supported configuration, not a broken one: the app runs offline-only, and writes still queue, so setting it later pushes the accumulated history rather than starting from empty.
+To also push to a backend, create `frontend/.env.local` (gitignored) with both values:
 
 ```properties
+# No trailing slash; `/api/...` is appended to it.
 VITE_RACKIN_API_URL=http://localhost:8080
+
+# Must match RACKIN_API_KEY in backend/config/local.properties.
+VITE_RACKIN_API_KEY=
 ```
 
-Vite reads this at startup — restart `npm run dev` after changing it.
+Leaving the file out entirely is a supported configuration, not a broken one: the tablet is the source of truth and every flow works with no network at all ([ADR-001](docs/architecture/ADR-001-checkin-input-and-offline-architecture.md)). The app runs offline-only, and writes still queue in the outbox, so setting these later pushes the whole accumulated history rather than starting from empty.
+
+**Both or neither.** A URL without a key sends the whole queue and collects a `401` on every record — and because a 4xx is treated as permanent, that would mark the gym's entire history as rejected. The key is not a secret from whoever holds the tablet: it ships in the bundle and devtools reveals it. It closes the API to the internet, which is what a browser client can honestly achieve. See [Authentication](#-authentication).
+
+Vite reads these at startup — restart `npm run dev` after changing them.
 
 ### 3. Backend Setup (Spring Boot — optional):
 

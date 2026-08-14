@@ -13,3 +13,8 @@ coverage/
 
 # Per-machine Impeccable hook consent, not project design authority
 .impeccable/config.local.json
+
+# Editor preferences. The only thing in here is which of the ignored tooling
+# directories above a given developer hides — a per-machine choice, and one the
+# repo should not make on anyone's behalf.
+.vscode/
