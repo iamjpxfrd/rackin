@@ -61,7 +61,7 @@ Automatic lapsed-member detection (no check-in in 14+ days) and expiring-soon de
 ## Evidence on Hand
 
 - No real gym, owner, staff, or member data exists yet — the pilot is still hypothetical/generic. Do not fabricate a gym name, testimonials, case studies, or sample member data; use clearly-labeled placeholder content where an example is needed.
-- Existing frontend scaffold: Vite + React 19 + Tailwind CSS 4, with a local persistence layer already sketched at `frontend/db/db.js` (Dexie schema for `members`, `payments`, `checkIns`, deliberately matching the backend schema field-for-field).
+- Existing web client scaffold: Vite + React 19 + Tailwind CSS 4, with a local persistence layer already sketched at `web_client/db/db.js` (Dexie schema for `members`, `payments`, `checkIns`, deliberately matching the backend schema field-for-field).
 - Existing backend: a Spring Boot 3.5 sync API (register member, check-in, payments, lapsed/expiring queries) is implemented, tested, and running against PostgreSQL — see `backend/`. It is additive infrastructure for later, not something the frontend pilot depends on.
 
 ## Product Principles

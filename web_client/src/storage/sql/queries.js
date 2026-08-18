@@ -1,4 +1,4 @@
-// SQL implementation of the storage interface (frontend/src/storage/store.js),
+// SQL implementation of the storage interface (../store.js),
 // generic over any driver satisfying { run(sql, params), all(sql, params),
 // transaction(fn) }. better-sqlite3 (Node, for proving this file's SQL is
 // correct — see queries.test.js) and expo-sqlite (React Native, once Phase 5

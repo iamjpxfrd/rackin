@@ -41,9 +41,9 @@ git clone <repository_url>
 cd rackin
 ```
 
-### 2. Frontend Setup (Vite + React):
+### 2. Web Client Setup (Vite + React):
 
-- Navigate to the `frontend` directory.
+- Navigate to the `web_client` directory.
 - Install dependencies (`npm install`).
 
 **Start the development server:**
@@ -56,7 +56,7 @@ npm run dev
 
 The frontend runs entirely in the browser and requires no backend to be running — local persistence is the source of truth. This is the only step needed for the pilot deployment.
 
-To also push to a backend, create `frontend/.env.local` (gitignored) with both values:
+To also push to a backend, create `web_client/.env.local` (gitignored) with both values:
 
 ```properties
 # No trailing slash; `/api/...` is appended to it.
@@ -159,7 +159,7 @@ Try it: `POST /api/members` on an empty database returns `"memberId": "1001"` �
 ## 🏗️ Architecture
 
 ```
-React Frontend (Vite - Port 5173)
+React Web Client (Vite - Port 5173)
        ↓
 Domain Layer (checkInMember / registerMember / recordPayment)
        ↓
@@ -183,7 +183,7 @@ The local record and its queue entry commit **together**. Queuing after the writ
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: ReactJS 19 (Vite 8, single-page app)
+- **Web Client**: ReactJS 19 (Vite 8, single-page app)
 - **Styling**: Tailwind CSS 4
 - **Local Storage**: IndexedDB via [Dexie.js](https://dexie.org/) — source of truth for the pilot
 - **Backend**: Spring Boot 3.5 (Java 21, Spring Data JPA, Bean Validation)

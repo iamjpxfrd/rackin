@@ -17,6 +17,6 @@ DB_PASSWORD=your-local-rackin_app-password
 # Generate one:
 #   openssl rand -base64 32
 #
-# The frontend needs the SAME value in frontend/.env.local as
+# The web client needs the SAME value in web_client/.env.local as
 # VITE_RACKIN_API_KEY, or every sync request comes back 401.
 RACKIN_API_KEY=generate-your-own-do-not-use-this-value
