@@ -7,6 +7,7 @@
 [![React](https://img.shields.io/badge/React-19.2-blue.svg)](https://reactjs.org/)
 [![Vite](https://img.shields.io/badge/Vite-8.1-purple.svg)](https://vite.dev/)
 [![Dexie](https://img.shields.io/badge/Dexie-IndexedDB-orange.svg)](https://dexie.org/)
+[![Expo](https://img.shields.io/badge/Expo-SDK%2057-000020.svg)](https://expo.dev/)
 
 RackIn is a staff-operated tablet platform that replaces the front-desk paper logbook at small gyms. It works with no wifi, no member smartphones, and no per-member cost. Staff check members in with a numpad, a QR card, or a name search — and the gym gets automatic visibility into who's lapsed, who's expiring soon, and what today's traffic looks like, all from data the front desk was already collecting by hand.
 
@@ -41,9 +42,9 @@ git clone <repository_url>
 cd rackin
 ```
 
-### 2. Frontend Setup (Vite + React):
+### 2. Web Client Setup (Vite + React):
 
-- Navigate to the `frontend` directory.
+- Navigate to the `server` directory.
 - Install dependencies (`npm install`).
 
 **Start the development server:**
@@ -56,7 +57,7 @@ npm run dev
 
 The frontend runs entirely in the browser and requires no backend to be running — local persistence is the source of truth. This is the only step needed for the pilot deployment.
 
-To also push to a backend, create `frontend/.env.local` (gitignored) with both values:
+To also push to a backend, create `server/.env.local` (gitignored) with both values:
 
 ```properties
 # No trailing slash; `/api/...` is appended to it.
@@ -72,7 +73,18 @@ Leaving the file out entirely is a supported configuration, not a broken one: th
 
 Vite reads these at startup — restart `npm run dev` after changing them.
 
-### 3. Backend Setup (Spring Boot — optional):
+### 3. Mobile Client Setup (React Native / Expo — work in progress):
+
+`android/` is an early-stage Expo scaffold, not yet a port of the check-in app — the domain logic, storage, and screens are still to be ported. It's confirmed running via the **Expo Go** app on a physical device, no Android Studio required for that path.
+
+```bash
+cd android
+npm start
+```
+
+Scan the printed QR code with the Expo Go app (same wifi network as this machine). Full setup, including what to do if Android Studio/`adb` gets involved, is in [Set Up the Android Client](docs/how-to/set-up-the-android-client.md).
+
+### 4. Backend Setup (Spring Boot — optional):
 
 - Navigate to the `backend` directory.
 - Requires **JDK 21** and **PostgreSQL 16+**. Local development runs the same engine as production, deliberately: the repositories use native SQL with Postgres-specific behaviour, and developing against H2 would leave those paths untested until deploy. H2 is used only by the test suite.
@@ -159,7 +171,7 @@ Try it: `POST /api/members` on an empty database returns `"memberId": "1001"` �
 ## 🏗️ Architecture
 
 ```
-React Frontend (Vite - Port 5173)
+React Web Client (Vite - Port 5173)
        ↓
 Domain Layer (checkInMember / registerMember / recordPayment)
        ↓
@@ -183,7 +195,8 @@ The local record and its queue entry commit **together**. Queuing after the writ
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: ReactJS 19 (Vite 8, single-page app)
+- **Web Client**: ReactJS 19 (Vite 8, single-page app)
+- **Mobile Client**: Expo SDK 57 (React Native 0.86, early-stage scaffold — see [Set Up the Android Client](docs/how-to/set-up-the-android-client.md))
 - **Styling**: Tailwind CSS 4
 - **Local Storage**: IndexedDB via [Dexie.js](https://dexie.org/) — source of truth for the pilot
 - **Backend**: Spring Boot 3.5 (Java 21, Spring Data JPA, Bean Validation)
@@ -270,6 +283,7 @@ Scope is held small on purpose so the pilot is finishable and testable:
 **How-to guides**
 
 - [Run the Backend Locally](docs/how-to/run-the-backend-locally.md) — database setup, credentials, troubleshooting
+- [Set Up the Android Client](docs/how-to/set-up-the-android-client.md) — scaffolding, running via Expo Go, troubleshooting
 - [Inspect the Database](docs/how-to/inspect-the-database.sql) — ready-to-run queries for checking what synced
 - [Flush All Data](docs/how-to/flush-all-data.sql) — **destructive**; clears pilot test data from the backend
 

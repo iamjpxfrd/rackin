@@ -9,7 +9,7 @@
 // Real authentication is a separate problem, and belongs with the owner
 // dashboard where the threat is someone outside the gym (ADR-002).
 
-import { db, generateClientUuid } from "../../db/db.js";
+import { generateClientUuid, store } from "../storage/store.js";
 
 const ON_DESK_KEY = "onDeskStaffId";
 
@@ -18,7 +18,7 @@ const ON_DESK_KEY = "onDeskStaffId";
  * Retired people are excluded here but still resolve on old records.
  */
 export async function listStaff() {
-  const everyone = await db.staff.toArray();
+  const everyone = await store.staff.toArray();
   return everyone
     .filter((person) => !person.retiredAt)
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -26,7 +26,7 @@ export async function listStaff() {
 
 /** Everyone ever added, including retired, for resolving historical names. */
 export function listAllStaff() {
-  return db.staff.toArray();
+  return store.staff.toArray();
 }
 
 /**
@@ -39,7 +39,7 @@ export async function addStaff(name) {
     throw new Error("Enter the staff member's name.");
   }
 
-  const existing = await db.staff.toArray();
+  const existing = await store.staff.toArray();
   const duplicate = existing.find(
     (person) => !person.retiredAt && person.name.toLowerCase() === trimmedName.toLowerCase(),
   );
@@ -57,7 +57,7 @@ export async function addStaff(name) {
     retiredAt: null,
     clientUuid: generateClientUuid(),
   };
-  await db.staff.add(person);
+  await store.staff.add(person);
   return person;
 }
 
@@ -66,7 +66,7 @@ export async function addStaff(name) {
  * month, and those records have to keep naming somebody.
  */
 export async function retireStaff(staffId) {
-  await db.staff.update(staffId, { retiredAt: new Date().toISOString() });
+  await store.staff.update(staffId, { retiredAt: new Date().toISOString() });
   // Retiring whoever is currently on the desk would otherwise leave the tablet
   // attributing new records to someone who has gone home for good.
   if ((await getOnDeskId()) === staffId) {
@@ -79,7 +79,7 @@ export async function getOnDesk() {
   const staffId = await getOnDeskId();
   if (!staffId) return null;
 
-  const person = await db.staff.get(staffId);
+  const person = await store.staff.get(staffId);
   // Retired mid-shift, or the record vanished: better to ask again than to
   // keep stamping a name the gym has retired.
   if (!person || person.retiredAt) {
@@ -90,20 +90,20 @@ export async function getOnDesk() {
 }
 
 export async function setOnDesk(staffId) {
-  const person = await db.staff.get(staffId);
+  const person = await store.staff.get(staffId);
   if (!person || person.retiredAt) {
     throw new Error("That staff member is not on the list.");
   }
-  await db.deviceState.put({ key: ON_DESK_KEY, value: staffId });
+  await store.deviceState.put({ key: ON_DESK_KEY, value: staffId });
   return person;
 }
 
 export function clearOnDesk() {
-  return db.deviceState.delete(ON_DESK_KEY);
+  return store.deviceState.delete(ON_DESK_KEY);
 }
 
 async function getOnDeskId() {
-  const stored = await db.deviceState.get(ON_DESK_KEY);
+  const stored = await store.deviceState.get(ON_DESK_KEY);
   return stored?.value ?? null;
 }
 

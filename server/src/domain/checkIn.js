@@ -2,7 +2,7 @@
 // checkInMember with a different `method` — no duplicated lookup/visit-count
 // logic per input path (ADR-001).
 
-import { db, generateClientUuid } from "../../db/db.js";
+import { generateClientUuid, store } from "../storage/store.js";
 import { enqueue } from "../sync/outbox.js";
 import { attributionFor, getOnDesk } from "./staff.js";
 
@@ -16,7 +16,7 @@ import { attributionFor, getOnDesk } from "./staff.js";
  * }>}
  */
 export async function checkInMember(memberId, method) {
-  const member = await db.members.get(memberId);
+  const member = await store.members.get(memberId);
   if (!member) {
     throw new Error(`No member found for #${memberId}`);
   }
@@ -40,12 +40,12 @@ export async function checkInMember(memberId, method) {
 
   // Check-in row and queue entry commit together, so a visit recorded at the
   // desk can never go missing from the backend (sync/outbox.js).
-  await db.transaction("rw", db.checkIns, db.outbox, async () => {
-    await db.checkIns.add({ memberId, timestamp, method, clientUuid, ...attribution });
+  await store.transaction(["checkIns", "outbox"], async (tx) => {
+    await tx.checkIns.add({ memberId, timestamp, method, clientUuid, ...attribution });
     // timestamp travels with it: a day of offline check-ins pushed at closing
     // time must land at the hours members actually walked in, not all at once
     // (TRD 7).
-    await enqueue("checkin", { memberId, method, clientUuid, timestamp, ...attribution });
+    await enqueue(tx, "checkin", { memberId, method, clientUuid, timestamp, ...attribution });
   });
 
   const visitCountThisMonth = await countVisitsThisMonth(memberId);
@@ -62,7 +62,7 @@ export async function checkInMember(memberId, method) {
  */
 async function lastCheckInToday(memberId) {
   const dayStart = startOfLocalDay();
-  const todaysVisits = await db.checkIns
+  const todaysVisits = await store.checkIns
     .where("memberId")
     .equals(memberId)
     .and((checkIn) => checkIn.timestamp >= dayStart)
@@ -86,7 +86,7 @@ async function countVisitsThisMonth(memberId) {
   const monthStart = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
   ).toISOString();
-  return db.checkIns
+  return store.checkIns
     .where("memberId")
     .equals(memberId)
     .and((checkIn) => checkIn.timestamp >= monthStart)
@@ -104,7 +104,7 @@ export async function findMembersByName(query) {
   if (!needle) {
     return [];
   }
-  const members = await db.members.toArray();
+  const members = await store.members.toArray();
   return members
     .filter((member) => member.name.toLowerCase().includes(needle))
     .sort((a, b) => a.name.localeCompare(b.name))
@@ -121,13 +121,13 @@ export async function getTodaysActivity() {
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
   ).toISOString();
 
-  const checkIns = await db.checkIns
+  const checkIns = await store.checkIns
     .where("timestamp")
     .aboveOrEqual(dayStart)
     .toArray();
 
   const memberIds = [...new Set(checkIns.map((checkIn) => checkIn.memberId))];
-  const members = await db.members.bulkGet(memberIds);
+  const members = await store.members.bulkGet(memberIds);
   const nameById = new Map(memberIds.map((id, i) => [id, members[i]?.name]));
 
   return checkIns

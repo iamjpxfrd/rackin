@@ -72,7 +72,7 @@ backend refuses to start without either, deliberately: the sync API answers with
 the gym's full membership and payment history, and an app that starts with a
 guessed key looks protected while accepting a key anyone can read.
 
-The frontend needs the *same* key in `frontend/.env.local` as
+The web client needs the *same* key in `server/.env.local` as
 `VITE_RACKIN_API_KEY`, or every sync request comes back `401`.
 
 This file is gitignored. `application.properties` imports it with
@@ -164,7 +164,7 @@ on purpose, so the API cannot come up open.
 
 **Every request returns `401`**
 
-The key in `frontend/.env.local` does not match the one in
+The key in `server/.env.local` does not match the one in
 `backend/config/local.properties`, or Vite was not restarted after the file
 changed — it reads `.env` files only at startup. Check with:
 

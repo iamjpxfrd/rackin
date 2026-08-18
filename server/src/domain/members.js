@@ -1,6 +1,6 @@
 // Member registration and profile reads (frontend-spec.md §5.4, PRD 4.6/4.8).
 
-import { db, generateClientUuid, getNextMemberId } from "../../db/db.js";
+import { generateClientUuid, getNextMemberId, store } from "../storage/store.js";
 import { enqueue } from "../sync/outbox.js";
 import { HISTORY_PAGE_SIZE, PLAN_TYPES } from "./constants.js";
 import { computeCoversUntil, deriveStatus, latestPaymentOf } from "./membership.js";
@@ -58,7 +58,7 @@ export async function registerMember({
   // describes. Queuing afterwards would leave a crash-sized window in which the
   // member exists locally but is never pushed — invisible, since the tablet
   // would still show them (sync/outbox.js).
-  return db.transaction("rw", db.members, db.payments, db.outbox, async () => {
+  return store.transaction(["members", "payments", "outbox"], async (tx) => {
     const id = await getNextMemberId();
     const createdAt = new Date().toISOString();
 
@@ -70,7 +70,7 @@ export async function registerMember({
       createdAt,
       clientUuid: generateClientUuid(),
     };
-    await db.members.add(member);
+    await tx.members.add(member);
 
     const payment = {
       memberId: id,
@@ -81,13 +81,13 @@ export async function registerMember({
       clientUuid: generateClientUuid(),
       ...attribution,
     };
-    const paymentId = await db.payments.add(payment);
+    const paymentId = await tx.payments.add(payment);
 
     // One operation, not two, mirroring POST /api/members: registration and its
     // first payment are a single action on the backend as well (TRD 5).
     // memberId carries this tablet's number so the backend keeps it rather than
     // assigning its own — the QR card is already printed with it.
-    await enqueue("register", {
+    await enqueue(tx, "register", {
       memberId: id,
       name: trimmedName,
       planType,
@@ -109,12 +109,12 @@ export async function registerMember({
  * @returns {Promise<object|null>}
  */
 export async function getMemberProfile(memberId) {
-  const member = await db.members.get(memberId);
+  const member = await store.members.get(memberId);
   if (!member) return null;
 
   const [payments, checkIns] = await Promise.all([
-    db.payments.where("memberId").equals(memberId).toArray(),
-    db.checkIns.where("memberId").equals(memberId).toArray(),
+    store.payments.where("memberId").equals(memberId).toArray(),
+    store.checkIns.where("memberId").equals(memberId).toArray(),
   ]);
 
   payments.sort((a, b) => b.paidAt.localeCompare(a.paidAt));
@@ -145,8 +145,8 @@ export async function getMemberProfile(memberId) {
  */
 export async function listMembers() {
   const [members, payments] = await Promise.all([
-    db.members.toArray(),
-    db.payments.toArray(),
+    store.members.toArray(),
+    store.payments.toArray(),
   ]);
 
   const paymentsByMember = groupBy(payments, (payment) => payment.memberId);
@@ -191,7 +191,7 @@ export async function suggestNames(query, limit = 5) {
   const needle = String(query ?? "").trim().toLowerCase();
   if (needle.length < 2) return [];
 
-  const members = await db.members.toArray();
+  const members = await store.members.toArray();
   const seen = new Set();
   const matches = [];
 
@@ -214,6 +214,13 @@ export async function suggestNames(query, limit = 5) {
     )
     .slice(0, limit)
     .map(({ name, id }) => ({ name, id }));
+}
+
+export { getNextMemberId };
+
+/** Total members on the roster — drives the app's first-run empty states. */
+export function memberCount() {
+  return store.members.count();
 }
 
 function startOfUtcMonth(date) {
