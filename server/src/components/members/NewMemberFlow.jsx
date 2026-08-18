@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { getNextMemberId } from "../../../db/db.js";
+import { getNextMemberId } from "../../domain/members.js";
 import NewMemberScreen from "./NewMemberScreen.jsx";
 import RegistrationSuccess from "./RegistrationSuccess.jsx";
 
