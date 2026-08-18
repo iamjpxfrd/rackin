@@ -5,7 +5,13 @@
 // no network at all, so enqueuing is a side effect of a write that already
 // succeeded, never a precondition for one.
 
+// requeueEverything() below is the one deliberate exception to this module
+// otherwise using the storage interface: rebuilding the outbox from Dexie's
+// own version-1 backfill needs a raw Dexie transaction handle
+// (tx.table(name)), which is inherently tied to Dexie's migration mechanism
+// and not something a storage-agnostic interface can express.
 import { backfillOutbox, db } from "../../db/db.js";
+import { store } from "../storage/store.js";
 
 /** A queued operation the backend has not accepted yet. */
 export const PENDING = "pending";
@@ -45,7 +51,7 @@ export function endpointFor(kind) {
  */
 export function enqueue(kind, body) {
   endpointFor(kind);
-  return db.outbox.add({
+  return store.outbox.add({
     kind,
     body,
     // Mirrors body.clientUuid: the same key the backend dedupes on, lifted out
@@ -66,23 +72,23 @@ export function enqueue(kind, body) {
  * refused, because that member does not exist there yet.
  */
 export async function pendingOperations() {
-  const queued = await db.outbox.where("status").equals(PENDING).toArray();
+  const queued = await store.outbox.where("status").equals(PENDING).toArray();
   return queued.sort((a, b) => a.id - b.id);
 }
 
 /** How many writes have yet to reach the backend. */
 export function pendingCount() {
-  return db.outbox.where("status").equals(PENDING).count();
+  return store.outbox.where("status").equals(PENDING).count();
 }
 
 /** Accepted by the backend — the local record is now mirrored there. */
 export function markSynced(id) {
-  return db.outbox.delete(id);
+  return store.outbox.delete(id);
 }
 
 /** Failed in a way a later retry could fix. Stays queued. */
 export function markRetryable(operation, message) {
-  return db.outbox.update(operation.id, {
+  return store.outbox.update(operation.id, {
     attempts: (operation.attempts ?? 0) + 1,
     lastError: message,
   });
@@ -90,7 +96,7 @@ export function markRetryable(operation, message) {
 
 /** Refused permanently. Stays in the table, skipped by every future drain. */
 export function markRejected(operation, message) {
-  return db.outbox.update(operation.id, {
+  return store.outbox.update(operation.id, {
     attempts: (operation.attempts ?? 0) + 1,
     status: REJECTED,
     lastError: message,
@@ -99,7 +105,7 @@ export function markRejected(operation, message) {
 
 /** Everything the backend refused, oldest first, for inspecting a stuck sync. */
 export async function rejectedOperations() {
-  const refused = await db.outbox.where("status").equals(REJECTED).toArray();
+  const refused = await store.outbox.where("status").equals(REJECTED).toArray();
   return refused.sort((a, b) => a.id - b.id);
 }
 
@@ -141,7 +147,7 @@ export async function retryRejected() {
   const refused = await rejectedOperations();
   if (refused.length === 0) return 0;
 
-  await db.outbox
+  await store.outbox
     .where("id")
     .anyOf(refused.map((operation) => operation.id))
     .modify({ status: PENDING, lastError: null });

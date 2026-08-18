@@ -8,7 +8,7 @@
 // so surfacing a sync error to staff would report a problem they cannot act on
 // and did not cause (PRD 4.10).
 
-import { db, resetDatabase } from "../../db/db.js";
+import { resetDatabase, store } from "../storage/store.js";
 import { isSyncConfigured, postJson, SyncRejectedError } from "./api.js";
 import {
   endpointFor,
@@ -164,7 +164,7 @@ export function startSync({ retryDelayMs = 60_000, ...options } = {}) {
     setTimeout(push, 0);
   };
 
-  db.outbox.hook("creating", onQueued);
+  const stopWatchingOutbox = store.outbox.onCreate(onQueued);
   window.addEventListener("online", push);
   if (navigator.onLine !== false) {
     push();
@@ -176,7 +176,7 @@ export function startSync({ retryDelayMs = 60_000, ...options } = {}) {
     stopped = true;
     clearTimeout(retryTimer);
     window.removeEventListener("online", push);
-    db.outbox.hook("creating").unsubscribe(onQueued);
+    stopWatchingOutbox();
   };
 }
 

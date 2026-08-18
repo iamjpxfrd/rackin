@@ -4,7 +4,7 @@
 // logbook can never do, and the primary reason the system is worth building
 // (PRODUCT.md — Positioning). This file is that claim.
 
-import { db } from "../../db/db.js";
+import { store } from "../storage/store.js";
 import { EXPIRING_WITHIN_DAYS, LAPSED_AFTER_DAYS, isDropIn } from "./constants.js";
 import { daysBetween, deriveStatus, latestPaymentOf } from "./membership.js";
 import { groupBy } from "./members.js";
@@ -16,9 +16,9 @@ import { groupBy } from "./members.js";
  */
 async function loadMemberSnapshots(now) {
   const [members, payments, checkIns] = await Promise.all([
-    db.members.toArray(),
-    db.payments.toArray(),
-    db.checkIns.toArray(),
+    store.members.toArray(),
+    store.payments.toArray(),
+    store.checkIns.toArray(),
   ]);
 
   const paymentsByMember = groupBy(payments, (payment) => payment.memberId);

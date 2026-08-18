@@ -1,6 +1,6 @@
 // Recording payments for existing members (frontend-spec.md §5.4, PRD 4.7).
 
-import { db, generateClientUuid } from "../../db/db.js";
+import { generateClientUuid, store } from "../storage/store.js";
 import { enqueue } from "../sync/outbox.js";
 import { computeCoversUntil, deriveStatus, latestPaymentOf } from "./membership.js";
 import { attributionFor, getOnDesk } from "./staff.js";
@@ -28,7 +28,7 @@ export async function recordPayment({ memberId, amount, method, recordedBy }) {
     throw new Error("Choose a payment method.");
   }
 
-  const member = await db.members.get(memberId);
+  const member = await store.members.get(memberId);
   if (!member) {
     throw new Error(`No member found for #${memberId}`);
   }
@@ -55,8 +55,8 @@ export async function recordPayment({ memberId, amount, method, recordedBy }) {
 
   // Payment row and queue entry commit together, so a payment can never be
   // taken locally and then silently never pushed (sync/outbox.js).
-  const id = await db.transaction("rw", db.payments, db.outbox, async () => {
-    const paymentId = await db.payments.add(payment);
+  const id = await store.transaction(["payments", "outbox"], async () => {
+    const paymentId = await store.payments.add(payment);
     // paidAt travels with it: the backend counts coverage from when the member
     // paid, not from whenever this tablet next finds a network (TRD 7).
     await enqueue("payment", {
@@ -85,6 +85,6 @@ export async function recordPayment({ memberId, amount, method, recordedBy }) {
  * @returns {Promise<number|null>}
  */
 export async function getLastPaymentAmount(memberId) {
-  const payments = await db.payments.where("memberId").equals(memberId).toArray();
+  const payments = await store.payments.where("memberId").equals(memberId).toArray();
   return latestPaymentOf(payments)?.amount ?? null;
 }

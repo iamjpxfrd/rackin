@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "../db/db.js";
+import { memberCount } from "./domain/members.js";
 import { startSync } from "./sync/sync.js";
 import TopBar from "./components/TopBar.jsx";
 import TabBar from "./components/TabBar.jsx";
@@ -23,7 +23,7 @@ function App() {
 
   // Drives the first-run empty states. undefined until the first read lands,
   // so nothing flashes "no members" before the data arrives.
-  const memberCount = useLiveQuery(() => db.members.count());
+  const totalMembers = useLiveQuery(() => memberCount());
 
   // Push queued writes whenever the tablet has a network (TRD 7). Deliberately
   // renders nothing: sync is additive, never blocks a local flow, and its
@@ -55,7 +55,7 @@ function App() {
           {tab === "checkin" && <CheckInScreen />}
           {tab === "followup" && (
             <FollowUpScreen
-              hasMembers={memberCount === undefined || memberCount > 0}
+              hasMembers={totalMembers === undefined || totalMembers > 0}
               onSelectMember={setDetailMemberId}
               onRegisterFirst={goToNewMember}
             />
