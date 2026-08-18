@@ -43,7 +43,7 @@ cd rackin
 
 ### 2. Web Client Setup (Vite + React):
 
-- Navigate to the `web_client` directory.
+- Navigate to the `server` directory.
 - Install dependencies (`npm install`).
 
 **Start the development server:**
@@ -56,7 +56,7 @@ npm run dev
 
 The frontend runs entirely in the browser and requires no backend to be running — local persistence is the source of truth. This is the only step needed for the pilot deployment.
 
-To also push to a backend, create `web_client/.env.local` (gitignored) with both values:
+To also push to a backend, create `server/.env.local` (gitignored) with both values:
 
 ```properties
 # No trailing slash; `/api/...` is appended to it.
