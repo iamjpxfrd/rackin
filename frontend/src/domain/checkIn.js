@@ -40,12 +40,12 @@ export async function checkInMember(memberId, method) {
 
   // Check-in row and queue entry commit together, so a visit recorded at the
   // desk can never go missing from the backend (sync/outbox.js).
-  await store.transaction(["checkIns", "outbox"], async () => {
-    await store.checkIns.add({ memberId, timestamp, method, clientUuid, ...attribution });
+  await store.transaction(["checkIns", "outbox"], async (tx) => {
+    await tx.checkIns.add({ memberId, timestamp, method, clientUuid, ...attribution });
     // timestamp travels with it: a day of offline check-ins pushed at closing
     // time must land at the hours members actually walked in, not all at once
     // (TRD 7).
-    await enqueue("checkin", { memberId, method, clientUuid, timestamp, ...attribution });
+    await enqueue(tx, "checkin", { memberId, method, clientUuid, timestamp, ...attribution });
   });
 
   const visitCountThisMonth = await countVisitsThisMonth(memberId);

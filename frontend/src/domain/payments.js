@@ -55,11 +55,11 @@ export async function recordPayment({ memberId, amount, method, recordedBy }) {
 
   // Payment row and queue entry commit together, so a payment can never be
   // taken locally and then silently never pushed (sync/outbox.js).
-  const id = await store.transaction(["payments", "outbox"], async () => {
-    const paymentId = await store.payments.add(payment);
+  const id = await store.transaction(["payments", "outbox"], async (tx) => {
+    const paymentId = await tx.payments.add(payment);
     // paidAt travels with it: the backend counts coverage from when the member
     // paid, not from whenever this tablet next finds a network (TRD 7).
-    await enqueue("payment", {
+    await enqueue(tx, "payment", {
       memberId,
       amount: numericAmount,
       method,

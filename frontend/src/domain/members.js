@@ -58,7 +58,7 @@ export async function registerMember({
   // describes. Queuing afterwards would leave a crash-sized window in which the
   // member exists locally but is never pushed — invisible, since the tablet
   // would still show them (sync/outbox.js).
-  return store.transaction(["members", "payments", "outbox"], async () => {
+  return store.transaction(["members", "payments", "outbox"], async (tx) => {
     const id = await getNextMemberId();
     const createdAt = new Date().toISOString();
 
@@ -70,7 +70,7 @@ export async function registerMember({
       createdAt,
       clientUuid: generateClientUuid(),
     };
-    await store.members.add(member);
+    await tx.members.add(member);
 
     const payment = {
       memberId: id,
@@ -81,13 +81,13 @@ export async function registerMember({
       clientUuid: generateClientUuid(),
       ...attribution,
     };
-    const paymentId = await store.payments.add(payment);
+    const paymentId = await tx.payments.add(payment);
 
     // One operation, not two, mirroring POST /api/members: registration and its
     // first payment are a single action on the backend as well (TRD 5).
     // memberId carries this tablet's number so the backend keeps it rather than
     // assigning its own — the QR card is already printed with it.
-    await enqueue("register", {
+    await enqueue(tx, "register", {
       memberId: id,
       name: trimmedName,
       planType,

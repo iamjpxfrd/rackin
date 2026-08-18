@@ -63,11 +63,15 @@ export const store = {
   staff: table("staff"),
   deviceState: table("deviceState"),
 
-  // Ambient, like Dexie's own: calls made inside `fn` against any of these
-  // tables (directly or via a function this calls) join the transaction
-  // automatically — no tx handle to thread through.
+  // `fn` receives an explicit `tx` — not Dexie's ambient transaction — because
+  // ambient-join only works here because Dexie tracks it for free. A raw-SQL
+  // backend (the Phase 2 adapter) has no equivalent mechanism, so every write
+  // that must commit atomically has to go through the handle it was given,
+  // not through `store.<table>` directly.
   transaction(tableNames, fn) {
-    return db.transaction("rw", ...tableNames.map((name) => db.table(name)), fn);
+    const tx = {};
+    for (const name of tableNames) tx[name] = table(name);
+    return db.transaction("rw", ...tableNames.map((name) => db.table(name)), () => fn(tx));
   },
 };
 

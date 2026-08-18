@@ -40,18 +40,19 @@ export function endpointFor(kind) {
 /**
  * Queue one operation for the next sync.
  *
- * Call this INSIDE the caller's existing Dexie transaction, passing db.outbox
- * as one of its tables. A queue entry written in a separate transaction can be
- * lost to a crash between the two, which would drop the record from the backend
- * permanently and silently — the tablet would still show it, so nobody would
- * ever notice it was missing.
+ * Call this with the `tx` from the caller's own store.transaction([..., "outbox"], ...)
+ * call. A queue entry written outside that transaction can be lost to a crash
+ * between the two, which would drop the record from the backend permanently
+ * and silently — the tablet would still show it, so nobody would ever notice
+ * it was missing.
  *
+ * @param {{ outbox: object }} tx
  * @param {"register"|"payment"|"checkin"} kind
  * @param {object} body exact JSON payload to POST
  */
-export function enqueue(kind, body) {
+export function enqueue(tx, kind, body) {
   endpointFor(kind);
-  return store.outbox.add({
+  return tx.outbox.add({
     kind,
     body,
     // Mirrors body.clientUuid: the same key the backend dedupes on, lifted out
