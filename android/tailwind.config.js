@@ -1,12 +1,24 @@
-// Reuses server/src/index.css's @theme tokens (DESIGN.md), translated from
-// Tailwind v4's CSS-native @theme syntax into the JS config NativeWind 4 (on
-// Tailwind v3) expects — the values themselves are copied, not reinvented.
+// Kinetic Court palette — see [[Decisions/UI Port Uses NativeWind]] in the
+// Rackin Obsidian vault for the direction, and android/src/theme/colors.js
+// for the same hex values kept as plain JS (icons need a `color` prop, not
+// a className). This is a full light->dark reskin, not an additive change,
+// so the old DESIGN.md token names (ink-900, chalk-50, signal-yellow, ...)
+// are gone rather than repointed — keeping them would mean a name like
+// "ink-900" (originally: near-black text on a white page) now meaning
+// "off-white text on a near-black page", which reads backwards everywhere
+// it's used.
 //
-// Font families are NOT yet wired to the actual Archivo Black/Inter/IBM Plex
-// Mono typefaces server/ self-hosts via @fontsource — that needs expo-font +
-// bundled .ttf assets, which is real, separate setup. Until that lands,
-// font-numeral/font-body/font-mono fall back to system fonts, which is a
-// visible (not silent) gap: text renders in the wrong typeface, not broken.
+// Font families are NOT yet wired to real typefaces (Archivo Black + Work
+// Sans in this direction) — needs expo-font + bundled .ttf assets, same gap
+// as the previous design's fonts. font-numeral/font-body fall back to
+// system fonts, a visible (not silent) gap.
+//
+// Kinetic Court uses sharp corners everywhere except circular avatar badges
+// and the diagonal-cut buttons/active-tabs (ui/DiagonalCut.jsx — CSS
+// clip-path has no RN equivalent, so that shape is drawn with
+// react-native-svg instead of a border-radius utility). The old ds-sm/ds-lg
+// radius tokens are dropped along with everything else that assumed rounded
+// corners.
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
@@ -15,29 +27,20 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        ink: { 900: "#15181c" },
-        steel: { 700: "#3a4046", 300: "#c7cdd3" },
-        chalk: { 50: "#f1f2f0" },
-        surface: { white: "#ffffff" },
-        signal: { yellow: "#f2b705" },
-        rubber: { red: "#c43d3d" },
-        turf: { green: "#3f8f5f" },
+        page: "#0a0a0a",
+        card: "#141414",
+        border: "#262626",
+        hairline: "#1e1e1e",
+        muted: "#8a8a8a",
+        dim: "#666666",
+        accent: "#d4ff3f",
+        danger: "#ff5c5c",
       },
       fontFamily: {
-        // TODO(fonts): swap for Archivo Black/Inter/IBM Plex Mono once loaded
-        // via expo-font — see the file header.
+        // TODO(fonts): swap for Archivo Black + Work Sans once loaded via
+        // expo-font — see the file header.
         numeral: ["system-ui", "sans-serif"],
         body: ["system-ui", "sans-serif"],
-        mono: ["ui-monospace", "monospace"],
-      },
-      borderRadius: {
-        "ds-sm": "6px",
-        "ds-lg": "12px",
-      },
-      boxShadow: {
-        "key-rest": "0 4px 0 #c7cdd3",
-        "key-pressed": "0 1px 0 #c7cdd3",
-        card: "0 12px 32px rgba(21, 24, 28, 0.18)",
       },
     },
   },

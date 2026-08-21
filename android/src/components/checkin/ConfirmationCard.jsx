@@ -1,7 +1,7 @@
 // The one moment of celebration in an otherwise purely functional app
-// (DESIGN.md). Ported from server/src/components/checkin/ConfirmationCard.jsx.
-// The web version's CSS @keyframes scale-in becomes RN's core Animated API —
-// see Sheet.jsx for the same reasoning.
+// (DESIGN.md). Ported from server/src/components/checkin/ConfirmationCard.jsx,
+// reskinned to Kinetic Court. The web version's CSS @keyframes scale-in
+// becomes RN's core Animated API — see Sheet.jsx for the same reasoning.
 
 import { useEffect, useRef } from "react";
 import { Animated, Pressable, Text, View } from "react-native";
@@ -31,7 +31,7 @@ export default function ConfirmationCard({
   }, [onDismiss, scale, opacity]);
 
   return (
-    <View className="absolute inset-0 z-50 items-center justify-center bg-ink-900/40 p-6">
+    <View className="absolute inset-0 z-50 items-center justify-center bg-black/70 p-6">
       <Pressable
         className="absolute inset-0"
         onPress={onDismiss}
@@ -40,24 +40,24 @@ export default function ConfirmationCard({
       />
       <Animated.View
         style={{ transform: [{ scale }], opacity }}
-        className="w-full max-w-sm items-center rounded-ds-lg bg-surface-white p-8 shadow-card"
+        className="w-full max-w-sm items-center border-2 border-accent bg-card p-8"
       >
-        <CheckCircle2 size={40} strokeWidth={1.75} color={colors.turfGreen} />
-        <Text className="mt-4 text-center font-body text-3xl font-bold text-ink-900">
+        <CheckCircle2 size={40} strokeWidth={1.75} color={colors.accent} />
+        <Text className="mt-4 text-center font-numeral text-2xl text-white">
           Checked in — {member.name}
         </Text>
-        <Text className="mt-2 text-center font-mono text-base text-steel-700">
+        <Text className="mt-2 text-center font-numeral text-base text-accent">
           Visit {visitCountThisMonth} this month
         </Text>
 
-        {/* Still a success, so it keeps the green tick rather than becoming a
+        {/* Still a success, so it keeps the tick rather than becoming a
             warning card: the visit was recorded. This only names what staff
             might not have realised, which is almost always a double tap and
             occasionally a genuine second session. */}
         {alreadyCheckedInAt && (
           <View className="mt-3 flex-row items-center justify-center gap-1.5">
-            <RotateCcw size={16} strokeWidth={1.75} color={colors.steel700} />
-            <Text className="font-body text-base text-steel-700">
+            <RotateCcw size={16} strokeWidth={1.75} color={colors.textMuted} />
+            <Text className="font-body text-base text-muted">
               Already checked in at {formatTime(alreadyCheckedInAt)}
             </Text>
           </View>

@@ -1,5 +1,6 @@
 // Name search never dead-ends check-in (PRD 4.3). Ported from
-// server/src/components/checkin/SearchPanel.jsx.
+// server/src/components/checkin/SearchPanel.jsx, reskinned to Kinetic
+// Court.
 
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
@@ -23,21 +24,21 @@ export default function SearchPanel({ onSelect, disabled }) {
 
   return (
     <View className="flex-col gap-3">
-      <View className="h-16 flex-row items-center gap-2 rounded-ds-sm border border-steel-300 bg-surface-white px-4">
-        <Search size={20} strokeWidth={1.75} color={colors.steel700} />
+      <View className="h-16 flex-row items-center gap-2 border border-border bg-card px-4">
+        <Search size={20} strokeWidth={1.75} color={colors.textMuted} />
         <TextInput
           value={query}
           onChangeText={setQuery}
           editable={!disabled}
           placeholder="Search by name"
-          placeholderTextColor={colors.steel300}
-          className="flex-1 bg-transparent font-body text-lg text-ink-900"
+          placeholderTextColor={colors.border}
+          className="flex-1 bg-transparent font-body text-lg text-white"
         />
       </View>
 
-      <ScrollView className="max-h-96 rounded-ds-sm border border-steel-300 bg-surface-white">
+      <ScrollView className="max-h-96 border border-border bg-card">
         {query.trim() && results.length === 0 && (
-          <Text className="px-4 py-3 font-body text-base text-steel-700">
+          <Text className="px-4 py-3 font-body text-base text-muted">
             No members match "{query.trim()}"
           </Text>
         )}
@@ -47,10 +48,10 @@ export default function SearchPanel({ onSelect, disabled }) {
             onPress={() => onSelect(member.id)}
             disabled={disabled}
             accessibilityRole="button"
-            className="h-14 w-full flex-row items-center justify-between border-b border-steel-300 px-4 disabled:opacity-50"
+            className="h-14 w-full flex-row items-center justify-between border-b border-hairline px-4 disabled:opacity-50"
           >
-            <Text className="font-body text-lg text-ink-900">{member.name}</Text>
-            <Text className="font-mono text-base text-steel-700">#{member.id}</Text>
+            <Text className="font-body text-lg text-white">{member.name}</Text>
+            <Text className="font-numeral text-base text-muted">#{member.id}</Text>
           </Pressable>
         ))}
       </ScrollView>

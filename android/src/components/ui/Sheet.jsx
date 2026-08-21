@@ -1,6 +1,6 @@
 // Bottom sheet used by Record Payment and OnDeskSheet (frontend-spec.md
-// §6.4). Ported from server/src/components/ui/Sheet.jsx. Two real
-// differences from the web version:
+// §6.4). Ported from server/src/components/ui/Sheet.jsx, reskinned to
+// Kinetic Court. Two real differences from the web version:
 //
 //  - No focus trap / Escape handling: both are DOM keyboard-focus concepts
 //    with no RN equivalent on a touchscreen kiosk with no hardware keyboard.
@@ -28,7 +28,7 @@ export default function Sheet({ title, subtitle, onClose, children }) {
   return (
     <View className="absolute inset-0 z-50">
       <Pressable
-        className="absolute inset-0 bg-ink-900/40"
+        className="absolute inset-0 bg-black/70"
         onPress={onClose}
         accessibilityRole="button"
         accessibilityLabel="Close"
@@ -36,13 +36,13 @@ export default function Sheet({ title, subtitle, onClose, children }) {
       <View className="absolute inset-0 flex-col justify-end" pointerEvents="box-none">
         <Animated.View
           style={{ transform: [{ translateY }], opacity }}
-          className="flex-col gap-5 rounded-t-ds-lg bg-surface-white p-4 pt-6 shadow-card"
+          className="flex-col gap-5 border-t-2 border-hairline bg-card p-4 pt-6"
         >
           <View className="flex-row items-start justify-between gap-4">
             <View className="min-w-0 flex-1 flex-col gap-1">
-              <Text className="font-body text-2xl font-bold text-ink-900">{title}</Text>
+              <Text className="font-numeral text-xl text-white">{title}</Text>
               {subtitle && (
-                <Text numberOfLines={1} className="font-body text-sm text-steel-700">
+                <Text numberOfLines={1} className="font-body text-sm text-muted">
                   {subtitle}
                 </Text>
               )}
@@ -51,9 +51,9 @@ export default function Sheet({ title, subtitle, onClose, children }) {
               onPress={onClose}
               accessibilityRole="button"
               accessibilityLabel="Close"
-              className="h-14 w-14 shrink-0 items-center justify-center rounded-ds-sm"
+              className="h-14 w-14 shrink-0 items-center justify-center"
             >
-              <X size={22} strokeWidth={1.75} color={colors.steel700} />
+              <X size={22} strokeWidth={1.75} color={colors.textMuted} />
             </Pressable>
           </View>
 

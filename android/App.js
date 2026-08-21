@@ -39,14 +39,14 @@ function App() {
 
   return (
     <SafeAreaProvider>
-      <SafeAreaView className="flex-1 bg-chalk-50">
-        <StatusBar barStyle="dark-content" />
+      <SafeAreaView className="flex-1 bg-page">
+        <StatusBar barStyle="light-content" />
         <TopBar />
 
         {tab === 'checkin' && <CheckInScreen />}
         {tab !== 'checkin' && (
           <View className="flex-1 items-center justify-center p-6">
-            <Text className="text-center font-body text-base text-steel-700">
+            <Text className="text-center font-body text-base text-muted">
               This tab isn't ported to the mobile app yet (Task 3).
             </Text>
           </View>

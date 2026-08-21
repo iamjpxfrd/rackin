@@ -1,11 +1,14 @@
 // The signature component (DESIGN.md "Numpad key"). Ported from
-// server/src/components/checkin/Numpad.jsx. CSS grid has no RN equivalent
-// (Yoga is flexbox-only), so the 3-wide layout is built as explicit rows of
-// flex-1 keys instead of grid-cols-3.
+// server/src/components/checkin/Numpad.jsx, reskinned to Kinetic Court. CSS
+// grid has no RN equivalent (Yoga is flexbox-only), so the 3-wide layout is
+// built as explicit rows of flex-1 keys instead of grid-cols-3. The confirm
+// key's diagonal-cut corner uses ui/DiagonalCut.jsx — see that file for why
+// (no RN clip-path).
 
 import { Pressable, Text, View } from "react-native";
 import { Delete } from "lucide-react-native";
 import { colors } from "../../theme/colors.js";
+import { DiagonalCut } from "../ui/DiagonalCut.jsx";
 
 const ROWS = [
   ["1", "2", "3"],
@@ -33,17 +36,17 @@ export default function Numpad({ value, onChange, onSubmit, disabled }) {
   return (
     <View className="flex-col gap-3">
       <View
-        className="h-16 items-center justify-center rounded-ds-sm border border-steel-300 bg-surface-white px-4"
+        className="h-16 items-center justify-center border border-border bg-card px-4"
         accessibilityLiveRegion="polite"
       >
-        <Text className="font-numeral text-3xl text-ink-900">
-          {value || <Text className="text-steel-300">Member #</Text>}
+        <Text className="font-numeral text-3xl text-white">
+          {value || <Text className="text-border">Member #</Text>}
         </Text>
       </View>
 
-      <View className="flex-col gap-3">
+      <View className="flex-col gap-2">
         {ROWS.map((row, rowIndex) => (
-          <View key={rowIndex} className="flex-row gap-3">
+          <View key={rowIndex} className="flex-row gap-2">
             {row.map((key, keyIndex) =>
               key === "" ? (
                 <View key={`spacer-${rowIndex}-${keyIndex}`} className="flex-1" />
@@ -54,9 +57,9 @@ export default function Numpad({ value, onChange, onSubmit, disabled }) {
                   disabled={disabled}
                   accessibilityRole="button"
                   accessibilityLabel="Backspace"
-                  className="h-18 flex-1 items-center justify-center rounded-ds-sm border border-steel-300 bg-surface-white shadow-key-rest active:translate-y-0.5 active:shadow-key-pressed disabled:opacity-50"
+                  className="h-16 flex-1 items-center justify-center border border-border bg-card disabled:opacity-50"
                 >
-                  <Delete size={28} strokeWidth={1.75} color={colors.steel700} />
+                  <Delete size={26} strokeWidth={2} color={colors.textMuted} />
                 </Pressable>
               ) : (
                 <Pressable
@@ -64,9 +67,9 @@ export default function Numpad({ value, onChange, onSubmit, disabled }) {
                   onPress={() => pressDigit(key)}
                   disabled={disabled}
                   accessibilityRole="button"
-                  className="h-18 flex-1 items-center justify-center rounded-ds-sm border border-steel-300 bg-surface-white shadow-key-rest active:translate-y-0.5 active:shadow-key-pressed disabled:opacity-50"
+                  className="h-16 flex-1 items-center justify-center border border-border bg-card disabled:opacity-50"
                 >
-                  <Text className="font-numeral text-4xl text-ink-900">{key}</Text>
+                  <Text className="font-numeral text-3xl text-white">{key}</Text>
                 </Pressable>
               ),
             )}
@@ -78,9 +81,19 @@ export default function Numpad({ value, onChange, onSubmit, disabled }) {
         onPress={pressConfirm}
         disabled={disabled || !value}
         accessibilityRole="button"
-        className="h-18 w-full items-center justify-center rounded-ds-sm bg-signal-yellow shadow-key-rest active:translate-y-0.5 active:shadow-key-pressed disabled:bg-steel-300 disabled:shadow-none"
+        className="w-full"
       >
-        <Text className="font-body text-lg font-bold text-ink-900">CHECK IN</Text>
+        <DiagonalCut
+          color={disabled || !value ? colors.border : colors.accent}
+          style={{ height: 62, width: "100%", alignItems: "center", justifyContent: "center" }}
+        >
+          <Text
+            className="font-body text-lg font-extrabold tracking-wider"
+            style={{ color: disabled || !value ? colors.textMuted : colors.page }}
+          >
+            CHECK IN
+          </Text>
+        </DiagonalCut>
       </Pressable>
     </View>
   );
