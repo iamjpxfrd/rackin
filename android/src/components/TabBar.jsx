@@ -14,7 +14,7 @@ const TABS = [
   { id: "checkin", label: "Check-In", icon: CalendarCheck },
   { id: "followup", label: "Follow Up", icon: PhoneCall },
   { id: "members", label: "Members", icon: Users },
-  { id: "new", label: "+ New", icon: UserPlus },
+  { id: "new", label: "New", icon: UserPlus },
   { id: "store", label: "Store", icon: ShoppingBag },
 ];
 
@@ -28,6 +28,7 @@ export default function TabBar({ active, onChange }) {
           <View className="flex-1 items-center justify-center gap-1">
             <Icon size={26} strokeWidth={1.75} color={isActive ? colors.accent : colors.textDim} />
             <Text
+              numberOfLines={1}
               className={`font-body text-[10px] ${
                 isActive ? "font-bold text-accent" : "text-dim"
               }`}
