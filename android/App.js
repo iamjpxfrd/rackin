@@ -1,77 +1,60 @@
-import { StatusBar } from 'expo-status-bar';
+import './global.css';
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { getStore } from './src/storage/store';
-import { isSyncConfigured } from './src/sync/api';
-import { pendingCount } from './src/sync/outbox';
-import { startSync } from './src/sync/sync';
+import { SafeAreaView, StatusBar, Text, View } from 'react-native';
+import TopBar from './src/components/TopBar.jsx';
+import TabBar from './src/components/TabBar.jsx';
+import CheckInScreen from './src/components/checkin/CheckInScreen.jsx';
+import { startSync } from './src/sync/sync.js';
 
-// Temporary on-device smoke check for the Task 3 storage/sync adapters —
-// opens the SQLite db, round-trips one row through it, then starts the sync
-// loop against whatever EXPO_PUBLIC_RACKIN_API_URL/KEY this build has (none,
-// by default, which is a supported "offline-only" configuration — see
-// src/sync/api.js). Not the real app UI; swap for the real check-in screen
-// once the UI port starts.
-export default function App() {
-  const [storageStatus, setStorageStatus] = useState('opening database…');
-  const [syncStatus, setSyncStatus] = useState('starting sync…');
+// Navigation is local state, not a router — ported from server/src/App.jsx,
+// same reasoning (frontend-spec.md §3.4, §5.1): this is a kiosk-posture
+// tablet where history management buys nothing.
+//
+// Only "checkin" has a real screen so far — Follow Up, Members, and + New
+// are still on server/ only (Task 3's UI-port checklist). Tapping those
+// tabs shows an honest "not yet ported" placeholder rather than a router
+// dead-end or a silently missing tab.
+function App() {
+  const [tab, setTab] = useState('checkin');
 
+  // Push queued writes whenever the tablet has a network (TRD 7). startSync
+  // is async here (opening expo-sqlite is), unlike the web version's
+  // synchronous Dexie-backed one — see src/sync/sync.js's header.
   useEffect(() => {
     let cancelled = false;
-    let stopSync = () => {};
-
-    (async () => {
-      try {
-        const store = await getStore();
-        await store.members.put({ id: 'smoke-test', name: 'Storage Check', createdAt: new Date().toISOString() });
-        const row = await store.members.get('smoke-test');
-        const count = await store.members.count();
-        if (!cancelled) {
-          setStorageStatus(row ? `storage OK — ${count} member row(s), read back: ${row.name}` : 'storage FAILED — round-trip read returned nothing');
-        }
-      } catch (error) {
-        if (!cancelled) setStorageStatus(`storage FAILED — ${error.message}`);
+    let stop = () => {};
+    startSync().then((stopFn) => {
+      if (cancelled) {
+        stopFn();
         return;
       }
-
-      try {
-        const stop = await startSync();
-        if (cancelled) {
-          stop();
-          return;
-        }
-        stopSync = stop;
-        const pending = await pendingCount();
-        setSyncStatus(
-          isSyncConfigured()
-            ? `sync started — ${pending} operation(s) queued`
-            : `sync started — offline-only build (no EXPO_PUBLIC_RACKIN_API_URL/KEY), ${pending} queued`,
-        );
-      } catch (error) {
-        if (!cancelled) setSyncStatus(`sync FAILED — ${error.message}`);
-      }
-    })();
-
+      stop = stopFn;
+    });
     return () => {
       cancelled = true;
-      stopSync();
+      stop();
     };
   }, []);
 
   return (
-    <View style={styles.container}>
-      <Text>{storageStatus}</Text>
-      <Text>{syncStatus}</Text>
-      <StatusBar style="auto" />
-    </View>
+    <SafeAreaView className="flex-1 bg-chalk-50">
+      <StatusBar barStyle="dark-content" />
+      <TopBar />
+
+      {tab === 'checkin' && <CheckInScreen />}
+      {tab !== 'checkin' && (
+        <View className="flex-1 items-center justify-center p-6">
+          <Text className="text-center font-body text-base text-steel-700">
+            This tab isn't ported to the mobile app yet (Task 3).
+          </Text>
+        </View>
+      )}
+
+      {/* The tab bar stays live everywhere — the One-Tap-Away Rule has no
+          exception (DESIGN.md). */}
+      <TabBar active={tab} onChange={setTab} />
+    </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+export default App;

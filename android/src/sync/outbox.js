@@ -6,19 +6,20 @@
 // no network at all, so enqueuing is a side effect of a write that already
 // succeeded, never a precondition for one.
 //
-// Two real differences from the server version:
-//  - Every function that reads/writes store.outbox directly (not via an
-//    already-open `tx`) has to await getStore() first — android/src/storage/
-//    store.js can't hand back a ready-made `store` the way Dexie's synchronous
-//    db.table() does, because opening expo-sqlite is inherently async.
-//  - requeueEverything() no longer reaches into a raw Dexie transaction to run
-//    a schema-upgrade backfill (server/db/db.js's backfillOutbox, used both as
-//    a Dexie .upgrade() hook and for manual resync). RN has no pre-outbox
-//    install to migrate from — there's only the manual-resync use case — so
-//    that same record-to-operation algorithm is reimplemented here directly
-//    against the RN store's own table shape (tx.members, not tx.table("members")).
+// The one real logic difference from the server version: requeueEverything()
+// no longer reaches into a raw Dexie transaction to run a schema-upgrade
+// backfill (server/db/db.js's backfillOutbox, used both as a Dexie
+// .upgrade() hook and for manual resync). RN has no pre-outbox install to
+// migrate from — there's only the manual-resync use case — so that same
+// record-to-operation algorithm is reimplemented here directly against the
+// RN store's own table shape (tx.members, not tx.table("members")).
+//
+// Everything else below is byte-identical to server/src/sync/outbox.js:
+// `store` from android/src/storage/store.js awaits the db open internally
+// (see that file's header), so every `await store.outbox...` call here reads
+// exactly like Dexie's always-ready version.
 
-import { getStore } from "../storage/store.js";
+import { store } from "../storage/store.js";
 
 /** A queued operation the backend has not accepted yet. */
 export const PENDING = "pending";
@@ -80,26 +81,22 @@ export function enqueue(tx, kind, body) {
  * refused, because that member does not exist there yet.
  */
 export async function pendingOperations() {
-  const store = await getStore();
   const queued = await store.outbox.where("status").equals(PENDING).toArray();
   return queued.sort((a, b) => a.id - b.id);
 }
 
 /** How many writes have yet to reach the backend. */
-export async function pendingCount() {
-  const store = await getStore();
+export function pendingCount() {
   return store.outbox.where("status").equals(PENDING).count();
 }
 
 /** Accepted by the backend — the local record is now mirrored there. */
-export async function markSynced(id) {
-  const store = await getStore();
+export function markSynced(id) {
   return store.outbox.delete(id);
 }
 
 /** Failed in a way a later retry could fix. Stays queued. */
-export async function markRetryable(operation, message) {
-  const store = await getStore();
+export function markRetryable(operation, message) {
   return store.outbox.update(operation.id, {
     attempts: (operation.attempts ?? 0) + 1,
     lastError: message,
@@ -107,8 +104,7 @@ export async function markRetryable(operation, message) {
 }
 
 /** Refused permanently. Stays in the table, skipped by every future drain. */
-export async function markRejected(operation, message) {
-  const store = await getStore();
+export function markRejected(operation, message) {
   return store.outbox.update(operation.id, {
     attempts: (operation.attempts ?? 0) + 1,
     status: REJECTED,
@@ -118,7 +114,6 @@ export async function markRejected(operation, message) {
 
 /** Everything the backend refused, oldest first, for inspecting a stuck sync. */
 export async function rejectedOperations() {
-  const store = await getStore();
   const refused = await store.outbox.where("status").equals(REJECTED).toArray();
   return refused.sort((a, b) => a.id - b.id);
 }
@@ -246,7 +241,6 @@ async function rebuildOutboxFrom(tx) {
  * @returns {Promise<number>} how many operations are now queued
  */
 export async function requeueEverything() {
-  const store = await getStore();
   return store.transaction(["members", "payments", "checkIns", "outbox"], async (tx) => {
     // Cleared first so a rejected or half-drained queue cannot leave stale
     // entries alongside the rebuilt ones.
@@ -271,7 +265,6 @@ export async function retryRejected() {
   const refused = await rejectedOperations();
   if (refused.length === 0) return 0;
 
-  const store = await getStore();
   await store.outbox
     .where("id")
     .anyOf(refused.map((operation) => operation.id))

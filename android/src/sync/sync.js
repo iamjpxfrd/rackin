@@ -22,7 +22,7 @@
 //    and `global.rackinSync`.
 
 import NetInfo from "@react-native-community/netinfo";
-import { getStore, resetDatabase } from "../storage/store.js";
+import { resetDatabase, store } from "../storage/store.js";
 import { isSyncConfigured, postJson, SyncRejectedError } from "./api.js";
 import {
   endpointFor,
@@ -145,8 +145,6 @@ async function drain({ post = postJson } = {}) {
  * @returns {Promise<() => void>} resolves to a function that stops listening
  */
 export async function startSync({ retryDelayMs = 60_000, ...options } = {}) {
-  const store = await getStore();
-
   let stopped = false;
   let retryTimer = null;
   let wasConnected = null;
