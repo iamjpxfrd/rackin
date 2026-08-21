@@ -1,6 +1,7 @@
 import './global.css';
 import { useEffect, useState } from 'react';
-import { SafeAreaView, StatusBar, Text, View } from 'react-native';
+import { StatusBar, Text, View } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import TopBar from './src/components/TopBar.jsx';
 import TabBar from './src/components/TabBar.jsx';
 import CheckInScreen from './src/components/checkin/CheckInScreen.jsx';
@@ -37,23 +38,25 @@ function App() {
   }, []);
 
   return (
-    <SafeAreaView className="flex-1 bg-chalk-50">
-      <StatusBar barStyle="dark-content" />
-      <TopBar />
+    <SafeAreaProvider>
+      <SafeAreaView className="flex-1 bg-chalk-50">
+        <StatusBar barStyle="dark-content" />
+        <TopBar />
 
-      {tab === 'checkin' && <CheckInScreen />}
-      {tab !== 'checkin' && (
-        <View className="flex-1 items-center justify-center p-6">
-          <Text className="text-center font-body text-base text-steel-700">
-            This tab isn't ported to the mobile app yet (Task 3).
-          </Text>
-        </View>
-      )}
+        {tab === 'checkin' && <CheckInScreen />}
+        {tab !== 'checkin' && (
+          <View className="flex-1 items-center justify-center p-6">
+            <Text className="text-center font-body text-base text-steel-700">
+              This tab isn't ported to the mobile app yet (Task 3).
+            </Text>
+          </View>
+        )}
 
-      {/* The tab bar stays live everywhere — the One-Tap-Away Rule has no
-          exception (DESIGN.md). */}
-      <TabBar active={tab} onChange={setTab} />
-    </SafeAreaView>
+        {/* The tab bar stays live everywhere — the One-Tap-Away Rule has no
+            exception (DESIGN.md). */}
+        <TabBar active={tab} onChange={setTab} />
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 
