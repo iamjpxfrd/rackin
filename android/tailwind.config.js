@@ -13,6 +13,18 @@
 // as the previous design's fonts. font-numeral/font-body fall back to
 // system fonts, a visible (not silent) gap.
 //
+// Each fontFamily entry below is a SINGLE name, not a CSS-style fallback
+// stack — RN's fontFamily style takes exactly one name; it doesn't parse a
+// comma-separated list the way a browser does. An earlier version of this
+// file had ["system-ui", "sans-serif"], which NativeWind joins into the
+// literal string "system-ui, sans-serif" — not a real typeface on Android,
+// and the OS's fallback-resolution for an unrecognized name produced
+// corrupted glyphs on real text (reported: "NUMPAD" rendering as "NAMPA").
+// "sans-serif"/"serif"/"monospace" are the three generic names Android's
+// font matcher is guaranteed to resolve correctly; iOS ignores an
+// unrecognized fontFamily and falls back to the system font without visible
+// corruption, so a single safe Android name covers both platforms here.
+//
 // Kinetic Court uses sharp corners everywhere except circular avatar badges
 // and the diagonal-cut buttons/active-tabs (ui/DiagonalCut.jsx — CSS
 // clip-path has no RN equivalent, so that shape is drawn with
@@ -39,8 +51,8 @@ module.exports = {
       fontFamily: {
         // TODO(fonts): swap for Archivo Black + Work Sans once loaded via
         // expo-font — see the file header.
-        numeral: ["system-ui", "sans-serif"],
-        body: ["system-ui", "sans-serif"],
+        numeral: ["sans-serif"],
+        body: ["sans-serif"],
       },
     },
   },

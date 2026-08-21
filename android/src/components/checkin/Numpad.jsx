@@ -5,12 +5,25 @@
 // key's diagonal-cut corner uses ui/DiagonalCut.jsx — see that file for why
 // (no RN clip-path).
 //
-// Press feedback is driven by Pressable's own `pressed` state (style/children
-// as a function) rather than NativeWind's `active:` variant — a plain
-// `active:` className silently did nothing here, and the function form is
-// core RN behavior with nothing to go wrong underneath it.
+// Press feedback uses react-native-reanimated directly (already a project
+// dependency via NativeWind) rather than Pressable's own `pressed` state:
+// neither the `active:` className variant nor a style-as-function prop
+// produced any visible change on-device, so this drives an explicit
+// accent-colored overlay + scale pulse from shared values instead — nothing
+// left for NativeWind or Pressable's state plumbing to silently swallow.
+// The flash is a timed sequence (up, hold, fade) rather than tied to
+// press/release, so it reads clearly even on a fast tap. The digit's own
+// text color is never touched — only a translucent accent wash sits behind
+// it, low enough opacity that white text stays readable through it.
 
 import { Pressable, Text, View } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withDelay,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
 import { Delete } from "lucide-react-native";
 import { colors } from "../../theme/colors.js";
 import { DiagonalCut } from "../ui/DiagonalCut.jsx";
@@ -22,21 +35,72 @@ const ROWS = [
   ["", "0", "⌫"],
 ];
 
-const PRESSED_ACCENT = "#b8e034";
+function useKeyFlash() {
+  const scale = useSharedValue(1);
+  const flash = useSharedValue(0);
+
+  function trigger() {
+    scale.value = withSequence(withTiming(0.9, { duration: 60 }), withTiming(1, { duration: 120 }));
+    flash.value = withSequence(
+      withTiming(0.4, { duration: 60 }),
+      withDelay(90, withTiming(0, { duration: 220 })),
+    );
+  }
+
+  const scaleStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const flashStyle = useAnimatedStyle(() => ({ opacity: flash.value }));
+
+  return { trigger, scaleStyle, flashStyle };
+}
+
+function NumpadKey({ onPress, disabled, accessibilityLabel, children }) {
+  const { trigger, scaleStyle, flashStyle } = useKeyFlash();
+
+  function handlePress() {
+    if (disabled) return;
+    trigger();
+    onPress();
+  }
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      className="flex-1"
+    >
+      <Animated.View
+        style={[scaleStyle, { opacity: disabled ? 0.5 : 1 }]}
+        className="h-16 items-center justify-center border border-border bg-card"
+      >
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: colors.accent },
+            flashStyle,
+          ]}
+        />
+        {children}
+      </Animated.View>
+    </Pressable>
+  );
+}
 
 export default function Numpad({ value, onChange, onSubmit, disabled }) {
+  const confirm = useKeyFlash();
+
   function pressDigit(digit) {
-    if (disabled) return;
     onChange((value + digit).slice(0, 6));
   }
 
   function pressBackspace() {
-    if (disabled) return;
     onChange(value.slice(0, -1));
   }
 
   function pressConfirm() {
     if (disabled || !value) return;
+    confirm.trigger();
     onSubmit(value);
   }
 
@@ -58,34 +122,13 @@ export default function Numpad({ value, onChange, onSubmit, disabled }) {
               key === "" ? (
                 <View key={`spacer-${rowIndex}-${keyIndex}`} className="flex-1" />
               ) : key === "⌫" ? (
-                <Pressable
-                  key="backspace"
-                  onPress={pressBackspace}
-                  disabled={disabled}
-                  accessibilityRole="button"
-                  accessibilityLabel="Backspace"
-                  className="h-16 flex-1 items-center justify-center border disabled:opacity-50"
-                  style={({ pressed }) => ({
-                    borderColor: pressed ? colors.accent : colors.border,
-                    backgroundColor: pressed ? colors.hairline : colors.card,
-                  })}
-                >
+                <NumpadKey key="backspace" onPress={pressBackspace} disabled={disabled} accessibilityLabel="Backspace">
                   <Delete size={26} strokeWidth={2} color={colors.textMuted} />
-                </Pressable>
+                </NumpadKey>
               ) : (
-                <Pressable
-                  key={key}
-                  onPress={() => pressDigit(key)}
-                  disabled={disabled}
-                  accessibilityRole="button"
-                  className="h-16 flex-1 items-center justify-center border disabled:opacity-50"
-                  style={({ pressed }) => ({
-                    borderColor: pressed ? colors.accent : colors.border,
-                    backgroundColor: pressed ? colors.hairline : colors.card,
-                  })}
-                >
+                <NumpadKey key={key} onPress={() => pressDigit(key)} disabled={disabled}>
                   <Text className="font-numeral text-3xl text-white">{key}</Text>
-                </Pressable>
+                </NumpadKey>
               ),
             )}
           </View>
@@ -98,9 +141,9 @@ export default function Numpad({ value, onChange, onSubmit, disabled }) {
         accessibilityRole="button"
         className="w-full"
       >
-        {({ pressed }) => (
+        <Animated.View style={confirm.scaleStyle}>
           <DiagonalCut
-            color={disabled || !value ? colors.border : pressed ? PRESSED_ACCENT : colors.accent}
+            color={disabled || !value ? colors.border : colors.accent}
             style={{ height: 62, width: "100%", alignItems: "center", justifyContent: "center" }}
           >
             <Text
@@ -110,7 +153,7 @@ export default function Numpad({ value, onChange, onSubmit, disabled }) {
               CHECK IN
             </Text>
           </DiagonalCut>
-        )}
+        </Animated.View>
       </Pressable>
     </View>
   );
