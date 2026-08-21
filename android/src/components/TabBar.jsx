@@ -7,12 +7,11 @@
 // would just mean re-adding it later.
 
 import { Pressable, Text, View } from "react-native";
-import { Hash, PhoneCall, Users, UserPlus, ShoppingBag } from "lucide-react-native";
+import { CalendarCheck, PhoneCall, Users, UserPlus, ShoppingBag } from "lucide-react-native";
 import { colors } from "../theme/colors.js";
-import { DiagonalCut } from "./ui/DiagonalCut.jsx";
 
 const TABS = [
-  { id: "checkin", label: "Check-In", icon: Hash },
+  { id: "checkin", label: "Check-In", icon: CalendarCheck },
   { id: "followup", label: "Follow Up", icon: PhoneCall },
   { id: "members", label: "Members", icon: Users },
   { id: "new", label: "+ New", icon: UserPlus },
@@ -27,7 +26,7 @@ export default function TabBar({ active, onChange }) {
         const Icon = tab.icon;
         const cell = (
           <View className="flex-1 items-center justify-center gap-1">
-            <Icon size={20} strokeWidth={1.75} color={isActive ? colors.accent : colors.dim} />
+            <Icon size={26} strokeWidth={1.75} color={isActive ? colors.accent : colors.textDim} />
             <Text
               className={`font-body text-[10px] ${
                 isActive ? "font-bold text-accent" : "text-dim"

@@ -4,6 +4,11 @@
 // built as explicit rows of flex-1 keys instead of grid-cols-3. The confirm
 // key's diagonal-cut corner uses ui/DiagonalCut.jsx — see that file for why
 // (no RN clip-path).
+//
+// Press feedback is driven by Pressable's own `pressed` state (style/children
+// as a function) rather than NativeWind's `active:` variant — a plain
+// `active:` className silently did nothing here, and the function form is
+// core RN behavior with nothing to go wrong underneath it.
 
 import { Pressable, Text, View } from "react-native";
 import { Delete } from "lucide-react-native";
@@ -16,6 +21,8 @@ const ROWS = [
   ["7", "8", "9"],
   ["", "0", "⌫"],
 ];
+
+const PRESSED_ACCENT = "#b8e034";
 
 export default function Numpad({ value, onChange, onSubmit, disabled }) {
   function pressDigit(digit) {
@@ -57,7 +64,11 @@ export default function Numpad({ value, onChange, onSubmit, disabled }) {
                   disabled={disabled}
                   accessibilityRole="button"
                   accessibilityLabel="Backspace"
-                  className="h-16 flex-1 items-center justify-center border border-border bg-card disabled:opacity-50"
+                  className="h-16 flex-1 items-center justify-center border disabled:opacity-50"
+                  style={({ pressed }) => ({
+                    borderColor: pressed ? colors.accent : colors.border,
+                    backgroundColor: pressed ? colors.hairline : colors.card,
+                  })}
                 >
                   <Delete size={26} strokeWidth={2} color={colors.textMuted} />
                 </Pressable>
@@ -67,7 +78,11 @@ export default function Numpad({ value, onChange, onSubmit, disabled }) {
                   onPress={() => pressDigit(key)}
                   disabled={disabled}
                   accessibilityRole="button"
-                  className="h-16 flex-1 items-center justify-center border border-border bg-card disabled:opacity-50"
+                  className="h-16 flex-1 items-center justify-center border disabled:opacity-50"
+                  style={({ pressed }) => ({
+                    borderColor: pressed ? colors.accent : colors.border,
+                    backgroundColor: pressed ? colors.hairline : colors.card,
+                  })}
                 >
                   <Text className="font-numeral text-3xl text-white">{key}</Text>
                 </Pressable>
@@ -83,17 +98,19 @@ export default function Numpad({ value, onChange, onSubmit, disabled }) {
         accessibilityRole="button"
         className="w-full"
       >
-        <DiagonalCut
-          color={disabled || !value ? colors.border : colors.accent}
-          style={{ height: 62, width: "100%", alignItems: "center", justifyContent: "center" }}
-        >
-          <Text
-            className="font-body text-lg font-extrabold tracking-wider"
-            style={{ color: disabled || !value ? colors.textMuted : colors.page }}
+        {({ pressed }) => (
+          <DiagonalCut
+            color={disabled || !value ? colors.border : pressed ? PRESSED_ACCENT : colors.accent}
+            style={{ height: 62, width: "100%", alignItems: "center", justifyContent: "center" }}
           >
-            CHECK IN
-          </Text>
-        </DiagonalCut>
+            <Text
+              className="font-body text-lg font-extrabold tracking-wider"
+              style={{ color: disabled || !value ? colors.textMuted : colors.page }}
+            >
+              CHECK IN
+            </Text>
+          </DiagonalCut>
+        )}
       </Pressable>
     </View>
   );
