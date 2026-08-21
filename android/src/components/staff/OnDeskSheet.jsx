@@ -9,6 +9,7 @@ import Sheet from "../ui/Sheet.jsx";
 import Field from "../ui/Field.jsx";
 import { useLiveQuery } from "../../hooks/useLiveQuery.js";
 import { addStaff, listStaff, retireStaff, setOnDesk } from "../../domain/staff.js";
+import { showToast } from "../ui/Toast.jsx";
 import { colors } from "../../theme/colors.js";
 
 export default function OnDeskSheet({ onDesk, onClose }) {
@@ -27,6 +28,7 @@ export default function OnDeskSheet({ onDesk, onClose }) {
       // decision in it — the first person added is almost always whoever is
       // standing there setting the tablet up.
       if (!onDesk) await setOnDesk(person.id);
+      showToast(`${person.name} added to staff list`);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -35,8 +37,14 @@ export default function OnDeskSheet({ onDesk, onClose }) {
   }
 
   async function handleSelect(staffId) {
-    await setOnDesk(staffId);
+    const person = await setOnDesk(staffId);
+    showToast(`${person.name} is now on the desk`);
     onClose();
+  }
+
+  async function handleRetire(person) {
+    await retireStaff(person.id);
+    showToast(`${person.name} removed from staff list`);
   }
 
   return (
@@ -70,7 +78,7 @@ export default function OnDeskSheet({ onDesk, onClose }) {
                   {isOnDesk && <Check size={20} strokeWidth={2} color={colors.page} />}
                 </Pressable>
                 <Pressable
-                  onPress={() => retireStaff(person.id)}
+                  onPress={() => handleRetire(person)}
                   accessibilityRole="button"
                   accessibilityLabel={`Remove ${person.name} from the staff list`}
                   className="h-16 w-16 shrink-0 items-center justify-center border border-border bg-card"

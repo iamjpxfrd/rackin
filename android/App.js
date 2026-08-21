@@ -5,6 +5,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import TopBar from './src/components/TopBar.jsx';
 import TabBar from './src/components/TabBar.jsx';
 import CheckInScreen from './src/components/checkin/CheckInScreen.jsx';
+import { ToastHost } from './src/components/ui/Toast.jsx';
 import { startSync } from './src/sync/sync.js';
 
 // Navigation is local state, not a router — ported from server/src/App.jsx,
@@ -55,6 +56,10 @@ function App() {
         {/* The tab bar stays live everywhere — the One-Tap-Away Rule has no
             exception (DESIGN.md). */}
         <TabBar active={tab} onChange={setTab} />
+
+        {/* App-root so a toast fired from a sheet (e.g. OnDeskSheet) still
+            shows after the sheet that triggered it closes. */}
+        <ToastHost />
       </SafeAreaView>
     </SafeAreaProvider>
   );

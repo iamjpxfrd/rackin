@@ -5,7 +5,9 @@
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useLiveQuery } from "../hooks/useLiveQuery.js";
+import { useClock } from "../hooks/useClock.js";
 import { getOnDesk } from "../domain/staff.js";
+import { formatClock, formatDate } from "../domain/constants.js";
 import OnDeskSheet from "./staff/OnDeskSheet.jsx";
 import { Avatar } from "./ui/Avatar.jsx";
 
@@ -14,6 +16,7 @@ export default function TopBar() {
   // undefined until the first read lands, so the bar never flashes "Not set"
   // at someone who is in fact signed in.
   const onDesk = useLiveQuery(() => getOnDesk(), []);
+  const now = useClock();
 
   return (
     <>
@@ -39,6 +42,17 @@ export default function TopBar() {
             <Text className="font-body text-sm text-muted">Set who's on desk</Text>
           )}
         </Pressable>
+      </View>
+
+      {/* A live readout, not decoration — a control panel has a clock (DESIGN.md's
+          "gym equipment control panel" north star). Ticks every second via
+          useClock so it visibly reads as live rather than a static timestamp. */}
+      <View className="h-7 shrink-0 flex-row items-center justify-center gap-2 border-b-2 border-hairline bg-page">
+        <Text className="font-numeral text-xs tracking-[0.04em] text-white">
+          {formatClock(now)}
+        </Text>
+        <Text className="font-body text-xs text-dim">•</Text>
+        <Text className="font-body text-xs text-muted">{formatDate(now)}</Text>
       </View>
 
       {pickerOpen && (

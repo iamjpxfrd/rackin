@@ -104,3 +104,16 @@ export function formatTime(isoTimestamp) {
     hour12: true,
   });
 }
+
+/**
+ * Live clock readout: "9:41:32 AM". Includes seconds, unlike formatTime's
+ * visit-row format above — a readout only reads as live if it visibly ticks.
+ */
+export function formatClock(date) {
+  return date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+}

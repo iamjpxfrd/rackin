@@ -29,6 +29,8 @@ export default function TabBar({ active, onChange }) {
             <Icon size={26} strokeWidth={1.75} color={isActive ? colors.accent : colors.textDim} />
             <Text
               numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
               className={`font-body text-[10px] ${
                 isActive ? "font-bold text-accent" : "text-dim"
               }`}
