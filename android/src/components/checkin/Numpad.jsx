@@ -1,0 +1,160 @@
+// The signature component (DESIGN.md "Numpad key"). Ported from
+// server/src/components/checkin/Numpad.jsx, reskinned to Kinetic Court. CSS
+// grid has no RN equivalent (Yoga is flexbox-only), so the 3-wide layout is
+// built as explicit rows of flex-1 keys instead of grid-cols-3. The confirm
+// key's diagonal-cut corner uses ui/DiagonalCut.jsx — see that file for why
+// (no RN clip-path).
+//
+// Press feedback uses react-native-reanimated directly (already a project
+// dependency via NativeWind) rather than Pressable's own `pressed` state:
+// neither the `active:` className variant nor a style-as-function prop
+// produced any visible change on-device, so this drives an explicit
+// accent-colored overlay + scale pulse from shared values instead — nothing
+// left for NativeWind or Pressable's state plumbing to silently swallow.
+// The flash is a timed sequence (up, hold, fade) rather than tied to
+// press/release, so it reads clearly even on a fast tap. The digit's own
+// text color is never touched — only a translucent accent wash sits behind
+// it, low enough opacity that white text stays readable through it.
+
+import { Pressable, Text, View } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withDelay,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
+import { Delete } from "lucide-react-native";
+import { colors } from "../../theme/colors.js";
+import { DiagonalCut } from "../ui/DiagonalCut.jsx";
+
+const ROWS = [
+  ["1", "2", "3"],
+  ["4", "5", "6"],
+  ["7", "8", "9"],
+  ["", "0", "⌫"],
+];
+
+function useKeyFlash() {
+  const scale = useSharedValue(1);
+  const flash = useSharedValue(0);
+
+  function trigger() {
+    scale.value = withSequence(withTiming(0.9, { duration: 60 }), withTiming(1, { duration: 120 }));
+    flash.value = withSequence(
+      withTiming(0.4, { duration: 60 }),
+      withDelay(90, withTiming(0, { duration: 220 })),
+    );
+  }
+
+  const scaleStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const flashStyle = useAnimatedStyle(() => ({ opacity: flash.value }));
+
+  return { trigger, scaleStyle, flashStyle };
+}
+
+function NumpadKey({ onPress, disabled, accessibilityLabel, children }) {
+  const { trigger, scaleStyle, flashStyle } = useKeyFlash();
+
+  function handlePress() {
+    if (disabled) return;
+    trigger();
+    onPress();
+  }
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      className="flex-1"
+    >
+      <Animated.View
+        style={[scaleStyle, { opacity: disabled ? 0.5 : 1 }]}
+        className="h-16 items-center justify-center border border-border bg-card"
+      >
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: colors.accent },
+            flashStyle,
+          ]}
+        />
+        {children}
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+export default function Numpad({ value, onChange, onSubmit, disabled }) {
+  const confirm = useKeyFlash();
+
+  function pressDigit(digit) {
+    onChange((value + digit).slice(0, 6));
+  }
+
+  function pressBackspace() {
+    onChange(value.slice(0, -1));
+  }
+
+  function pressConfirm() {
+    if (disabled || !value) return;
+    confirm.trigger();
+    onSubmit(value);
+  }
+
+  return (
+    <View className="flex-col gap-3">
+      <View
+        className="h-16 items-center justify-center border border-border bg-card px-4"
+        accessibilityLiveRegion="polite"
+      >
+        <Text className="font-numeral text-3xl text-white">
+          {value || <Text className="text-border">Member #</Text>}
+        </Text>
+      </View>
+
+      <View className="flex-col gap-2">
+        {ROWS.map((row, rowIndex) => (
+          <View key={rowIndex} className="flex-row gap-2">
+            {row.map((key, keyIndex) =>
+              key === "" ? (
+                <View key={`spacer-${rowIndex}-${keyIndex}`} className="flex-1" />
+              ) : key === "⌫" ? (
+                <NumpadKey key="backspace" onPress={pressBackspace} disabled={disabled} accessibilityLabel="Backspace">
+                  <Delete size={26} strokeWidth={2} color={colors.textMuted} />
+                </NumpadKey>
+              ) : (
+                <NumpadKey key={key} onPress={() => pressDigit(key)} disabled={disabled}>
+                  <Text className="font-numeral text-3xl text-white">{key}</Text>
+                </NumpadKey>
+              ),
+            )}
+          </View>
+        ))}
+      </View>
+
+      <Pressable
+        onPress={pressConfirm}
+        disabled={disabled || !value}
+        accessibilityRole="button"
+        className="w-full"
+      >
+        <Animated.View style={confirm.scaleStyle}>
+          <DiagonalCut
+            color={disabled || !value ? colors.border : colors.accent}
+            style={{ height: 62, width: "100%", alignItems: "center", justifyContent: "center" }}
+          >
+            <Text
+              className="font-body text-lg font-extrabold tracking-wider"
+              style={{ color: disabled || !value ? colors.textMuted : colors.page }}
+            >
+              CHECK IN
+            </Text>
+          </DiagonalCut>
+        </Animated.View>
+      </Pressable>
+    </View>
+  );
+}
