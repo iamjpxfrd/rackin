@@ -47,6 +47,12 @@ const METHOD_OPTIONS = [
   { value: "transfer", label: "TRANSFER" },
 ];
 
+// Monthly and Annually are the two plans priced by membership type
+// (pricing.js) — Session/Weekly are flat for everyone.
+function planNeedsMembershipType(planType) {
+  return planType === "monthly" || planType === "annually";
+}
+
 export default function NewMemberScreen({ nextMemberId, onRegistered }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -82,13 +88,13 @@ export default function NewMemberScreen({ nextMemberId, onRegistered }) {
   }, []);
 
   // Fills Amount from the plan/membership-type/promo combination — a
-  // prefill, not a lock, so staff can still type over it. Monthly needs both
-  // the plan AND a membership-type choice before there's a real number to
-  // suggest; Session/Weekly/Annually don't care about membership type at all
+  // prefill, not a lock, so staff can still type over it. Monthly and
+  // Annually both need a membership-type choice before there's a real number
+  // to suggest; Session/Weekly don't care about membership type at all
   // (pricing.js).
   function applySuggestedAmount(nextPlanType, nextIsStudent, nextPromoActive = promoActive) {
     if (nextPlanType === null) return;
-    if (nextPlanType === "monthly" && nextIsStudent === null) return;
+    if (planNeedsMembershipType(nextPlanType) && nextIsStudent === null) return;
     const suggested = suggestedAmount(nextPlanType, {
       isStudent: !!nextIsStudent,
       promoActive: nextPromoActive,
@@ -114,9 +120,9 @@ export default function NewMemberScreen({ nextMemberId, onRegistered }) {
 
   const numericAmount = Number(amount);
   const amountIsValid = Number.isFinite(numericAmount) && numericAmount > 0;
-  // Membership type only matters for Monthly (pricing.js) — Session/Weekly/
-  // Annually are flat regardless, so nothing blocks submit on it for them.
-  const needsMembershipType = planType === "monthly";
+  // Membership type only matters for Monthly and Annually (pricing.js) —
+  // Session/Weekly are flat regardless, so nothing blocks submit on it.
+  const needsMembershipType = planNeedsMembershipType(planType);
   const canSubmit =
     name.trim() !== "" &&
     planType !== null &&
