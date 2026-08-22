@@ -1,5 +1,6 @@
 package com.rackin.backend.web;
 
+import com.rackin.backend.exception.CheckInNotFoundException;
 import com.rackin.backend.exception.MemberIdConflictException;
 import com.rackin.backend.exception.MemberNotFoundException;
 import com.rackin.backend.web.dto.ErrorMessage;
@@ -17,6 +18,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MemberNotFoundException.class)
     public ResponseEntity<ErrorMessage> handleMemberNotFound(MemberNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorMessage(ex.getMessage()));
+    }
+
+    @ExceptionHandler(CheckInNotFoundException.class)
+    public ResponseEntity<ErrorMessage> handleCheckInNotFound(CheckInNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorMessage(ex.getMessage()));
     }
 

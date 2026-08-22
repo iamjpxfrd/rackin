@@ -58,4 +58,10 @@ public class CheckIn {
 
     @Column(name = "recorded_by_name", length = 100)
     private String recordedByName;
+
+    // Set by either a manual staff checkout or the tablet's force-logout
+    // sweep past closing (2026-08-23). Null is the common case — most
+    // visits never need an explicit checkout recorded.
+    @Column(name = "check_out_at")
+    private Instant checkOutAt;
 }
