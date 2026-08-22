@@ -229,6 +229,19 @@ export default function MembersScreen({ onSelectMember, onRegisterFirst }) {
 
       {filterSheetOpen && (
         <Sheet title="Filter members" onClose={() => setFilterSheetOpen(false)}>
+          {filtersActive && (
+            <Pressable
+              onPress={() => {
+                setStatusFilter("all");
+                setPlanFilter("all");
+              }}
+              accessibilityRole="button"
+              className="self-start"
+            >
+              <Text className="font-body-semibold text-sm text-accent">Reset filters</Text>
+            </Pressable>
+          )}
+
           <View className="gap-2">
             <SectionHeader>STATUS</SectionHeader>
             <FilterPills
