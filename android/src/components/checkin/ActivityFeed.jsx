@@ -18,19 +18,30 @@
 // Active/checked-out treatment (2026-08-22): rows are grouped, not just
 // timestamp-ordered — everyone still on the premises sits above everyone
 // who's checked out, each group keeping getTodaysActivity's own most-recent-
-// first order. A still-active row gets a solid accent fill (dark text for
-// contrast, the same "text goes dark on lime" rule as DiagonalCut/
-// ChoiceGroup's selected state). Checked-out rows keep their original
-// treatment (plain card background, opacity-50) — an "ash" fill was tried
-// and dropped per explicit feedback; only the active state gets a color.
+// first order by default. A still-active row gets a solid accent fill (dark
+// text for contrast, the same "text goes dark on lime" rule as
+// DiagonalCut/ChoiceGroup's selected state). Checked-out rows keep their
+// original treatment (plain card background, opacity-50) — an "ash" fill
+// was tried and dropped per explicit feedback; only the active state gets
+// a color.
+//
+// Sort control added the same day: RECENT (the above default, most-recent
+// check-in first within each group) or DURATION — within each group,
+// longest-running first. For checked-out rows that's their final duration,
+// highest to lowest, per explicit request; active rows get the same
+// treatment for consistency (longest-currently-checked-in first), which
+// wasn't separately specified but follows the same logic. The grouping
+// itself (active always above checked-out) holds in both modes.
 
 import { useState } from "react";
 import { Image, Pressable, ScrollView, Text, View } from "react-native";
+import { ArrowUpDown } from "lucide-react-native";
 import { useLiveQuery } from "../../hooks/useLiveQuery.js";
 import { useClock } from "../../hooks/useClock.js";
 import { getTodaysActivity, checkOutMember } from "../../domain/checkIn.js";
-import { formatDuration } from "../../domain/constants.js";
+import { formatDuration, formatTime } from "../../domain/constants.js";
 import { Avatar } from "../ui/Avatar.jsx";
+import Touchable from "../ui/Touchable.jsx";
 import CheckoutModal from "./CheckoutModal.jsx";
 import { colors } from "../../theme/colors.js";
 
@@ -42,21 +53,31 @@ const NO_ACTIVITY_IMAGE = require("../../../assets/checkin/no-activity.png");
 // "muted" without disappearing against lime.
 const ACCENT_MUTED = "#3a4a10";
 
+function durationMs(entry, now) {
+  const end = entry.checkOutAt ?? now.toISOString();
+  return new Date(end) - new Date(entry.timestamp);
+}
+
 export default function ActivityFeed() {
   const activity = useLiveQuery(() => getTodaysActivity(), [], []);
   const [checkoutTarget, setCheckoutTarget] = useState(null);
+  const [sortMode, setSortMode] = useState("recent");
   // Ticks the still-checked-in rows' durations forward every second — a
   // frozen "42m" next to someone mid-session would read as broken, not
   // just stale (matches TopBar's live clock for the same reason).
   const now = useClock();
 
   // Grouped, not just timestamp-ordered — everyone still checked in floats
-  // above everyone who's checked out, each group keeping the domain query's
-  // own most-recent-first order within itself.
-  const orderedActivity = [
-    ...activity.filter((entry) => !entry.checkOutAt),
-    ...activity.filter((entry) => entry.checkOutAt),
-  ];
+  // above everyone who's checked out. Within each group, RECENT keeps the
+  // domain query's own most-recent-check-in-first order; DURATION sorts by
+  // how long the session has run, longest first.
+  const active = activity.filter((entry) => !entry.checkOutAt);
+  const checkedOutEntries = activity.filter((entry) => entry.checkOutAt);
+  if (sortMode === "duration") {
+    active.sort((a, b) => durationMs(b, now) - durationMs(a, now));
+    checkedOutEntries.sort((a, b) => durationMs(b, now) - durationMs(a, now));
+  }
+  const orderedActivity = [...active, ...checkedOutEntries];
 
   async function confirmCheckout() {
     const target = checkoutTarget;
@@ -66,9 +87,30 @@ export default function ActivityFeed() {
 
   return (
     <View className="flex-1 flex-col gap-2">
-      <Text className="font-heading text-[11px] tracking-[0.1em] text-muted">
-        TODAY'S PRESENT
-      </Text>
+      <View className="h-5 flex-row items-center justify-between">
+        <Text className="font-heading text-[11px] tracking-[0.1em] text-muted">
+          TODAY'S PRESENT
+        </Text>
+        <Touchable
+          onPress={() => setSortMode((mode) => (mode === "recent" ? "duration" : "recent"))}
+          accessibilityRole="button"
+          accessibilityLabel={sortMode === "duration" ? "Sorted by duration" : "Sorted by most recent"}
+          wrapperClassName="shrink-0"
+          className="h-5 flex-row items-center gap-1"
+        >
+          <ArrowUpDown
+            size={12}
+            strokeWidth={2}
+            color={sortMode === "duration" ? colors.accent : colors.textDim}
+          />
+          <Text
+            className="font-heading text-[10px]"
+            style={{ color: sortMode === "duration" ? colors.accent : colors.textDim }}
+          >
+            {sortMode === "duration" ? "DURATION" : "RECENT"}
+          </Text>
+        </Touchable>
+      </View>
 
       {activity.length === 0 ? (
         <View className="flex-1 items-center justify-center gap-3 border border-border bg-card">
@@ -105,12 +147,20 @@ export default function ActivityFeed() {
                       #{entry.memberId}
                     </Text>
                   </Text>
-                  <Text
-                    className="w-[62px] text-right font-heading text-xs"
-                    style={{ color: checkedOut ? colors.textMuted : colors.page }}
-                  >
-                    {duration}
-                  </Text>
+                  <View className="w-[92px] items-end gap-0.5">
+                    <Text
+                      className="font-body text-[10px]"
+                      style={{ color: checkedOut ? colors.textDim : ACCENT_MUTED }}
+                    >
+                      {formatTime(entry.timestamp)}
+                    </Text>
+                    <Text
+                      className="font-heading text-xs"
+                      style={{ color: checkedOut ? colors.textMuted : colors.page }}
+                    >
+                      {duration}
+                    </Text>
+                  </View>
                 </View>
               );
 
