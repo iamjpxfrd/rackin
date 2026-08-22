@@ -74,23 +74,19 @@ export default function StoreScreen() {
       <DiagonalCut
         color={colors.accent}
         cutPercent={95}
-        // The cut only eats into the right edge (DiagonalCut.jsx's polygon
-        // narrows toward the bottom-right, not the left) — extra right
-        // padding keeps the amount clear of it instead of tucking under the
-        // diagonal, which was clipping the last digit.
-        style={{
-          height: 56,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          paddingLeft: 16,
-          paddingRight: 32,
-        }}
+        style={{ height: 56, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
       >
-        <Text className="font-body-bold text-xs tracking-[0.03em]" style={{ color: colors.page }}>
+        <Text
+          className="font-body-bold text-xs tracking-[0.03em]"
+          style={{ color: colors.page, paddingLeft: 16 }}
+        >
           CASH ON HAND
         </Text>
-        <Text className="font-heading text-xl" style={{ color: colors.page }}>
+        {/* The cut only eats into the right edge (DiagonalCut.jsx's polygon
+            narrows toward the bottom-right, not the left) — padding on the
+            text itself (not the row) keeps the amount clear of it instead of
+            tucking under the diagonal, which was clipping the last digit. */}
+        <Text className="font-heading text-xl" style={{ color: colors.page, paddingRight: 32 }}>
           {formatAmount(totals.cashOnHand)}
         </Text>
       </DiagonalCut>
