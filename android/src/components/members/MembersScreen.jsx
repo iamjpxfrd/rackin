@@ -10,6 +10,11 @@
 // contract (and the newest-registered-member use case Follow Up-adjacent
 // screens don't cover) stays untouched.
 //
+// Status filter added the same day: ALL/ACTIVE/EXPIRED pills above the
+// roster, filtering on each row's already-derived `status` (membership.js's
+// deriveStatus) — no new domain query, same client-side-filter approach as
+// the sort control and the existing search box.
+//
 // onSelectMember/onRegisterFirst are passed down from App.js, same as the
 // web version — a row tap opens the member's profile (Task 4).
 
@@ -30,15 +35,27 @@ const SORTS = {
   },
 };
 
+const STATUS_FILTERS = [
+  { key: "all", label: "ALL" },
+  { key: "active", label: "ACTIVE" },
+  { key: "expired", label: "EXPIRED" },
+];
+
 export default function MembersScreen({ onSelectMember, onRegisterFirst }) {
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState("name");
+  const [statusFilter, setStatusFilter] = useState("all");
   // No default value: undefined means "not loaded yet", which must never
   // render as the empty state (frontend-spec.md §9). Only a confirmed [] does.
   const rows = useLiveQuery(() => listMembers());
 
   const loading = rows === undefined;
-  const matches = loading ? [] : [...filterMembers(rows, query)].sort(SORTS[sortBy].compare);
+  const byStatus = loading
+    ? []
+    : statusFilter === "all"
+      ? rows
+      : rows.filter((row) => row.status === statusFilter);
+  const matches = loading ? [] : [...filterMembers(byStatus, query)].sort(SORTS[sortBy].compare);
 
   if (loading) {
     return <View className="flex-1 bg-page" />;
@@ -55,6 +72,27 @@ export default function MembersScreen({ onSelectMember, onRegisterFirst }) {
           placeholderTextColor={colors.textDim}
           className="flex-1 bg-transparent font-body text-base text-white"
         />
+      </View>
+
+      <View accessibilityRole="radiogroup" accessibilityLabel="Filter by status" className="flex-row gap-1.5">
+        {STATUS_FILTERS.map(({ key, label }) => {
+          const selected = statusFilter === key;
+          return (
+            <Pressable
+              key={key}
+              onPress={() => setStatusFilter(key)}
+              accessibilityRole="radio"
+              accessibilityState={{ selected }}
+              className={`h-9 flex-1 items-center justify-center ${
+                selected ? "bg-accent" : "border border-border bg-card"
+              }`}
+            >
+              <Text className={`font-heading text-xs ${selected ? "text-page" : "text-muted"}`}>
+                {label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       {rows.length === 0 ? (
@@ -77,7 +115,7 @@ export default function MembersScreen({ onSelectMember, onRegisterFirst }) {
         <>
           <View className="h-8 flex-row items-center justify-between">
             <Text className="font-heading text-[11px] tracking-[0.1em] text-muted">
-              {rows.length} MEMBERS
+              {matches.length} MEMBERS
             </Text>
             <View accessibilityRole="radiogroup" accessibilityLabel="Sort" className="flex-row gap-1.5">
               {Object.entries(SORTS).map(([key, { label }]) => {
@@ -105,7 +143,9 @@ export default function MembersScreen({ onSelectMember, onRegisterFirst }) {
 
           {matches.length === 0 ? (
             <Text className="px-4 py-6 text-center font-body text-base text-muted">
-              No members match "{query.trim()}".
+              {query.trim()
+                ? `No members match "${query.trim()}".`
+                : `No ${STATUS_FILTERS.find((entry) => entry.key === statusFilter).label.toLowerCase()} members.`}
             </Text>
           ) : (
             <Panel>
