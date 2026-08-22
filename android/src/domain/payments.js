@@ -7,7 +7,9 @@ import { attributionFor, getOnDesk } from "./staff.js";
 import { PLAN_TYPES } from "./constants.js";
 
 /**
- * Extends coverage from the payment date + the plan's duration.
+ * Extends coverage by the plan's duration, stacked on top of the member's
+ * remaining coverage (or the payment date, if they've lapsed) — see
+ * computeCoversUntil for the extend rule.
  *
  * `recordedBy` is who takes responsibility for the money. It defaults to
  * whoever is on the desk, but the caller passes it explicitly because the
@@ -47,8 +49,11 @@ export async function recordPayment({ memberId, amount, method, planType, record
   const nextPlanType = planType ?? member.planType;
   const planChanged = planType !== undefined && planType !== member.planType;
 
+  const existingPayments = await store.payments.where("memberId").equals(memberId).toArray();
+  const currentCoversUntil = latestPaymentOf(existingPayments)?.coversUntil ?? null;
+
   const paidAt = new Date().toISOString();
-  const coversUntil = computeCoversUntil(paidAt, nextPlanType);
+  const coversUntil = computeCoversUntil(paidAt, nextPlanType, currentCoversUntil);
 
   // `undefined` means the caller did not express a preference, so fall back to
   // the shift. An explicit `null` means nobody is signed in, and is preserved

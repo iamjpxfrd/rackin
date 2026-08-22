@@ -78,14 +78,17 @@ meaningful because it is used **only** where a number expresses urgency:
 
 Follow Up carries two sections, in this order:
 
-1. **Expiring soon** — coverage ends within 7 days. Still saveable. Acting here
-   *prevents* a lapse.
+1. **Needs renewal** — coverage ends within 7 days, or has already ended. Ranked
+   worst-first (already-expired above merely-expiring), since not every case here
+   is still preventable — an already-lapsed member's row is a recovery call, not a
+   prevention one, same job as "stopped coming" below but sooner to matter because
+   they may still be walking in unpaid.
 2. **Stopped coming** — no check-in in 14+ days. Acting here *recovers* one.
 
-Expiring-soon sits first because it is the only one of the two where a phone call
-changes the outcome before it happens. Both answer the same question — *who needs a
-call today* — so they belong on one screen, and the Members tab stays what its name
-promises: the roster.
+Needs-renewal sits first because it is the section most likely to contain a call
+that changes the outcome before it happens. Both answer the same question — *who
+needs a call today* — so they belong on one screen, and the Members tab stays what
+its name promises: the roster.
 
 ### 3.3 One quiet yellow per screen
 
@@ -220,7 +223,8 @@ frontend/src/domain/membership.js
     daysRemaining: number | null,        // negative when expired
     isExpiringSoon: boolean              // active && daysRemaining <= 7
   }
-  computeCoversUntil(paidAtIso, planType) -> string   // paidAt + PLAN_DAYS[plan]
+  computeCoversUntil(paidAtIso, planType, currentCoversUntil?) -> string
+    // max(currentCoversUntil, paidAtIso) + PLAN_DAYS[plan]
 
 frontend/src/domain/members.js
   registerMember({ name, phone?, planType, amount, paymentMethod })
@@ -233,7 +237,7 @@ frontend/src/domain/members.js
 
 frontend/src/domain/payments.js
   recordPayment({ memberId, amount, method })
-    -> { payment, coversUntil, status }  // coversUntil from payment date, always
+    -> { payment, coversUntil, status }  // coversUntil stacks on remaining coverage
   getLastPaymentAmount(memberId) -> number | null
 
 frontend/src/domain/followUp.js
@@ -246,10 +250,11 @@ Binding rules for the implementer:
 - **`registerMember` writes member + payment atomically** (Dexie transaction). A
   member row with no payment row is a corrupt record — status is derived from
   payments, so such a member would read as permanently expired.
-- **`coversUntil` is always `paymentDate + planDays`**, never extended from a prior
-  `coversUntil`, even on early renewal (`PRODUCT.md` — deliberate pilot
-  simplification). The UI must show the resulting date before the staff member
-  confirms (§6.4, §6.5) so this rule is never a surprise.
+- **`coversUntil` extends from `max(currentCoversUntil, paymentDate) + planDays`** —
+  a renewal made before coverage lapses stacks on top of the remaining time; a
+  lapsed member (or a first-ever payment, no prior `coversUntil`) starts fresh from
+  the payment date (`PRODUCT.md`). The UI must show the resulting date before the
+  staff member confirms (§6.4, §6.5) so this rule is never a surprise.
 - **Never-visited members sort as oldest** in `getLapsedMembers` and carry
   `daysSinceVisit: null`.
 - Every write generates a `clientUuid` via `generateClientUuid()` — already required
@@ -273,7 +278,7 @@ The screen the pilot is judged on.
 ├────────────────────────────────────────────────────────────┤
 │  Follow Up                                            11   │ 56  Headline + total, Mono
 ├────────────────────────────────────────────────────────────┤
-│  EXPIRING SOON · NEXT 7 DAYS                           4   │ 40  SectionHeader
+│  NEEDS RENEWAL                                         4   │ 40  SectionHeader
 │ ┌────────────────────────────────────────────────────────┐ │
 │ │  2   │ Placeholder Name              #1004            │ │
 │ │ days │ Monthly · 0917 000 0000       [Expiring soon]  │ │ 88  UrgencyRow
@@ -437,7 +442,7 @@ that size.
   capped list never lies about the count.
 - **Visits** show date + time (Mono) + method word; reuse the activity-feed method
   icons. **Payments** show date, amount, method, and the resulting `coversUntil` —
-  the last column is what makes the extend-from-payment-date rule legible in
+  the last column is what makes the stack-on-remaining-coverage rule legible in
   hindsight.
 - **Back** returns to the originating tab (Follow Up or Members), which stays
   scrolled where it was. Losing scroll position on a 128-row roster would make the
@@ -488,7 +493,7 @@ screen is specified.
 - **Live coverage preview** updates on every keystroke and is the sheet's most
   important element after the amount: it states the resulting date, the plan duration
   applied, and the status transition (`Expired → Active`). This is where the
-  extend-from-payment-date rule becomes visible *before* it is committed.
+  stack-on-remaining-coverage rule becomes visible *before* it is committed.
 - **Method has no default.** Cash and transfer are equally likely and a wrong
   prefilled method is a silently wrong record. Confirm stays disabled until both
   amount (> 0) and method are set.
@@ -564,8 +569,10 @@ One screen, one confirm. Registration and first payment are never two steps
   *"Enter the member's name."* Amount invalid → *"Enter the amount received."*
 - **Phone is genuinely optional** — labeled `optional` in the field caption, never
   marked with a required-asterisk system that then has an exception.
-- Duplicate names are allowed and not warned about — two members can share a name, and
-  the member number disambiguates.
+- **Duplicate names are blocked by default** — a name that already matches an existing
+  member disables Confirm — but overridable: a warning row with a "different person"
+  switch appears, and Confirm re-enables once staff explicitly flip it (superseded a
+  prior "allowed, the member number disambiguates" call).
 - **Write is atomic** (§5.4). A failure leaves the form filled and shows an
   `ErrorBanner` above the confirm key; nothing is half-saved.
 
@@ -629,11 +636,11 @@ the next action, no apology, no exclamation marks.
 |---|---|
 | `tab.followUp` | Follow Up |
 | `followUp.title` | Follow Up |
-| `followUp.expiring` | Expiring soon · next 7 days |
+| `followUp.expiring` | Needs renewal |
 | `followUp.lapsed` | Stopped coming · 14+ days |
 | `followUp.empty` | Nobody needs a call today. |
-| `followUp.emptyHint` | Members show up here when their plan is ending or they've stopped coming. |
-| `followUp.expiringEmpty` | No one expiring in the next 7 days. |
+| `followUp.emptyHint` | Members show up here when their plan needs renewing or they've stopped coming. |
+| `followUp.expiringEmpty` | No one needs a renewal call right now. |
 | `followUp.lapsedEmpty` | No one's fallen off in the last 14 days. |
 | `followUp.never` | never |
 | `followUp.today` | today |
@@ -733,7 +740,7 @@ quality cost, and it is the single most likely defect in this build.
 | Member never checked in | Sorts to the top of Stopped coming, gutter shows `—` / `never` |
 | Member both expiring and lapsed | Appears in both sections (§6.1) |
 | Coverage ends today | `daysRemaining = 0`, caption `today`, status still `Active` |
-| Early renewal | `coversUntil` recomputed from the payment date — may *shorten* coverage. The preview panel states the resulting date before confirm, which is the only guard the pilot provides. Flagged as a known simplification, not a bug. |
+| Early renewal | `coversUntil` extends from the member's current `coversUntil`, not the payment date — stacks the plan's days on top of remaining coverage instead of shortening it. The preview panel states the resulting date before confirm. |
 | Very long name | Truncate with ellipsis in rows; wrap to two lines maximum on the profile |
 | Amount with decimals | Accept; display as entered, two decimals maximum |
 | Clock changed / timezone | All comparisons use the device clock; dates stored ISO. No correction logic in the pilot. |

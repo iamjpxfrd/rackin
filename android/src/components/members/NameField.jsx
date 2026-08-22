@@ -8,9 +8,12 @@
 // Names repeat at a single gym — shared surnames, families on the same plan
 // — and the front desk is typing on a tablet keyboard mid-conversation.
 // Completing from names the gym has actually used beats retyping, and spells
-// them consistently (what lets search find them later). Suggestions never
-// block: two members may share a name and the member number disambiguates
-// (PRODUCT.md) — an exact match is a note, not an error.
+// them consistently (what lets search find them later).
+//
+// An exact match here is display-only (it also just stops offering
+// suggestions once the field holds the full name) — the parent
+// (NewMemberScreen) owns the actual duplicate-name block via its `error`
+// prop, using domain/members.js's findMemberByName as the source of truth.
 
 import { useEffect, useState } from "react";
 import { Text, TextInput, View } from "react-native";
@@ -88,12 +91,6 @@ export default function NameField({ label, value, onChange, error }) {
       {error ? (
         <Text accessibilityLiveRegion="polite" className="font-body text-sm text-danger">
           {error}
-        </Text>
-      ) : exactMatch ? (
-        // Not a blocker — a heads-up that saves a duplicate the staff didn't
-        // intend, while still allowing the one they did.
-        <Text className="font-body text-sm text-muted">
-          #{exactMatch.id} already uses this name. Registering makes a second member.
         </Text>
       ) : null}
     </View>

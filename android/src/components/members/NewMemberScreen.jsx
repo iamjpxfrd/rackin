@@ -8,7 +8,8 @@
 
 import { useEffect, useState } from "react";
 import { ScrollView, Switch, Text, View } from "react-native";
-import { registerMember } from "../../domain/members.js";
+import { TriangleAlert } from "lucide-react-native";
+import { findMemberByName, registerMember } from "../../domain/members.js";
 import { getOnDesk } from "../../domain/staff.js";
 import { computeCoversUntil } from "../../domain/membership.js";
 import { isPromoActive, setPromoActive, suggestedAmount } from "../../domain/pricing.js";
@@ -73,6 +74,13 @@ export default function NewMemberScreen({ nextMemberId, onRegistered }) {
   // real "nobody" answer (null), so a form submitted quickly can't produce a
   // false null.
   const [takenBy, setTakenBy] = useState(undefined);
+  // Live duplicate-name check, not just a submit-time one — the button
+  // should already read disabled while a matching name sits in the field,
+  // not just reject the tap. Blocked by default, but overridable: same name,
+  // different people happens at a single gym, so confirmDifferentPerson lets
+  // staff say so explicitly rather than hitting an absolute wall.
+  const [duplicateMember, setDuplicateMember] = useState(null);
+  const [confirmDifferentPerson, setConfirmDifferentPerson] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,6 +94,19 @@ export default function NewMemberScreen({ nextMemberId, onRegistered }) {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    // A name change always needs fresh confirmation — the duplicate it
+    // matched (if any) may no longer be the same one.
+    setConfirmDifferentPerson(false);
+    findMemberByName(name).then((match) => {
+      if (!cancelled) setDuplicateMember(match);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [name]);
 
   // Fills Amount from the plan/membership-type/promo combination — a
   // prefill, not a lock, so staff can still type over it. Monthly and
@@ -125,6 +146,7 @@ export default function NewMemberScreen({ nextMemberId, onRegistered }) {
   const needsMembershipType = planNeedsMembershipType(planType);
   const canSubmit =
     name.trim() !== "" &&
+    (!duplicateMember || confirmDifferentPerson) &&
     planType !== null &&
     (!needsMembershipType || isStudent !== null) &&
     amountIsValid &&
@@ -154,6 +176,8 @@ export default function NewMemberScreen({ nextMemberId, onRegistered }) {
         amount: numericAmount,
         paymentMethod,
         recordedBy: takenBy,
+        memberId: nextMemberId !== "—" ? nextMemberId : undefined,
+        allowDuplicateName: confirmDifferentPerson,
       });
       onRegistered(member);
     } catch (err) {
@@ -180,6 +204,27 @@ export default function NewMemberScreen({ nextMemberId, onRegistered }) {
           }}
           error={fieldErrors.name}
         />
+
+        {duplicateMember && (
+          <View className="flex-row items-center gap-3 border border-danger/40 bg-danger/10 px-4 py-3">
+            <TriangleAlert size={20} strokeWidth={1.75} color={colors.danger} />
+            <View className="min-w-0 flex-1">
+              <Text className="font-body text-sm text-danger">
+                #{duplicateMember.id} already uses this name.
+              </Text>
+              <Text className="font-body text-xs text-danger">
+                Confirm this is a different person to register anyway.
+              </Text>
+            </View>
+            <Switch
+              value={confirmDifferentPerson}
+              onValueChange={setConfirmDifferentPerson}
+              trackColor={{ false: colors.border, true: colors.danger }}
+              thumbColor={colors.textPrimary}
+            />
+          </View>
+        )}
+
         <Field label="Phone · optional" value={phone} onChange={setPhone} inputMode="tel" />
         <ChoiceGroup label="Plan" options={PLAN_OPTIONS} value={planType} onChange={selectPlan} />
         {needsMembershipType && (

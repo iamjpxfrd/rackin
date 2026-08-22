@@ -12,6 +12,9 @@ import MemberProfileScreen from './src/components/members/MemberProfileScreen.js
 import NewMemberFlow from './src/components/members/NewMemberFlow.jsx';
 import StoreScreen from './src/components/store/StoreScreen.jsx';
 import { ToastHost } from './src/components/ui/Toast.jsx';
+import PinEntrySheet from './src/components/security/PinEntrySheet.jsx';
+import { useLiveQuery } from './src/hooks/useLiveQuery.js';
+import { getMembersPin } from './src/domain/security.js';
 import { startSync } from './src/sync/sync.js';
 import { forceLogoutOverdue } from './src/domain/checkIn.js';
 
@@ -45,9 +48,26 @@ function App() {
   const [detailMemberId, setDetailMemberId] = useState(null);
   const [fontsLoaded] = useFonts(FONTS);
 
+  // Members tab gate (Task 5's Security Measures item). No PIN set is the
+  // default and leaves Members open, same as today. Once set, every tap on
+  // the Members tab re-prompts — nothing here is remembered between visits,
+  // so stepping away to another tab and back re-locks it.
+  const membersPin = useLiveQuery(() => getMembersPin());
+  const [pinPromptOpen, setPinPromptOpen] = useState(false);
+
   function selectTab(nextTab) {
+    if (nextTab === 'members' && membersPin) {
+      setPinPromptOpen(true);
+      return;
+    }
     setDetailMemberId(null);
     setTab(nextTab);
+  }
+
+  function unlockMembers() {
+    setPinPromptOpen(false);
+    setDetailMemberId(null);
+    setTab('members');
   }
 
   function goToNewMember() {
@@ -122,6 +142,15 @@ function App() {
         {/* The tab bar stays live everywhere, including over the profile —
             the One-Tap-Away Rule has no exception (DESIGN.md). */}
         <TabBar active={tab} onChange={selectTab} />
+
+        {pinPromptOpen && (
+          <PinEntrySheet
+            mode="unlock"
+            expectedPin={membersPin}
+            onUnlock={unlockMembers}
+            onClose={() => setPinPromptOpen(false)}
+          />
+        )}
 
         {/* App-root so a toast fired from a sheet (e.g. OnDeskSheet) still
             shows after the sheet that triggered it closes. */}

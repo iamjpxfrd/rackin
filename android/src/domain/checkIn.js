@@ -5,6 +5,7 @@
 import { generateClientUuid, store } from "../storage/store.js";
 import { enqueue } from "../sync/outbox.js";
 import { attributionFor, getOnDesk } from "./staff.js";
+import { deriveStatus, latestPaymentOf } from "./membership.js";
 import { FORCE_LOGOUT_GRACE_MINUTES, GYM_CLOSING_HOUR, GYM_CLOSING_MINUTE } from "./constants.js";
 
 /**
@@ -20,6 +21,16 @@ export async function checkInMember(memberId, method) {
   const member = await store.members.get(memberId);
   if (!member) {
     throw new Error(`No member found for #${memberId}`);
+  }
+
+  // Blocked, not just reported — reverses this app's original "no member is
+  // ever blocked from checking in" policy (PRODUCT.md) per explicit request.
+  const payments = await store.payments.where("memberId").equals(memberId).toArray();
+  const { status } = deriveStatus(latestPaymentOf(payments));
+  if (status === "expired") {
+    const err = new Error(`${member.name}'s membership has expired — record a payment first.`);
+    err.code = "EXPIRED";
+    throw err;
   }
 
   // Blocked, not just reported, unlike the same-day-but-checked-out case

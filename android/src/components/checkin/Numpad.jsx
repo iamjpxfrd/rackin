@@ -68,11 +68,20 @@ function NumpadKey({ onPress, disabled, accessibilityLabel, children }) {
   );
 }
 
-export default function Numpad({ value, onChange, onSubmit, disabled }) {
+export default function Numpad({
+  value,
+  onChange,
+  onSubmit,
+  disabled,
+  label = "CHECK IN",
+  placeholder = "Member #",
+  maxLength = 6,
+  mask = false,
+}) {
   const confirm = usePressFlash();
 
   function pressDigit(digit) {
-    onChange((value + digit).slice(0, 6));
+    onChange((value + digit).slice(0, maxLength));
   }
 
   function pressBackspace() {
@@ -92,7 +101,7 @@ export default function Numpad({ value, onChange, onSubmit, disabled }) {
         accessibilityLiveRegion="polite"
       >
         <Text className="font-display text-3xl text-white">
-          {value || <Text className="text-border">Member #</Text>}
+          {value ? (mask ? "•".repeat(value.length) : value) : <Text className="text-border">{placeholder}</Text>}
         </Text>
       </View>
 
@@ -134,7 +143,7 @@ export default function Numpad({ value, onChange, onSubmit, disabled }) {
               className="font-heading text-lg tracking-wider"
               style={{ color: disabled || !value ? colors.textMuted : colors.page }}
             >
-              CHECK IN
+              {label}
             </Text>
           </DiagonalCut>
         </Animated.View>

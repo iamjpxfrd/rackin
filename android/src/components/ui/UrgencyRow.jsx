@@ -19,8 +19,13 @@ import StatusBadge from "./StatusBadge.jsx";
 import Touchable from "./Touchable.jsx";
 import { colors } from "../../theme/colors.js";
 
-/** Gutter contents for a member whose coverage is about to end. */
+/** Gutter contents for a member whose coverage is ending soon or already ended. */
 function expiringGutter(daysRemaining) {
+  // Already expired — this section now includes those, not just
+  // still-active/ending-soon members (followUp.js's selectExpiring).
+  if (daysRemaining < 0) {
+    return { value: String(Math.abs(daysRemaining)), caption: "overdue", color: colors.danger };
+  }
   if (daysRemaining === 0) return { value: "0", caption: "today", color: colors.accent };
   if (daysRemaining === 1) return { value: "1", caption: "tomorrow", color: colors.accent };
   return { value: String(daysRemaining), caption: "days", color: colors.textPrimary };

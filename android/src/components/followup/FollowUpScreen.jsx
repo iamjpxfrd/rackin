@@ -54,7 +54,7 @@ export default function FollowUpScreen({ onSelectMember }) {
       <View className="flex-1 bg-page p-4">
         <EmptyState
           title="Nobody needs a call today."
-          hint="Members show up here when their plan is ending or they've stopped coming."
+          hint="Members show up here when their plan needs renewing or they've stopped coming."
         />
       </View>
     );
@@ -64,10 +64,10 @@ export default function FollowUpScreen({ onSelectMember }) {
     <ScrollView className="flex-1 bg-page" contentContainerClassName="gap-6 p-4">
       <View className="gap-2.5">
         <SectionHeader count={expiring.length} accentCount>
-          EXPIRING SOON · NEXT 7 DAYS
+          NEEDS RENEWAL
         </SectionHeader>
         {expiring.length === 0 ? (
-          <QuietRow>No one expiring in the next 7 days.</QuietRow>
+          <QuietRow>No one needs a renewal call right now.</QuietRow>
         ) : (
           <Panel>
             {expiring.map((row, index) => (

@@ -14,13 +14,21 @@
 // Membership payments joined in (2026-08-22, reversing the original "Store
 // income never folds into membership totals" decision): every payment —
 // registration's first payment or a renewal, whatever plan — now shows up
-// in getTodayTransactions()/getTodayTotals() alongside Store's own sales, so
-// staff see one full log of the day's money rather than two. The split by
-// method matters here: Income counts every payment regardless of method
-// (cash or transfer), but Cash On Hand only counts cash — a transfer never
-// puts physical cash in the drawer, so folding it in would make "cash on
-// hand" lie. Store's own sales/expenses have no method field of their own;
-// they're walk-up cash transactions by nature, so they always count as cash.
+// in getRegisterTransactions()/getRegisterTotals() alongside Store's own
+// sales, so staff see one full log of the register's money rather than two.
+// The split by method matters here: Income counts every payment regardless
+// of method (cash or transfer), but Cash On Hand only counts cash — a
+// transfer never puts physical cash in the drawer, so folding it in would
+// make "cash on hand" lie. Store's own sales/expenses have no method field
+// of their own; they're walk-up cash transactions by nature, so they always
+// count as cash.
+//
+// Totals no longer reset at local midnight (2026-08-23, reversing that
+// original decision) — there is no natural boundary to a gym's day that a
+// clock knows about, and "cash on hand" resetting itself at midnight doesn't
+// match what the phrase means physically (cash actually removed/counted).
+// Instead totals run from the last explicit close-out (closeRegister) —
+// see getRegisterClosedAt.
 
 import { generateClientUuid, store } from "../storage/store.js";
 import { enqueue } from "../sync/outbox.js";
@@ -141,23 +149,41 @@ export function logTransaction({ type, description, amount, recordedBy } = {}) {
   });
 }
 
-function startOfLocalDay(now = new Date()) {
-  const start = new Date(now);
-  start.setHours(0, 0, 0, 0);
-  return start.toISOString();
+const REGISTER_CLOSED_AT_KEY = "registerClosedAt";
+
+/**
+ * When the register was last explicitly closed out, or null if it never
+ * has been — a null means "no lower bound", not "midnight": everything ever
+ * recorded still counts until someone closes it out for the first time.
+ */
+export async function getRegisterClosedAt() {
+  const stored = await store.deviceState.get(REGISTER_CLOSED_AT_KEY);
+  return stored?.value ?? null;
 }
 
 /**
- * Today's membership payments (registration's first payment or a renewal),
- * reshaped to the same {type, description, amount, occurredAt, method}
- * shape as a storeTransactions row so the two can render and total
- * together. Read-only join against store.payments/store.members — nothing
- * is written to storeTransactions for these, so a payment stays the single
- * source of truth in its own table.
+ * Closes the register — Income/Expenses/Cash On Hand start counting fresh
+ * from this moment. Nothing is deleted: storeTransactions/payments rows are
+ * untouched, only the boundary getRegisterTransactions/getRegisterTotals
+ * count from moves forward. Purely local/device-side, same pattern as the
+ * on-desk staff id and the Members tab PIN.
  */
-async function getTodayPaymentsAsTransactions() {
-  const dayStart = startOfLocalDay();
-  const payments = await store.payments.where("paidAt").aboveOrEqual(dayStart).toArray();
+export async function closeRegister() {
+  await store.deviceState.put({ key: REGISTER_CLOSED_AT_KEY, value: new Date().toISOString() });
+}
+
+/**
+ * Membership payments since the register's period start (registration's
+ * first payment or a renewal), reshaped to the same {type, description,
+ * amount, occurredAt, method} shape as a storeTransactions row so the two
+ * can render and total together. Read-only join against
+ * store.payments/store.members — nothing is written to storeTransactions
+ * for these, so a payment stays the single source of truth in its own table.
+ */
+async function getPeriodPaymentsAsTransactions(periodStart) {
+  const payments = periodStart
+    ? await store.payments.where("paidAt").aboveOrEqual(periodStart).toArray()
+    : await store.payments.toArray();
   if (payments.length === 0) return [];
 
   const memberIds = [...new Set(payments.map((payment) => payment.memberId))];
@@ -181,23 +207,24 @@ async function getTodayPaymentsAsTransactions() {
 }
 
 /**
- * Today's transactions, most recent first — Store's own sales/expenses plus
- * today's membership payments, merged. Cash On Hand resets daily by
- * explicit product decision — there is no closing-out flow yet, so "today"
- * is simply everything since local midnight, the same boundary
- * getTodaysActivity uses for check-ins.
+ * Transactions since the register's last close-out, most recent first —
+ * Store's own sales/expenses plus membership payments over the same period,
+ * merged. Runs open-ended (no lower bound) until the register has ever been
+ * closed once — see getRegisterClosedAt/closeRegister.
  */
-export async function getTodayTransactions() {
-  const dayStart = startOfLocalDay();
+export async function getRegisterTransactions() {
+  const periodStart = await getRegisterClosedAt();
   const [storeEntries, paymentEntries] = await Promise.all([
-    store.storeTransactions.where("occurredAt").aboveOrEqual(dayStart).toArray(),
-    getTodayPaymentsAsTransactions(),
+    periodStart
+      ? store.storeTransactions.where("occurredAt").aboveOrEqual(periodStart).toArray()
+      : store.storeTransactions.toArray(),
+    getPeriodPaymentsAsTransactions(periodStart),
   ]);
 
   const combined = [
     // Store's own income/expenses have no method of their own — a walk-up
     // sale or a cash expense is cash by nature, so it's stamped here for
-    // getTodayTotals' cash-only Cash On Hand split, not persisted on the row.
+    // getRegisterTotals' cash-only Cash On Hand split, not persisted on the row.
     ...storeEntries.map((entry) => ({ ...entry, source: "store", method: "cash" })),
     ...paymentEntries,
   ];
@@ -205,12 +232,12 @@ export async function getTodayTransactions() {
 }
 
 /**
- * Income / expenses / cash-on-hand for today. Income counts every payment
- * regardless of method; Cash On Hand counts only cash — see the file header
- * for why that split matters.
+ * Income / expenses / cash-on-hand since the register's last close-out.
+ * Income counts every payment regardless of method; Cash On Hand counts
+ * only cash — see the file header for why that split matters.
  */
-export async function getTodayTotals() {
-  const transactions = await getTodayTransactions();
+export async function getRegisterTotals() {
+  const transactions = await getRegisterTransactions();
   const income = transactions
     .filter((entry) => entry.type === "income")
     .reduce((sum, entry) => sum + entry.amount, 0);
