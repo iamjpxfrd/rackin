@@ -1,9 +1,11 @@
 // S4 — Record Payment (frontend-spec.md §6.4). Ported from
 // server/src/components/members/RecordPaymentSheet.jsx, reskinned to
 // Kinetic Court. The live coverage preview (current status → next status)
-// is what makes the extend-from-payment-date rule visible BEFORE it's
-// committed — the only guard the pilot provides against an early renewal
-// quietly shortening someone's coverage.
+// makes the extend rule visible BEFORE it's committed — a renewal stacks
+// the plan's days on top of whatever coversUntil already is (or today, if
+// lapsed), so the preview is what shows staff the resulting date rather
+// than them having to do the addition themselves (domain/membership.js's
+// computeCoversUntil).
 //
 // Unlike NewMemberScreen, the amount here starts prefilled from this
 // member's own payment history (getLastPaymentAmount), never from
@@ -110,7 +112,7 @@ export default function RecordPaymentSheet({ profile, onClose, onRecorded }) {
   const amountIsValid = Number.isFinite(numericAmount) && numericAmount > 0;
   const canSubmit = amountIsValid && method !== null && !saving;
 
-  const coversUntil = computeCoversUntil(new Date().toISOString(), planType);
+  const coversUntil = computeCoversUntil(new Date().toISOString(), planType, profile.coversUntil);
   const nextStatus = deriveStatus({ coversUntil });
 
   async function handleSubmit() {

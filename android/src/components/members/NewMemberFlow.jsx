@@ -1,15 +1,27 @@
 // Owns the New Member → Success sequence so both screens stay
 // presentational. Ported from server/src/components/members/NewMemberFlow.jsx.
 
-import { useState } from "react";
-import { useLiveQuery } from "../../hooks/useLiveQuery.js";
-import { getNextMemberId } from "../../domain/members.js";
+import { useEffect, useState } from "react";
+import { generateMemberId } from "../../domain/members.js";
 import NewMemberScreen from "./NewMemberScreen.jsx";
 import RegistrationSuccess from "./RegistrationSuccess.jsx";
 
 export default function NewMemberFlow({ onDone }) {
   const [registered, setRegistered] = useState(null);
-  const nextMemberId = useLiveQuery(() => getNextMemberId());
+  // Generated once per flow, not via useLiveQuery — the code is now random,
+  // so re-running on every store write (useLiveQuery's global invalidation)
+  // would re-roll the previewed number out from under whoever is reading it.
+  const [nextMemberId, setNextMemberId] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    generateMemberId().then((id) => {
+      if (!cancelled) setNextMemberId(id);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (registered) {
     return (

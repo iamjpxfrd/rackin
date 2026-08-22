@@ -1,9 +1,10 @@
-// Store — daily cash ledger (Task 4's Store feature proposal, now built).
-// Matched to PhoneStore.dc.html: Income/Expenses stat tiles, a diagonal-cut
-// Cash On Hand banner, quick-sell tiles for the fixed item list, a dashed
-// "Log a transaction" action, and today's transaction list. Cash On Hand
-// resets daily (product decision, 2026-08-22) — everything here is scoped
-// to today, same as Check-In's Today's Present.
+// Store — cash ledger (Task 4's Store feature proposal, now built). Matched
+// to PhoneStore.dc.html: Income/Expenses stat tiles, a diagonal-cut Cash On
+// Hand banner, quick-sell tiles for the fixed item list, a dashed "Log a
+// transaction" action, and the transaction list. Totals no longer reset at
+// midnight (2026-08-23, reversing that original decision) — they run from
+// the last explicit "Close register" (CloseRegisterSheet), or from the very
+// first transaction if the register has never been closed.
 //
 // The dashed button (renamed from "Log an expense", 2026-08-22) now opens
 // LogTransactionSheet, which lets staff pick Income or Expense — the one
@@ -22,28 +23,33 @@ import { ScrollView, Text, View } from "react-native";
 import { Plus } from "lucide-react-native";
 import { useLiveQuery } from "../../hooks/useLiveQuery.js";
 import {
-  getTodayTotals,
-  getTodayTransactions,
+  closeRegister,
+  getRegisterClosedAt,
+  getRegisterTotals,
+  getRegisterTransactions,
   sellItem,
   STORE_ITEMS,
   TIMED_ITEMS,
 } from "../../domain/store.js";
-import { formatAmount, formatTime } from "../../domain/constants.js";
+import { formatAmount, formatDate, formatTime } from "../../domain/constants.js";
 import { SectionHeader } from "../ui/Layout.jsx";
 import { DiagonalCut } from "../ui/DiagonalCut.jsx";
 import Touchable from "../ui/Touchable.jsx";
 import { showToast } from "../ui/Toast.jsx";
 import LogTransactionSheet from "./LogTransactionSheet.jsx";
 import TimedSaleSheet from "./TimedSaleSheet.jsx";
+import CloseRegisterSheet from "./CloseRegisterSheet.jsx";
 import { colors } from "../../theme/colors.js";
 
 export default function StoreScreen() {
-  const totals = useLiveQuery(() => getTodayTotals(), [], { income: 0, expenses: 0, cashOnHand: 0 });
-  const transactions = useLiveQuery(() => getTodayTransactions(), [], []);
+  const totals = useLiveQuery(() => getRegisterTotals(), [], { income: 0, expenses: 0, cashOnHand: 0 });
+  const transactions = useLiveQuery(() => getRegisterTransactions(), [], []);
+  const closedAt = useLiveQuery(() => getRegisterClosedAt(), [], null);
   const [selling, setSelling] = useState(null);
   const [loggingTransaction, setLoggingTransaction] = useState(false);
   // The TIMED_ITEMS entry currently open in TimedSaleSheet, or null.
   const [loggingTimedItem, setLoggingTimedItem] = useState(null);
+  const [closingRegister, setClosingRegister] = useState(false);
 
   async function handleSell(item) {
     setSelling(item.key);
@@ -92,6 +98,13 @@ export default function StoreScreen() {
         </Text>
       </DiagonalCut>
 
+      <Touchable
+        onPress={() => setClosingRegister(true)}
+        className="h-9 flex-row items-center justify-center border border-border bg-card"
+      >
+        <Text className="font-heading text-[11px] tracking-wide text-muted">CLOSE REGISTER</Text>
+      </Touchable>
+
       <SectionHeader>QUICK SELL</SectionHeader>
       <View className="gap-2">
         {STORE_ITEMS.map((item) => (
@@ -130,11 +143,16 @@ export default function StoreScreen() {
       </Touchable>
 
       <View className="flex-1 flex-col gap-2">
-        <SectionHeader>TODAY'S TRANSACTIONS</SectionHeader>
+        <View className="h-8 flex-row items-center justify-between">
+          <Text className="font-heading text-[11px] tracking-[0.1em] text-muted">TRANSACTIONS</Text>
+          <Text className="font-body text-[11px] text-dim">
+            {closedAt ? `Since ${formatDate(closedAt)} · ${formatTime(closedAt)}` : "All transactions"}
+          </Text>
+        </View>
         {transactions.length === 0 ? (
           <View className="flex-1 items-center justify-center border border-border bg-card">
             <Text className="text-center font-body text-base text-muted">
-              Nothing logged yet today.
+              Nothing logged since the register opened.
             </Text>
           </View>
         ) : (
@@ -185,6 +203,18 @@ export default function StoreScreen() {
             const { label } = loggingTimedItem;
             setLoggingTimedItem(null);
             showToast(`${label} logged`);
+          }}
+        />
+      )}
+
+      {closingRegister && (
+        <CloseRegisterSheet
+          totals={totals}
+          onClose={() => setClosingRegister(false)}
+          onConfirm={async () => {
+            await closeRegister();
+            setClosingRegister(false);
+            showToast("Register closed");
           }}
         />
       )}

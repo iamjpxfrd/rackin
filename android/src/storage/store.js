@@ -1,5 +1,5 @@
 // The RN storage entry point (Task 3) — mirrors server/src/storage/store.js's
-// public shape (store, generateClientUuid, getNextMemberId, resetDatabase) so
+// public shape (store, generateClientUuid, generateMemberId, resetDatabase) so
 // domain code ported from server/src/domain/ can switch its import path and
 // nothing else. Two real differences from the Dexie-backed original:
 //
@@ -147,9 +147,19 @@ export function generateClientUuid() {
   });
 }
 
-/** Sequential member id assignment, starting at 1001 — matches the backend's numbering scheme. */
-export async function getNextMemberId() {
-  return String(1001 + (await store.members.count()));
+/**
+ * Random 4-digit member code, not sequential — the old count-based scheme
+ * let a code be inferred from registration order. Retries on a same-session
+ * collision; the backend's existsById conflict check on sync is the real
+ * uniqueness guarantee, this is just cheap defense-in-depth for a single
+ * kiosk tablet.
+ */
+export async function generateMemberId() {
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const candidate = String(1000 + Math.floor(Math.random() * 9000));
+    if (!(await store.members.get(candidate))) return candidate;
+  }
+  throw new Error("Could not generate a unique member code — try again.");
 }
 
 /** Wipe all local data. Dev/testing convenience only — never exposed in the staff-facing UI. */

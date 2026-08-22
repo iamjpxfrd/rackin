@@ -12,6 +12,8 @@ import ConfirmDialog from "../ui/ConfirmDialog.jsx";
 import Touchable, { usePressFlash } from "../ui/Touchable.jsx";
 import { useLiveQuery } from "../../hooks/useLiveQuery.js";
 import { addStaff, listStaff, retireStaff, setOnDesk } from "../../domain/staff.js";
+import { clearMembersPin, getMembersPin, setMembersPin } from "../../domain/security.js";
+import PinEntrySheet from "../security/PinEntrySheet.jsx";
 import { showToast } from "../ui/Toast.jsx";
 import { colors } from "../../theme/colors.js";
 
@@ -81,6 +83,22 @@ export default function OnDeskSheet({ onDesk, onClose }) {
   // Solid accent fill, same "flash would be invisible against a matching
   // color" reasoning as StaffSelectPill's on-desk state — scale pulse only.
   const addButtonPress = usePressFlash();
+
+  const membersPin = useLiveQuery(() => getMembersPin());
+  const [pinSheetOpen, setPinSheetOpen] = useState(false);
+  const [pendingRemovePin, setPendingRemovePin] = useState(false);
+
+  async function handleSavePin(pin) {
+    await setMembersPin(pin);
+    setPinSheetOpen(false);
+    showToast("Members tab PIN set");
+  }
+
+  async function confirmRemovePin() {
+    setPendingRemovePin(false);
+    await clearMembersPin();
+    showToast("Members tab PIN removed");
+  }
 
   async function handleAdd() {
     setError(null);
@@ -178,6 +196,34 @@ export default function OnDeskSheet({ onDesk, onClose }) {
           </Animated.View>
         </Pressable>
       </View>
+
+      <View className="flex-row items-center justify-between gap-3 border-t border-border pt-5">
+        <View className="min-w-0 flex-1">
+          <Text className="font-body-medium text-sm text-white">Members tab PIN</Text>
+          <Text className="font-body text-xs text-muted">
+            {membersPin ? "Set — required to open Members" : "Not set — Members is open to anyone"}
+          </Text>
+        </View>
+        <View className="shrink-0 flex-row gap-2">
+          <Touchable
+            onPress={() => setPinSheetOpen(true)}
+            className="h-11 items-center justify-center border border-border bg-card px-4"
+          >
+            <Text className="font-heading text-xs tracking-wide text-white">
+              {membersPin ? "CHANGE" : "SET"}
+            </Text>
+          </Touchable>
+          {membersPin && (
+            <Touchable
+              onPress={() => setPendingRemovePin(true)}
+              accessibilityLabel="Remove the Members tab PIN"
+              className="h-11 w-11 items-center justify-center border border-border bg-card"
+            >
+              <UserMinus size={18} strokeWidth={1.75} color={colors.textMuted} />
+            </Touchable>
+          )}
+        </View>
+      </View>
     </Sheet>
 
     {/* Sibling of Sheet, not nested inside it — Sheet's own children sit
@@ -192,6 +238,18 @@ export default function OnDeskSheet({ onDesk, onClose }) {
       onConfirm={confirmRetire}
       onCancel={() => setPendingRemove(null)}
     />
+
+    <ConfirmDialog
+      visible={pendingRemovePin}
+      title="Remove the Members PIN?"
+      message="Members will be open to anyone until a new PIN is set."
+      onConfirm={confirmRemovePin}
+      onCancel={() => setPendingRemovePin(false)}
+    />
+
+    {pinSheetOpen && (
+      <PinEntrySheet mode="set" onSave={handleSavePin} onClose={() => setPinSheetOpen(false)} />
+    )}
     </>
   );
 }

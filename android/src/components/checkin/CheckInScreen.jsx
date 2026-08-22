@@ -108,9 +108,11 @@ export default function CheckInScreen() {
       // dead-ends, but nothing says the message has to persist).
       //
       // The "try search by name" nudge only makes sense for a numpad lookup
-      // miss — an already-checked-in rejection isn't a typo, so it needs
-      // its own plain message regardless of which mode triggered it.
-      const suggestSearch = method === "numpad" && err.code !== "ALREADY_CHECKED_IN";
+      // miss — an already-checked-in rejection, or an expired-membership
+      // block, isn't a typo, so each needs its own plain message regardless
+      // of which mode triggered it.
+      const suggestSearch =
+        method === "numpad" && err.code !== "ALREADY_CHECKED_IN" && err.code !== "EXPIRED";
       showToast(suggestSearch ? `${err.message} — try search by name.` : err.message, "warning");
     } finally {
       setSubmitting(false);

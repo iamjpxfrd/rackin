@@ -68,12 +68,19 @@ function selectLapsed(snapshots) {
     });
 }
 
-/** Members whose coverage ends within 7 days, soonest first. */
+/**
+ * Members needing a renewal call: coverage ending within 7 days OR already
+ * ended, worst-first. Originally "active and ending soon" only — broadened
+ * so an already-expired member who's still visiting (so isn't yet on the
+ * Stopped Coming list either) doesn't fall through the cracks between the
+ * two sections. Ascending sort on daysRemaining already ranks worst-first
+ * for free: a member expired 30 days ago (-30) sorts ahead of one expiring
+ * tomorrow (1) with no extra logic needed.
+ */
 function selectExpiring(snapshots) {
   return snapshots
     .filter(
       (row) =>
-        row.status === "active" &&
         row.daysRemaining !== null &&
         row.daysRemaining <= EXPIRING_WITHIN_DAYS &&
         // A one-day drop-in is inside the 7-day window from the moment it is
@@ -97,9 +104,10 @@ export async function getLapsedMembers(now = new Date()) {
 }
 
 /**
- * Members whose coverage ends within 7 days, soonest first. Acting here is
- * the only case where a phone call prevents a lapse rather than recovering
- * one, which is why this list sits above the lapsed one.
+ * Members needing a renewal call — coverage ending within 7 days or already
+ * ended, worst-first. Sits above the lapsed list because it's the section
+ * most likely to contain a call that still prevents a lapse rather than
+ * only recovering one.
  *
  * @param {Date} [now]
  */

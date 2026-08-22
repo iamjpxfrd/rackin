@@ -1,6 +1,6 @@
 // Member registration and profile reads (frontend-spec.md §5.4, PRD 4.6/4.8).
 
-import { generateClientUuid, getNextMemberId, store } from "../storage/store.js";
+import { generateClientUuid, generateMemberId, store } from "../storage/store.js";
 import { enqueue } from "../sync/outbox.js";
 import { HISTORY_PAGE_SIZE, PLAN_TYPES } from "./constants.js";
 import { computeCoversUntil, deriveStatus, latestPaymentOf } from "./membership.js";
@@ -20,6 +20,8 @@ import { attributionFor, getOnDesk } from "./staff.js";
  *   isStudent?: boolean,
  *   amount: number, paymentMethod: "cash"|"transfer",
  *   recordedBy?: object|null,
+ *   memberId?: string,
+ *   allowDuplicateName?: boolean,
  * }} input
  * @returns {Promise<{ member: object, payment: object }>}
  */
@@ -31,10 +33,21 @@ export async function registerMember({
   amount,
   paymentMethod,
   recordedBy,
+  memberId,
+  allowDuplicateName = false,
 }) {
   const trimmedName = String(name ?? "").trim();
   if (!trimmedName) {
     throw new Error("Enter the member's name.");
+  }
+  // Blocked by default, but staff can explicitly say "yes, different person"
+  // (NewMemberScreen's duplicate-name override) — same name, different
+  // people is a real thing at a single gym, so this can't be an absolute wall.
+  if (!allowDuplicateName) {
+    const duplicate = await findMemberByName(trimmedName);
+    if (duplicate) {
+      throw new Error(`#${duplicate.id} already uses this name.`);
+    }
   }
   if (!PLAN_TYPES.includes(planType)) {
     throw new Error("Choose a plan.");
@@ -61,7 +74,10 @@ export async function registerMember({
   // member exists locally but is never pushed — invisible, since the tablet
   // would still show them (sync/outbox.js).
   return store.transaction(["members", "payments", "outbox"], async (tx) => {
-    const id = await getNextMemberId();
+    // `memberId` lets NewMemberFlow reserve the previewed code once and have
+    // it be the one actually written, instead of two independent random
+    // draws landing on different values.
+    const id = memberId ?? (await generateMemberId());
     const createdAt = new Date().toISOString();
 
     const member = {
@@ -179,6 +195,21 @@ export function filterMembers(rows, query) {
 }
 
 /**
+ * Exact (trimmed, case-insensitive) name match against the roster — blocks a
+ * duplicate registration outright. Reverses this app's original "duplicate
+ * names allowed, the member number disambiguates" call (frontend-spec.md
+ * §6.5) per explicit request: two members can no longer share a name.
+ *
+ * @returns {Promise<object|null>}
+ */
+export async function findMemberByName(name) {
+  const needle = String(name ?? "").trim().toLowerCase();
+  if (!needle) return null;
+  const members = await store.members.toArray();
+  return members.find((member) => member.name.toLowerCase() === needle) ?? null;
+}
+
+/**
  * Names already on the roster, for completing the one being typed.
  *
  * Names repeat at a single gym — shared surnames, families on the same
@@ -186,8 +217,8 @@ export function filterMembers(rows, query) {
  * Completing from names the gym has actually used beats retyping, and it
  * spells them consistently, which is what makes search find them later.
  *
- * Exact matches are surfaced (not blocked): two members may share a name,
- * and the member number disambiguates (PRODUCT.md).
+ * An exact match here is still just a suggestion, not the duplicate check —
+ * see findMemberByName for the one that actually blocks registration.
  *
  * @returns {Promise<Array<{ name: string, id: string }>>}
  */
@@ -220,7 +251,7 @@ export async function suggestNames(query, limit = 5) {
     .map(({ name, id }) => ({ name, id }));
 }
 
-export { getNextMemberId };
+export { generateMemberId };
 
 /** Total members on the roster — drives the app's first-run empty states. */
 export function memberCount() {

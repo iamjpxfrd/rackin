@@ -27,20 +27,31 @@ export function daysBetween(fromIso, toIso) {
 }
 
 /**
- * coversUntil is always paymentDate + planDays — never extended from a
- * prior coversUntil, even on early renewal (PRODUCT.md). The UI shows the
+ * coversUntil extends from whichever is later: the member's coversUntil
+ * before this payment (if their coverage hasn't lapsed yet) or the payment
+ * date. A renewal made while still covered stacks its plan's days on top of
+ * the remaining time rather than resetting it — reverses this app's
+ * original "always paymentDate + planDays, never extended, even on early
+ * renewal" pilot simplification (frontend-spec.md §5.4) per explicit
+ * request. A lapsed member, or a first-ever payment (no `currentCoversUntil`
+ * to extend), still starts fresh from the payment date. The UI shows the
  * resulting date before staff confirm, so the rule is never a surprise.
  *
  * @param {string} paidAtIso
  * @param {"session"|"weekly"|"monthly"|"annually"} planType
+ * @param {string|null} [currentCoversUntil] the member's coversUntil before this payment, if any
  * @returns {string} ISO timestamp
  */
-export function computeCoversUntil(paidAtIso, planType) {
+export function computeCoversUntil(paidAtIso, planType, currentCoversUntil = null) {
   const days = PLAN_DAYS[planType];
   if (!days) {
     throw new Error(`Unknown plan type: ${planType}`);
   }
-  return new Date(new Date(paidAtIso).getTime() + days * MS_PER_DAY).toISOString();
+  const paidAtMs = new Date(paidAtIso).getTime();
+  const baseMs = currentCoversUntil
+    ? Math.max(new Date(currentCoversUntil).getTime(), paidAtMs)
+    : paidAtMs;
+  return new Date(baseMs + days * MS_PER_DAY).toISOString();
 }
 
 /**

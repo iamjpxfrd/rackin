@@ -139,13 +139,6 @@ export default function ActivityFeed() {
                     style={{ color: checkedOut ? colors.textPrimary : colors.page }}
                   >
                     {entry.memberName}
-                    <Text
-                      className="w-12 text-[11px]"
-                      style={{ color: checkedOut ? colors.textDim : ACCENT_MUTED }}
-                    >
-                      {" "}
-                      #{entry.memberId}
-                    </Text>
                   </Text>
                   <View className="w-[92px] items-end gap-0.5">
                     <Text
