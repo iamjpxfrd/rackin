@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "android",
-    "slug": "android",
+    "name": "Rackin",
+    "slug": "Rackin",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -19,6 +19,17 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-sqlite",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera",
+          "barcodeScannerEnabled": true
+        }
+      ],
+      "expo-font"
+    ]
   }
 }
