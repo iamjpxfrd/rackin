@@ -38,7 +38,7 @@ export default function Sheet({ title, subtitle, onClose, children }) {
           style={{ transform: [{ translateY }], opacity }}
           className="flex-col gap-5 border-t-2 border-hairline bg-card p-4 pt-6"
         >
-          <View className="flex-row items-start justify-between gap-4">
+          <View className="flex-row items-center justify-between gap-4">
             <View className="min-w-0 flex-1 flex-col gap-1">
               <Text className="font-heading text-xl text-white">{title}</Text>
               {subtitle && (
