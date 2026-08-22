@@ -5,10 +5,19 @@
 // committed — the only guard the pilot provides against an early renewal
 // quietly shortening someone's coverage.
 //
-// Unlike NewMemberScreen, the amount here is prefilled from this member's
-// own payment history (getLastPaymentAmount), never from pricing.js's
-// suggested-price table — a renewal reflects what THEY actually pay, which
-// can differ from the current list price, not an invented number.
+// Unlike NewMemberScreen, the amount here starts prefilled from this
+// member's own payment history (getLastPaymentAmount), never from
+// pricing.js's suggested-price table — a renewal reflects what THEY
+// actually pay, which can differ from the current list price, not an
+// invented number. The one exception: changing Plan below (e.g. a Session
+// drop-in deciding to go Monthly) recomputes the suggested amount, since the
+// old plan's last-paid amount is actively wrong for a different plan.
+//
+// Plan is new here (2026-08-22, following a user request): staff can change
+// a member's plan at the point of payment — the natural moment someone
+// converts from a one-off Session to an ongoing membership — instead of
+// needing a separate "edit member" flow that doesn't exist. recordPayment()
+// updates the member's stored plan in the same transaction as the payment.
 
 import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
@@ -16,7 +25,14 @@ import { ArrowRight } from "lucide-react-native";
 import { recordPayment, getLastPaymentAmount } from "../../domain/payments.js";
 import { getOnDesk } from "../../domain/staff.js";
 import { computeCoversUntil, deriveStatus } from "../../domain/membership.js";
-import { CURRENCY_SYMBOL, formatDate, planDuration, planLabel } from "../../domain/constants.js";
+import { suggestedAmount, isPromoActive } from "../../domain/pricing.js";
+import {
+  CURRENCY_SYMBOL,
+  PLAN_TYPES,
+  formatDate,
+  planDuration,
+  planLabel,
+} from "../../domain/constants.js";
 import Sheet from "../ui/Sheet.jsx";
 import Field from "../ui/Field.jsx";
 import ChoiceGroup from "../ui/ChoiceGroup.jsx";
@@ -27,6 +43,12 @@ import { DiagonalCut } from "../ui/DiagonalCut.jsx";
 import ErrorBanner from "../checkin/ErrorBanner.jsx";
 import { colors } from "../../theme/colors.js";
 
+const PLAN_OPTIONS = PLAN_TYPES.map((value) => ({
+  value,
+  label: planLabel(value).toUpperCase(),
+  detail: planDuration(value),
+}));
+
 const METHOD_OPTIONS = [
   { value: "cash", label: "CASH" },
   { value: "transfer", label: "TRANSFER" },
@@ -35,6 +57,10 @@ const METHOD_OPTIONS = [
 export default function RecordPaymentSheet({ profile, onClose, onRecorded }) {
   const { member, status, isExpiringSoon } = profile;
 
+  // Pre-selected to the member's current plan — a renewal, not a fresh
+  // choice, so there's a correct default here unlike NewMemberScreen's
+  // deliberately-null Plan/Membership-type fields.
+  const [planType, setPlanType] = useState(member.planType);
   const [amount, setAmount] = useState("");
   // No default method: cash and transfer are equally likely, and a wrong
   // prefill is a silently wrong record.
@@ -42,6 +68,9 @@ export default function RecordPaymentSheet({ profile, onClose, onRecorded }) {
   const [error, setError] = useState(null);
   const [saveError, setSaveError] = useState(null);
   const [saving, setSaving] = useState(false);
+  // Device-wide setting (pricing.js) — only read here, never toggled; the
+  // switch itself lives on New Member registration.
+  const [promoActive, setPromoActiveState] = useState(false);
   // Defaults to the shift and is confirmed via TakenBy, so a handover
   // nobody remembered to record surfaces here rather than in a month-end
   // discrepancy. `undefined` until the lookup lands, never null: null is a
@@ -56,16 +85,32 @@ export default function RecordPaymentSheet({ profile, onClose, onRecorded }) {
     getOnDesk().then((person) => {
       if (!cancelled) setTakenBy(person);
     });
+    isPromoActive().then((active) => {
+      if (!cancelled) setPromoActiveState(active);
+    });
     return () => {
       cancelled = true;
     };
   }, [member.id]);
 
+  // Changing Plan away from what the member is currently on suggests a fresh
+  // amount from pricing.js (using their stored membership type) — the old
+  // plan's last-paid amount would otherwise silently carry over as the
+  // wrong number for the new plan. Switching back to the original plan
+  // leaves whatever amount is already typed alone.
+  function selectPlan(next) {
+    setPlanType(next);
+    if (next !== member.planType) {
+      const suggested = suggestedAmount(next, { isStudent: !!member.isStudent, promoActive });
+      if (suggested !== null) setAmount(String(suggested));
+    }
+  }
+
   const numericAmount = Number(amount);
   const amountIsValid = Number.isFinite(numericAmount) && numericAmount > 0;
   const canSubmit = amountIsValid && method !== null && !saving;
 
-  const coversUntil = computeCoversUntil(new Date().toISOString(), member.planType);
+  const coversUntil = computeCoversUntil(new Date().toISOString(), planType);
   const nextStatus = deriveStatus({ coversUntil });
 
   async function handleSubmit() {
@@ -85,6 +130,7 @@ export default function RecordPaymentSheet({ profile, onClose, onRecorded }) {
         memberId: member.id,
         amount: numericAmount,
         method,
+        planType,
         recordedBy: takenBy,
       });
       onRecorded();
@@ -107,6 +153,8 @@ export default function RecordPaymentSheet({ profile, onClose, onRecorded }) {
     >
       {saveError && <ErrorBanner message={saveError} />}
 
+      <ChoiceGroup label="Plan" options={PLAN_OPTIONS} value={planType} onChange={selectPlan} />
+
       <Field
         label="Amount"
         value={amount}
@@ -115,7 +163,11 @@ export default function RecordPaymentSheet({ profile, onClose, onRecorded }) {
           if (error) setError(null);
         }}
         error={error}
-        hint="Prefilled from this member's last payment."
+        hint={
+          planType === member.planType
+            ? "Prefilled from this member's last payment."
+            : "Prefilled from the new plan's suggested price."
+        }
         inputMode="decimal"
         numeric
         prefix={CURRENCY_SYMBOL || undefined}
@@ -132,7 +184,7 @@ export default function RecordPaymentSheet({ profile, onClose, onRecorded }) {
             Covers until {formatDate(coversUntil)}
           </Text>
           <Text className="font-body text-sm text-muted">
-            {planDuration(member.planType)} from today · {planLabel(member.planType).toLowerCase()} plan
+            {planDuration(planType)} from today · {planLabel(planType).toLowerCase()} plan
           </Text>
         </View>
         <View className="shrink-0 flex-row items-center gap-2">
