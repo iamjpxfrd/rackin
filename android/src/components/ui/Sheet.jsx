@@ -40,7 +40,7 @@ export default function Sheet({ title, subtitle, onClose, children }) {
         >
           <View className="flex-row items-start justify-between gap-4">
             <View className="min-w-0 flex-1 flex-col gap-1">
-              <Text className="font-numeral text-xl text-white">{title}</Text>
+              <Text className="font-heading text-xl text-white">{title}</Text>
               {subtitle && (
                 <Text numberOfLines={1} className="font-body text-sm text-muted">
                   {subtitle}

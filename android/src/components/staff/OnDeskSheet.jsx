@@ -69,7 +69,7 @@ export default function OnDeskSheet({ onDesk, onClose }) {
                 >
                   <Text
                     numberOfLines={1}
-                    className={`font-body text-lg font-semibold ${
+                    className={`font-body-semibold text-lg ${
                       isOnDesk ? "text-page" : "text-muted"
                     }`}
                   >
@@ -113,7 +113,7 @@ export default function OnDeskSheet({ onDesk, onClose }) {
           className="h-16 flex-row items-center justify-center gap-2 bg-accent disabled:bg-border"
         >
           <Plus size={20} strokeWidth={2} color={colors.page} />
-          <Text className="font-body text-lg font-semibold text-page">
+          <Text className="font-body-semibold text-lg text-page">
             Add to staff list
           </Text>
         </Pressable>

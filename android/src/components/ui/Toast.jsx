@@ -1,7 +1,8 @@
-// A brief, non-blocking confirmation for actions that currently have no
-// feedback at all (e.g. staff-list changes) — distinct from ErrorBanner
-// (inline, check-in flow errors) and ConfirmationCard (the app's one
-// designed celebratory moment), neither of which this replaces.
+// A brief, non-blocking confirmation — originally for actions that had no
+// feedback at all (e.g. staff-list changes), now also used for check-in
+// lookup failures ("No member found…") so a mistyped number doesn't leave a
+// lingering banner behind during a busy shift. Distinct from ConfirmationCard
+// (the app's one designed celebratory moment), which this doesn't replace.
 //
 // Not ToastAndroid: that API is Android-only and no-ops on iOS, which this
 // Expo app also targets. This is a small custom overlay instead, using the
@@ -31,8 +32,8 @@ let notify = null;
 
 /**
  * Show a brief toast. `type` picks the accent stripe: "success" (default,
- * accent lime) or "warning" (danger red) — never used for check-in errors
- * or sync failures, which have their own dedicated, PRD-governed UI.
+ * accent lime) or "warning" (danger red). Sync failures still have their own
+ * dedicated, PRD-governed (silent) handling — this doesn't touch those.
  */
 export function showToast(message, type = "success") {
   notify?.(message, type);
@@ -41,12 +42,12 @@ export function showToast(message, type = "success") {
 export function ToastHost() {
   const [toast, setToast] = useState(null);
   const opacity = useSharedValue(0);
-  const translateY = useSharedValue(8);
+  const translateY = useSharedValue(-8);
 
   useEffect(() => {
     notify = (message, type) => {
       setToast({ message, type });
-      translateY.value = 8;
+      translateY.value = -8;
       opacity.value = withSequence(
         withTiming(1, { duration: FADE_MS }),
         withDelay(
@@ -79,9 +80,13 @@ export function ToastHost() {
       style={[
         {
           position: "absolute",
-          left: 16,
+          // Clears TopBar (52px) + the live-clock strip (28px) beneath it,
+          // plus a margin — this sits under SafeAreaView as a sibling of
+          // both, so its offset is measured from the very top of the app,
+          // not from the screen content below the header.
+          top: 92,
           right: 16,
-          bottom: 80,
+          maxWidth: 320,
           zIndex: 100,
           borderWidth: 1,
           borderColor: colors.border,

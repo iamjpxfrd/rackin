@@ -51,7 +51,7 @@ export default function SearchPanel({ onSelect, disabled }) {
             className="h-14 w-full flex-row items-center justify-between border-b border-hairline px-4 disabled:opacity-50"
           >
             <Text className="font-body text-lg text-white">{member.name}</Text>
-            <Text className="font-numeral text-base text-muted">#{member.id}</Text>
+            <Text className="font-heading text-base text-muted">#{member.id}</Text>
           </Pressable>
         ))}
       </ScrollView>

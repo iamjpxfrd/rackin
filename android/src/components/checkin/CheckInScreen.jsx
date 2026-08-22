@@ -1,10 +1,11 @@
 // Ported from server/src/components/checkin/CheckInScreen.jsx, reskinned to
 // Kinetic Court. One real difference from both the web version and the
-// first RN port: Today's Activity sits above the mode-specific content in
-// every mode, not just Numpad. The design session's on-canvas edit moved it
-// above the numpad specifically; a real screen can't have the layout jump
-// depending on which mode is selected, so that placement is applied
-// consistently across Numpad/Search/Scan QR here.
+// first RN port: Today's Activity's position relative to the mode content
+// isn't fixed. For numpad it leads (the design session's on-canvas edit
+// moved it above the numpad specifically, so the numpad settles at the
+// bottom of the screen — see ActivityFeed.jsx). For search/QR it trails
+// instead (`pinBottom`), so the search input / QR viewfinder is reachable
+// first rather than pushed down by the activity list.
 
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
@@ -15,6 +16,7 @@ import QrScanner from "./QrScanner.jsx";
 import ActivityFeed from "./ActivityFeed.jsx";
 import ConfirmationCard from "./ConfirmationCard.jsx";
 import ErrorBanner from "./ErrorBanner.jsx";
+import { showToast } from "../ui/Toast.jsx";
 import { DiagonalCut } from "../ui/DiagonalCut.jsx";
 import { colors } from "../../theme/colors.js";
 
@@ -33,7 +35,6 @@ export default function CheckInScreen() {
 
   async function handleCheckIn(memberId, method) {
     setSubmitting(true);
-    setError(null);
     try {
       const { member, visitCountThisMonth, alreadyCheckedInAt } = await checkInMember(
         memberId,
@@ -42,10 +43,13 @@ export default function CheckInScreen() {
       setConfirmation({ member, visitCountThisMonth, alreadyCheckedInAt });
       setNumpadValue("");
     } catch (err) {
-      setError(
-        method === "numpad"
-          ? `${err.message} — try search by name.`
-          : err.message,
+      // A brief toast, not an inline banner — a bad number/scan is common
+      // enough during a busy shift that a lingering banner would just pile
+      // up; staff read it and keep going (PRD 4.2: no check-in path
+      // dead-ends, but nothing says the message has to persist).
+      showToast(
+        method === "numpad" ? `${err.message} — try search by name.` : err.message,
+        "warning",
       );
     } finally {
       setSubmitting(false);
@@ -63,7 +67,7 @@ export default function CheckInScreen() {
   }
 
   return (
-    <ScrollView className="flex-1 bg-page p-4" contentContainerClassName="flex-col gap-3">
+    <ScrollView className="flex-1 bg-page p-4" contentContainerClassName="flex-grow flex-col gap-3">
       <View className="flex-row gap-1.5">
         {MODES.map(({ id, label }) => {
           const isActive = mode === id;
@@ -81,13 +85,13 @@ export default function CheckInScreen() {
                   cutPercent={90}
                   style={{ height: 44, alignItems: "center", justifyContent: "center" }}
                 >
-                  <Text className="font-body text-xs font-bold tracking-wide text-page">
+                  <Text className="font-heading text-xs tracking-wide text-page">
                     {label}
                   </Text>
                 </DiagonalCut>
               ) : (
                 <View className="h-11 items-center justify-center border border-border bg-card">
-                  <Text className="font-body text-xs font-semibold text-muted">{label}</Text>
+                  <Text className="font-heading text-xs text-muted">{label}</Text>
                 </View>
               )}
             </Pressable>
@@ -97,27 +101,38 @@ export default function CheckInScreen() {
 
       {error && <ErrorBanner message={error} />}
 
-      <ActivityFeed />
-
+      {/* Activity leads for numpad (so the numpad settles at the bottom of
+          the screen) but trails for search/QR (so their input/viewfinder is
+          reachable first, with the activity list pinned to the bottom
+          below it instead). */}
       {mode === "numpad" && (
-        <Numpad
-          value={numpadValue}
-          onChange={setNumpadValue}
-          onSubmit={(memberId) => handleCheckIn(memberId, "numpad")}
-          disabled={submitting}
-        />
+        <>
+          <ActivityFeed />
+          <Numpad
+            value={numpadValue}
+            onChange={setNumpadValue}
+            onSubmit={(memberId) => handleCheckIn(memberId, "numpad")}
+            disabled={submitting}
+          />
+        </>
       )}
       {mode === "search" && (
-        <SearchPanel
-          onSelect={(memberId) => handleCheckIn(memberId, "search")}
-          disabled={submitting}
-        />
+        <>
+          <SearchPanel
+            onSelect={(memberId) => handleCheckIn(memberId, "search")}
+            disabled={submitting}
+          />
+          <ActivityFeed pinBottom />
+        </>
       )}
       {mode === "qr" && (
-        <QrScanner
-          onDecode={(memberId) => handleCheckIn(memberId, "qr")}
-          onUnavailable={handleQrUnavailable}
-        />
+        <>
+          <QrScanner
+            onDecode={(memberId) => handleCheckIn(memberId, "qr")}
+            onUnavailable={handleQrUnavailable}
+          />
+          <ActivityFeed pinBottom />
+        </>
       )}
 
       {confirmation && (

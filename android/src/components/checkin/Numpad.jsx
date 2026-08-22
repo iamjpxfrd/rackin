@@ -110,7 +110,7 @@ export default function Numpad({ value, onChange, onSubmit, disabled }) {
         className="h-16 items-center justify-center border border-border bg-card px-4"
         accessibilityLiveRegion="polite"
       >
-        <Text className="font-numeral text-3xl text-white">
+        <Text className="font-display text-3xl text-white">
           {value || <Text className="text-border">Member #</Text>}
         </Text>
       </View>
@@ -120,14 +120,17 @@ export default function Numpad({ value, onChange, onSubmit, disabled }) {
           <View key={rowIndex} className="flex-row gap-2">
             {row.map((key, keyIndex) =>
               key === "" ? (
-                <View key={`spacer-${rowIndex}-${keyIndex}`} className="flex-1" />
+                <View
+                  key={`spacer-${rowIndex}-${keyIndex}`}
+                  className="h-16 flex-1 border border-border bg-card"
+                />
               ) : key === "⌫" ? (
                 <NumpadKey key="backspace" onPress={pressBackspace} disabled={disabled} accessibilityLabel="Backspace">
                   <Delete size={26} strokeWidth={2} color={colors.textMuted} />
                 </NumpadKey>
               ) : (
                 <NumpadKey key={key} onPress={() => pressDigit(key)} disabled={disabled}>
-                  <Text className="font-numeral text-3xl text-white">{key}</Text>
+                  <Text className="font-display text-3xl text-white">{key}</Text>
                 </NumpadKey>
               ),
             )}
@@ -147,7 +150,7 @@ export default function Numpad({ value, onChange, onSubmit, disabled }) {
             style={{ height: 62, width: "100%", alignItems: "center", justifyContent: "center" }}
           >
             <Text
-              className="font-body text-lg font-extrabold tracking-wider"
+              className="font-heading text-lg tracking-wider"
               style={{ color: disabled || !value ? colors.textMuted : colors.page }}
             >
               CHECK IN

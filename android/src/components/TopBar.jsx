@@ -21,7 +21,7 @@ export default function TopBar() {
   return (
     <>
       <View className="h-[52px] shrink-0 flex-row items-center justify-between border-b-2 border-hairline bg-page px-4">
-        <Text className="font-numeral text-sm tracking-[0.06em] text-white">RACKIN</Text>
+        <Text className="font-display text-sm tracking-[0.06em] text-white">RACKIN</Text>
 
         <Pressable
           onPress={() => setPickerOpen(true)}
@@ -48,7 +48,7 @@ export default function TopBar() {
           "gym equipment control panel" north star). Ticks every second via
           useClock so it visibly reads as live rather than a static timestamp. */}
       <View className="h-7 shrink-0 flex-row items-center justify-center gap-2 border-b-2 border-hairline bg-page">
-        <Text className="font-numeral text-xs tracking-[0.04em] text-white">
+        <Text className="font-heading text-xs tracking-[0.04em] text-white">
           {formatClock(now)}
         </Text>
         <Text className="font-body text-xs text-dim">•</Text>

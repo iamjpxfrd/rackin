@@ -23,7 +23,7 @@ export function Avatar({ name, size = 26, variant = "default" }) {
       }}
     >
       <Text
-        className="font-numeral"
+        className="font-heading"
         style={{ fontSize: size * 0.42, color: isOnDesk ? colors.page : colors.accent }}
       >
         {initial}

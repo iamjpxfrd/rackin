@@ -43,10 +43,10 @@ export default function ConfirmationCard({
         className="w-full max-w-sm items-center border-2 border-accent bg-card p-8"
       >
         <CheckCircle2 size={40} strokeWidth={1.75} color={colors.accent} />
-        <Text className="mt-4 text-center font-numeral text-2xl text-white">
+        <Text className="mt-4 text-center font-heading text-2xl text-white">
           Checked in — {member.name}
         </Text>
-        <Text className="mt-2 text-center font-numeral text-base text-accent">
+        <Text className="mt-2 text-center font-heading text-base text-accent">
           Visit {visitCountThisMonth} this month
         </Text>
 

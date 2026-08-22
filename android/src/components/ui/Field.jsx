@@ -24,14 +24,14 @@ export default function Field({
 }) {
   return (
     <View className="flex-col gap-1.5">
-      <Text className="font-body text-sm font-medium text-muted">{label}</Text>
+      <Text className="font-body-medium text-sm text-muted">{label}</Text>
 
       <View
         className={`h-16 flex-row items-center gap-2 border bg-card px-4 ${
           error ? "border-danger" : "border-border"
         }`}
       >
-        {prefix && <Text className="shrink-0 font-numeral text-lg text-muted">{prefix}</Text>}
+        {prefix && <Text className="shrink-0 font-heading text-lg text-muted">{prefix}</Text>}
         <TextInput
           value={value}
           onChangeText={onChange}
@@ -42,7 +42,7 @@ export default function Field({
           accessibilityLabel={label}
           accessibilityState={error ? { invalid: true } : undefined}
           className={`flex-1 bg-transparent text-white ${
-            numeric ? "font-numeral text-2xl" : "font-body text-lg font-medium"
+            numeric ? "font-heading text-2xl" : "font-body-medium text-lg"
           }`}
         />
       </View>

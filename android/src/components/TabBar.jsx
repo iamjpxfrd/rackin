@@ -31,8 +31,8 @@ export default function TabBar({ active, onChange }) {
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.75}
-              className={`font-body text-[10px] ${
-                isActive ? "font-bold text-accent" : "text-dim"
+              className={`font-heading text-[10px] ${
+                isActive ? "text-accent" : "text-dim"
               }`}
             >
               {tab.label}
