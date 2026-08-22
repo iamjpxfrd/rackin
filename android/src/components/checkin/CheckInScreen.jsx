@@ -1,23 +1,17 @@
 // Ported from server/src/components/checkin/CheckInScreen.jsx, reskinned to
-// Kinetic Court. Two real differences from both the web version and the
-// first RN port:
-//
-//  - The "qr" mode has no RN QrScanner yet — that's its own unchecked Task 3
-//    item (expo-camera's CameraView + onBarcodeScanned). Selecting it shows
-//    an honest placeholder instead of a broken camera, rather than being
-//    hidden — numpad and search both already cover check-in with no dead
-//    end (PRD 4.2).
-//  - Today's Activity sits above the mode-specific content in every mode,
-//    not just Numpad. The design session's on-canvas edit moved it above
-//    the numpad specifically; a real screen can't have the layout jump
-//    depending on which mode is selected, so that placement is applied
-//    consistently across Numpad/Search/Scan QR here.
+// Kinetic Court. One real difference from both the web version and the
+// first RN port: Today's Activity sits above the mode-specific content in
+// every mode, not just Numpad. The design session's on-canvas edit moved it
+// above the numpad specifically; a real screen can't have the layout jump
+// depending on which mode is selected, so that placement is applied
+// consistently across Numpad/Search/Scan QR here.
 
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { checkInMember } from "../../domain/checkIn.js";
 import Numpad from "./Numpad.jsx";
 import SearchPanel from "./SearchPanel.jsx";
+import QrScanner from "./QrScanner.jsx";
 import ActivityFeed from "./ActivityFeed.jsx";
 import ConfirmationCard from "./ConfirmationCard.jsx";
 import ErrorBanner from "./ErrorBanner.jsx";
@@ -61,6 +55,11 @@ export default function CheckInScreen() {
   function selectMode(nextMode) {
     setError(null);
     setMode(nextMode);
+  }
+
+  function handleQrUnavailable() {
+    setMode("numpad");
+    setError("Camera scanning isn't available on this device — use numpad or search for now.");
   }
 
   return (
@@ -115,12 +114,10 @@ export default function CheckInScreen() {
         />
       )}
       {mode === "qr" && (
-        <View className="items-center gap-2 border border-border bg-card p-6">
-          <Text className="text-center font-body text-base text-muted">
-            Camera scanning isn't wired up on this device yet — use numpad or
-            search for now.
-          </Text>
-        </View>
+        <QrScanner
+          onDecode={(memberId) => handleCheckIn(memberId, "qr")}
+          onUnavailable={handleQrUnavailable}
+        />
       )}
 
       {confirmation && (
