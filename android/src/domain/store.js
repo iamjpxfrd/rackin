@@ -4,24 +4,25 @@
 // from the Payments domain by explicit product decision (2026-08-22): Store
 // income never folds into membership payment totals.
 //
-// Water and Stair Incline are fixed-price, one-tap items (STORE_ITEMS) —
-// still the Kinetic Court mockup's illustrative figures, not yet confirmed
-// as the gym's real prices. Treadmill is different by explicit product
-// decision (2026-08-22): a session can run longer than 30 minutes, so it
-// isn't a single fixed price — tapping it opens an amount entry instead of
-// selling instantly (see TreadmillSaleSheet.jsx). Only its 30-min rate (40)
-// is confirmed; that's carried as a prefill hint, not a price cap.
+// Water is a fixed-price, one-tap item (STORE_ITEMS) — still the Kinetic
+// Court mockup's illustrative figure, not yet confirmed as the gym's real
+// price. Treadmill and Stair Incline are different by explicit product
+// decision (2026-08-22): a session can run longer than 30 minutes, so
+// neither is a single fixed price — tapping either opens an amount entry
+// instead of selling instantly (see TimedSaleSheet.jsx). Only Treadmill's
+// 30-min rate (40) is confirmed; both suggestedAmount figures are carried as
+// a prefill hint, not a price cap.
 
 import { generateClientUuid, store } from "../storage/store.js";
 import { enqueue } from "../sync/outbox.js";
 import { attributionFor, getOnDesk } from "./staff.js";
 
-export const STORE_ITEMS = [
-  { key: "water", label: "Water", price: 20 },
-  { key: "stairIncline", label: "30-min Stair Incline", price: 50 },
-];
+export const STORE_ITEMS = [{ key: "water", label: "Water", price: 20 }];
 
-export const TREADMILL_ITEM = { key: "treadmill", label: "Treadmill", suggestedAmount: 40 };
+export const TIMED_ITEMS = [
+  { key: "treadmill", label: "Treadmill", suggestedAmount: 40 },
+  { key: "stairIncline", label: "Stair Incline", suggestedAmount: 50 },
+];
 
 async function record({ type, itemKey, description, amount, recordedBy }) {
   const numericAmount = Number(amount);
@@ -84,16 +85,22 @@ export function sellItem(itemKey, { recordedBy } = {}) {
 }
 
 /**
- * Sell a treadmill session for a staff-entered amount — unlike sellItem's
- * fixed price, duration (and so amount) varies session to session.
+ * Log a timed item (Treadmill/Stair Incline) for a staff-entered amount —
+ * unlike sellItem's fixed price, duration (and so amount) varies session to
+ * session.
+ * @param {string} itemKey one of TIMED_ITEMS' keys
  * @param {number} amount
  * @param {{ recordedBy?: object|null }} [options]
  */
-export function sellTreadmill(amount, { recordedBy } = {}) {
+export function sellTimedItem(itemKey, amount, { recordedBy } = {}) {
+  const item = TIMED_ITEMS.find((entry) => entry.key === itemKey);
+  if (!item) {
+    throw new Error("Unknown item.");
+  }
   return record({
     type: "income",
-    itemKey: TREADMILL_ITEM.key,
-    description: TREADMILL_ITEM.label,
+    itemKey: item.key,
+    description: item.label,
     amount,
     recordedBy,
   });

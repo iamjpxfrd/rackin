@@ -7,6 +7,13 @@
 //
 // Kept as its own ledger, deliberately not folded into membership Payments
 // totals (same decision) — Store's Income is store-only.
+//
+// Layout matches CheckInScreen/ActivityFeed's fixed-screen pattern: the root
+// is a plain View (not a ScrollView), so its total height is capped at the
+// screen instead of growing with content. Everything above the transaction
+// list keeps its natural height; the list itself is the one flex-1 section,
+// with its own internal ScrollView — only that list scrolls, the stat
+// tiles/Cash On Hand/Quick Sell/Log Expense controls stay fixed in place.
 
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
@@ -17,14 +24,14 @@ import {
   getTodayTransactions,
   sellItem,
   STORE_ITEMS,
-  TREADMILL_ITEM,
+  TIMED_ITEMS,
 } from "../../domain/store.js";
 import { formatAmount, formatTime } from "../../domain/constants.js";
-import { SectionHeader, Panel } from "../ui/Layout.jsx";
+import { SectionHeader } from "../ui/Layout.jsx";
 import { DiagonalCut } from "../ui/DiagonalCut.jsx";
 import { showToast } from "../ui/Toast.jsx";
 import LogExpenseSheet from "./LogExpenseSheet.jsx";
-import TreadmillSaleSheet from "./TreadmillSaleSheet.jsx";
+import TimedSaleSheet from "./TimedSaleSheet.jsx";
 import { colors } from "../../theme/colors.js";
 
 export default function StoreScreen() {
@@ -32,7 +39,8 @@ export default function StoreScreen() {
   const transactions = useLiveQuery(() => getTodayTransactions(), [], []);
   const [selling, setSelling] = useState(null);
   const [loggingExpense, setLoggingExpense] = useState(false);
-  const [sellingTreadmill, setSellingTreadmill] = useState(false);
+  // The TIMED_ITEMS entry currently open in TimedSaleSheet, or null.
+  const [loggingTimedItem, setLoggingTimedItem] = useState(null);
 
   async function handleSell(item) {
     setSelling(item.key);
@@ -47,7 +55,7 @@ export default function StoreScreen() {
   }
 
   return (
-    <ScrollView className="flex-1 bg-page" contentContainerClassName="gap-3 p-4">
+    <View className="flex-1 flex-col gap-3 bg-page p-4">
       <View className="flex-row gap-2">
         <View className="h-[68px] flex-1 justify-center gap-0.5 border border-border bg-card px-3.5">
           <Text className="font-body-bold text-[10px] tracking-[0.06em] text-muted">INCOME</Text>
@@ -89,17 +97,20 @@ export default function StoreScreen() {
           </Pressable>
         ))}
 
-        {/* Amount varies with duration, unlike the fixed-price tiles above —
-            this opens TreadmillSaleSheet instead of selling instantly. */}
-        <Pressable
-          onPress={() => setSellingTreadmill(true)}
-          disabled={selling !== null}
-          accessibilityRole="button"
-          className="h-[54px] flex-row items-center justify-between border border-border bg-card px-4"
-        >
-          <Text className="font-body-semibold text-[15px] text-white">{TREADMILL_ITEM.label}</Text>
-          <Text className="font-body text-sm text-muted">Enter amount</Text>
-        </Pressable>
+        {/* Amount varies with duration, unlike the fixed-price tile above —
+            each opens TimedSaleSheet instead of selling instantly. */}
+        {TIMED_ITEMS.map((item) => (
+          <Pressable
+            key={item.key}
+            onPress={() => setLoggingTimedItem(item)}
+            disabled={selling !== null}
+            accessibilityRole="button"
+            className="h-[54px] flex-row items-center justify-between border border-border bg-card px-4"
+          >
+            <Text className="font-body-semibold text-[15px] text-white">{item.label}</Text>
+            <Text className="font-body text-sm text-muted">Enter amount</Text>
+          </Pressable>
+        ))}
       </View>
 
       <Pressable
@@ -111,37 +122,43 @@ export default function StoreScreen() {
         <Text className="font-body-semibold text-sm text-muted">LOG AN EXPENSE</Text>
       </Pressable>
 
-      <SectionHeader>TODAY'S TRANSACTIONS</SectionHeader>
-      {transactions.length === 0 ? (
-        <Text className="px-4 py-6 text-center font-body text-base text-muted">
-          Nothing logged yet today.
-        </Text>
-      ) : (
-        <Panel>
-          {transactions.map((entry, index) => (
-            <View
-              key={entry.id}
-              className={`h-[52px] flex-row items-center gap-2.5 px-3.5 ${
-                index === transactions.length - 1 ? "" : "border-b border-hairline"
-              }`}
-            >
-              <Text className="w-[62px] font-heading text-[11px] text-muted">
-                {formatTime(entry.occurredAt)}
-              </Text>
-              <Text numberOfLines={1} className="flex-1 font-body text-sm text-white">
-                {entry.description}
-              </Text>
-              <Text
-                className="font-heading text-sm"
-                style={{ color: entry.type === "income" ? colors.accent : colors.danger }}
-              >
-                {entry.type === "income" ? "+" : "−"}
-                {formatAmount(entry.amount)}
-              </Text>
-            </View>
-          ))}
-        </Panel>
-      )}
+      <View className="flex-1 flex-col gap-2">
+        <SectionHeader>TODAY'S TRANSACTIONS</SectionHeader>
+        {transactions.length === 0 ? (
+          <View className="flex-1 items-center justify-center border border-border bg-card">
+            <Text className="text-center font-body text-base text-muted">
+              Nothing logged yet today.
+            </Text>
+          </View>
+        ) : (
+          <View className="flex-1 border border-border bg-card">
+            <ScrollView>
+              {transactions.map((entry, index) => (
+                <View
+                  key={entry.id}
+                  className={`h-[52px] flex-row items-center gap-2.5 px-3.5 ${
+                    index === transactions.length - 1 ? "" : "border-b border-hairline"
+                  }`}
+                >
+                  <Text className="w-[62px] font-heading text-[11px] text-muted">
+                    {formatTime(entry.occurredAt)}
+                  </Text>
+                  <Text numberOfLines={1} className="flex-1 font-body text-sm text-white">
+                    {entry.description}
+                  </Text>
+                  <Text
+                    className="font-heading text-sm"
+                    style={{ color: entry.type === "income" ? colors.accent : colors.danger }}
+                  >
+                    {entry.type === "income" ? "+" : "−"}
+                    {formatAmount(entry.amount)}
+                  </Text>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+      </View>
 
       {loggingExpense && (
         <LogExpenseSheet
@@ -153,15 +170,17 @@ export default function StoreScreen() {
         />
       )}
 
-      {sellingTreadmill && (
-        <TreadmillSaleSheet
-          onClose={() => setSellingTreadmill(false)}
+      {loggingTimedItem && (
+        <TimedSaleSheet
+          item={loggingTimedItem}
+          onClose={() => setLoggingTimedItem(null)}
           onRecorded={() => {
-            setSellingTreadmill(false);
-            showToast("Treadmill sale recorded");
+            const { label } = loggingTimedItem;
+            setLoggingTimedItem(null);
+            showToast(`${label} logged`);
           }}
         />
       )}
-    </ScrollView>
+    </View>
   );
 }
