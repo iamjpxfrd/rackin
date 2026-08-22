@@ -7,10 +7,11 @@
 // conversation reaches money last.
 
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Switch, Text, View } from "react-native";
 import { registerMember } from "../../domain/members.js";
 import { getOnDesk } from "../../domain/staff.js";
 import { computeCoversUntil } from "../../domain/membership.js";
+import { isPromoActive, setPromoActive, suggestedAmount } from "../../domain/pricing.js";
 import {
   CURRENCY_SYMBOL,
   PLAN_TYPES,
@@ -36,6 +37,11 @@ const PLAN_OPTIONS = PLAN_TYPES.map((value) => ({
   detail: planDuration(value),
 }));
 
+const MEMBERSHIP_TYPE_OPTIONS = [
+  { value: false, label: "REGULAR" },
+  { value: true, label: "STUDENT" },
+];
+
 const METHOD_OPTIONS = [
   { value: "cash", label: "CASH" },
   { value: "transfer", label: "TRANSFER" },
@@ -45,8 +51,13 @@ export default function NewMemberScreen({ nextMemberId, onRegistered }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [planType, setPlanType] = useState(null);
+  const [isStudent, setIsStudent] = useState(null);
   const [amount, setAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState(null);
+  // The gym's seasonal Monthly discount — a device-wide setting (see
+  // pricing.js), not a per-registration choice, so it's loaded on mount
+  // rather than starting from a guess.
+  const [promoActive, setPromoActiveState] = useState(false);
 
   const [fieldErrors, setFieldErrors] = useState({});
   const [saveError, setSaveError] = useState(null);
@@ -62,15 +73,56 @@ export default function NewMemberScreen({ nextMemberId, onRegistered }) {
     getOnDesk().then((person) => {
       if (!cancelled) setTakenBy(person);
     });
+    isPromoActive().then((active) => {
+      if (!cancelled) setPromoActiveState(active);
+    });
     return () => {
       cancelled = true;
     };
   }, []);
 
+  // Fills Amount from the plan/membership-type/promo combination — a
+  // prefill, not a lock, so staff can still type over it. Monthly needs both
+  // the plan AND a membership-type choice before there's a real number to
+  // suggest; Session/Weekly/Annually don't care about membership type at all
+  // (pricing.js).
+  function applySuggestedAmount(nextPlanType, nextIsStudent, nextPromoActive = promoActive) {
+    if (nextPlanType === null) return;
+    if (nextPlanType === "monthly" && nextIsStudent === null) return;
+    const suggested = suggestedAmount(nextPlanType, {
+      isStudent: !!nextIsStudent,
+      promoActive: nextPromoActive,
+    });
+    if (suggested !== null) setAmount(String(suggested));
+  }
+
+  function selectPlan(next) {
+    setPlanType(next);
+    applySuggestedAmount(next, isStudent);
+  }
+
+  function selectMembershipType(next) {
+    setIsStudent(next);
+    applySuggestedAmount(planType, next);
+  }
+
+  async function togglePromo(next) {
+    setPromoActiveState(next);
+    applySuggestedAmount(planType, isStudent, next);
+    await setPromoActive(next);
+  }
+
   const numericAmount = Number(amount);
   const amountIsValid = Number.isFinite(numericAmount) && numericAmount > 0;
+  // Membership type only matters for Monthly (pricing.js) — Session/Weekly/
+  // Annually are flat regardless, so nothing blocks submit on it for them.
+  const needsMembershipType = planType === "monthly";
   const canSubmit =
-    name.trim() !== "" && planType !== null && amountIsValid && paymentMethod !== null;
+    name.trim() !== "" &&
+    planType !== null &&
+    (!needsMembershipType || isStudent !== null) &&
+    amountIsValid &&
+    paymentMethod !== null;
 
   // Live preview: the resulting coverage date, computed by the same domain
   // function that will do the write.
@@ -92,6 +144,7 @@ export default function NewMemberScreen({ nextMemberId, onRegistered }) {
         name,
         phone,
         planType,
+        isStudent: !!isStudent,
         amount: numericAmount,
         paymentMethod,
         recordedBy: takenBy,
@@ -122,11 +175,35 @@ export default function NewMemberScreen({ nextMemberId, onRegistered }) {
           error={fieldErrors.name}
         />
         <Field label="Phone · optional" value={phone} onChange={setPhone} inputMode="tel" />
-        <ChoiceGroup label="Plan" options={PLAN_OPTIONS} value={planType} onChange={setPlanType} />
+        <ChoiceGroup label="Plan" options={PLAN_OPTIONS} value={planType} onChange={selectPlan} />
+        {needsMembershipType && (
+          <ChoiceGroup
+            label="Membership type"
+            options={MEMBERSHIP_TYPE_OPTIONS}
+            value={isStudent}
+            onChange={selectMembershipType}
+          />
+        )}
       </View>
 
       <View className="gap-4">
         <SectionHeader>FIRST PAYMENT</SectionHeader>
+
+        {/* A device-wide setting, not a per-registration field — see
+            pricing.js. Only Monthly's suggested amount responds to it. */}
+        <View className="flex-row items-center justify-between gap-3 border border-border bg-card px-4 py-3">
+          <View className="min-w-0 flex-1">
+            <Text className="font-body-medium text-sm text-white">Summer promo</Text>
+            <Text className="font-body text-xs text-muted">Discounts the Monthly rate</Text>
+          </View>
+          <Switch
+            value={promoActive}
+            onValueChange={togglePromo}
+            trackColor={{ false: colors.border, true: colors.accent }}
+            thumbColor={colors.textPrimary}
+          />
+        </View>
+
         <Field
           label="Amount received"
           value={amount}

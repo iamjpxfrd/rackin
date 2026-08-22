@@ -30,6 +30,7 @@ export const SCHEMA_STATEMENTS = [
     name TEXT NOT NULL,
     planType TEXT,
     phone TEXT,
+    isStudent INTEGER DEFAULT 0,
     createdAt TEXT,
     clientUuid TEXT UNIQUE
   )`,
@@ -93,8 +94,30 @@ export const SCHEMA_STATEMENTS = [
   )`,
 ];
 
+// Columns added after a table already shipped to a device: `CREATE TABLE IF
+// NOT EXISTS` above only takes effect on a fresh install, so an existing
+// local db (this app has no migration framework yet) needs each of these
+// added by hand — guarded by checking PRAGMA table_info first, since SQLite
+// errors on `ALTER TABLE ... ADD COLUMN` for a column that's already there.
+const COLUMN_MIGRATIONS = [
+  {
+    table: "members",
+    column: "isStudent",
+    ddl: "ALTER TABLE members ADD COLUMN isStudent INTEGER DEFAULT 0",
+  },
+];
+
+async function applyColumnMigrations(driver) {
+  for (const { table, column, ddl } of COLUMN_MIGRATIONS) {
+    const info = await driver.all(`PRAGMA table_info(${table})`, []);
+    const hasColumn = info.some((row) => row.name === column);
+    if (!hasColumn) await driver.run(ddl, []);
+  }
+}
+
 export async function applySchema(driver) {
   for (const statement of SCHEMA_STATEMENTS) {
     await driver.run(statement, []);
   }
+  await applyColumnMigrations(driver);
 }

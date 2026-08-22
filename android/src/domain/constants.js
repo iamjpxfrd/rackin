@@ -16,12 +16,17 @@ export const EXPIRING_WITHIN_DAYS = 7;
  * once, and leaves. It is a sale, not a membership, which is why it is
  * treated differently on Follow Up (see followUp.js).
  */
-export const PLAN_DAYS = { session: 1, weekly: 7, monthly: 30 };
+export const PLAN_DAYS = { session: 1, weekly: 7, monthly: 30, annually: 365 };
 
 /** Display order — shortest commitment first, matching how staff quote it. */
-export const PLAN_TYPES = ["session", "weekly", "monthly"];
+export const PLAN_TYPES = ["session", "weekly", "monthly", "annually"];
 
-const PLAN_LABELS = { session: "Session", weekly: "Weekly", monthly: "Monthly" };
+const PLAN_LABELS = {
+  session: "Session",
+  weekly: "Weekly",
+  monthly: "Monthly",
+  annually: "Annually",
+};
 
 /**
  * One place that turns a stored plan type into words. Every screen calls
@@ -32,11 +37,13 @@ export function planLabel(planType) {
   return PLAN_LABELS[planType] ?? planType ?? "—";
 }
 
-/** "1 day" / "7 days" / "30 days", for stating duration at the point of choice. */
+/** "1 day" / "7 days" / "30 days" / "1 year", for stating duration at the point of choice. */
 export function planDuration(planType) {
   const days = PLAN_DAYS[planType];
   if (!days) return "";
-  return days === 1 ? "1 day" : `${days} days`;
+  if (days === 1) return "1 day";
+  if (days === 365) return "1 year";
+  return `${days} days`;
 }
 
 /** A single-day drop-in rather than an ongoing membership. */

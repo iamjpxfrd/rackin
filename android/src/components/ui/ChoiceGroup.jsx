@@ -24,7 +24,7 @@ export default function ChoiceGroup({ label, options, value, onChange }) {
           const selected = value === option.value;
           return (
             <Pressable
-              key={option.value}
+              key={String(option.value)}
               onPress={() => onChange(option.value)}
               accessibilityRole="radio"
               accessibilityState={{ selected }}
