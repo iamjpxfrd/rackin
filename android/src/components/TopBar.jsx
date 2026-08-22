@@ -11,7 +11,7 @@ import { formatClock, formatDate } from "../domain/constants.js";
 import OnDeskSheet from "./staff/OnDeskSheet.jsx";
 import { Avatar } from "./ui/Avatar.jsx";
 
-export default function TopBar() {
+export default function TopBar({ showClock = true }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   // undefined until the first read lands, so the bar never flashes "Not set"
   // at someone who is in fact signed in.
@@ -46,14 +46,18 @@ export default function TopBar() {
 
       {/* A live readout, not decoration — a control panel has a clock (DESIGN.md's
           "gym equipment control panel" north star). Ticks every second via
-          useClock so it visibly reads as live rather than a static timestamp. */}
-      <View className="h-10 shrink-0 flex-row items-center justify-center gap-2 border-b-2 border-hairline bg-page">
-        <Text className="font-heading text-m tracking-[0.04em] text-white">
-          {formatClock(now)}
-        </Text>
-        <Text className="font-body text-m text-dim">•</Text>
-        <Text className="font-body text-m text-muted">{formatDate(now)}</Text>
-      </View>
+          useClock so it visibly reads as live rather than a static timestamp.
+          Check-In only: the other tabs have their own content to lead with,
+          and a clock that never changes screen to screen reads as clutter. */}
+      {showClock && (
+        <View className="h-10 shrink-0 flex-row items-center justify-center gap-2 border-b-2 border-hairline bg-page">
+          <Text className="font-heading text-m tracking-[0.04em] text-white">
+            {formatClock(now)}
+          </Text>
+          <Text className="font-body text-m text-dim">•</Text>
+          <Text className="font-body text-m text-muted">{formatDate(now)}</Text>
+        </View>
+      )}
 
       {pickerOpen && (
         <OnDeskSheet onDesk={onDesk ?? null} onClose={() => setPickerOpen(false)} />

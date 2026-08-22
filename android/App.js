@@ -90,7 +90,7 @@ function App() {
     <SafeAreaProvider>
       <SafeAreaView className="flex-1 bg-page">
         <StatusBar barStyle="light-content" />
-        <TopBar />
+        <TopBar showClock={tab === 'checkin' && !detailMemberId} />
 
         {detailMemberId ? (
           <MemberProfileScreen memberId={detailMemberId} onBack={() => setDetailMemberId(null)} />

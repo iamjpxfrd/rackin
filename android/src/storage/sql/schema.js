@@ -59,7 +59,8 @@ export const SCHEMA_STATEMENTS = [
     method TEXT,
     clientUuid TEXT UNIQUE,
     recordedById TEXT,
-    recordedByName TEXT
+    recordedByName TEXT,
+    checkOutAt TEXT
   )`,
   `CREATE INDEX IF NOT EXISTS idx_checkIns_memberId ON checkIns(memberId)`,
   `CREATE INDEX IF NOT EXISTS idx_checkIns_timestamp ON checkIns(timestamp)`,
@@ -104,6 +105,11 @@ const COLUMN_MIGRATIONS = [
     table: "members",
     column: "isStudent",
     ddl: "ALTER TABLE members ADD COLUMN isStudent INTEGER DEFAULT 0",
+  },
+  {
+    table: "checkIns",
+    column: "checkOutAt",
+    ddl: "ALTER TABLE checkIns ADD COLUMN checkOutAt TEXT",
   },
 ];
 
