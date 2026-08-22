@@ -14,6 +14,15 @@
 // gets the same "label, then a box that fills the rest" layout, so Search's
 // activity list sits right under the search input with a normal gap
 // instead of being pinned to the very bottom of the screen.
+//
+// Active/checked-out treatment (2026-08-22): rows are grouped, not just
+// timestamp-ordered — everyone still on the premises sits above everyone
+// who's checked out, each group keeping getTodaysActivity's own most-recent-
+// first order. A still-active row gets a solid accent fill (dark text for
+// contrast, the same "text goes dark on lime" rule as DiagonalCut/
+// ChoiceGroup's selected state). Checked-out rows keep their original
+// treatment (plain card background, opacity-50) — an "ash" fill was tried
+// and dropped per explicit feedback; only the active state gets a color.
 
 import { useState } from "react";
 import { Image, Pressable, ScrollView, Text, View } from "react-native";
@@ -23,9 +32,15 @@ import { getTodaysActivity, checkOutMember } from "../../domain/checkIn.js";
 import { formatDuration } from "../../domain/constants.js";
 import { Avatar } from "../ui/Avatar.jsx";
 import CheckoutModal from "./CheckoutModal.jsx";
+import { colors } from "../../theme/colors.js";
 
 // Placeholder — swap the file, not the reference, once real artwork lands.
 const NO_ACTIVITY_IMAGE = require("../../../assets/checkin/no-activity.png");
+
+// Secondary text sitting on the solid accent fill (matches ChoiceGroup.jsx's
+// ACCENT_MUTED) — a dark olive rather than pure black, so it reads as
+// "muted" without disappearing against lime.
+const ACCENT_MUTED = "#3a4a10";
 
 export default function ActivityFeed() {
   const activity = useLiveQuery(() => getTodaysActivity(), [], []);
@@ -34,6 +49,14 @@ export default function ActivityFeed() {
   // frozen "42m" next to someone mid-session would read as broken, not
   // just stale (matches TopBar's live clock for the same reason).
   const now = useClock();
+
+  // Grouped, not just timestamp-ordered — everyone still checked in floats
+  // above everyone who's checked out, each group keeping the domain query's
+  // own most-recent-first order within itself.
+  const orderedActivity = [
+    ...activity.filter((entry) => !entry.checkOutAt),
+    ...activity.filter((entry) => entry.checkOutAt),
+  ];
 
   async function confirmCheckout() {
     const target = checkoutTarget;
@@ -57,24 +80,34 @@ export default function ActivityFeed() {
       ) : (
         <View className="flex-1 border border-border bg-card">
           <ScrollView>
-            {activity.map((entry, index) => {
+            {orderedActivity.map((entry, index) => {
               const checkedOut = Boolean(entry.checkOutAt);
               const duration = formatDuration(entry.timestamp, entry.checkOutAt ?? now.toISOString());
               const row = (
                 <View
+                  style={checkedOut ? undefined : { backgroundColor: colors.accent }}
                   className={`h-[52px] flex-row items-center gap-2.5 px-3.5 ${
-                    index < activity.length - 1 ? "border-b border-hairline" : ""
+                    index < orderedActivity.length - 1 ? "border-b border-hairline" : ""
                   } ${checkedOut ? "opacity-50" : ""}`}
                 >
                   <Avatar name={entry.memberName} size={24} />
-                  <Text numberOfLines={1} className="flex-1 font-body text-sm text-white">
+                  <Text
+                    numberOfLines={1}
+                    className="flex-1 font-body text-sm"
+                    style={{ color: checkedOut ? colors.textPrimary : colors.page }}
+                  >
                     {entry.memberName}
-                    <Text className="w-12 text-[11px] text-dim"> #{entry.memberId}</Text>
+                    <Text
+                      className="w-12 text-[11px]"
+                      style={{ color: checkedOut ? colors.textDim : ACCENT_MUTED }}
+                    >
+                      {" "}
+                      #{entry.memberId}
+                    </Text>
                   </Text>
                   <Text
-                    className={`w-[62px] text-right font-heading text-xs ${
-                      checkedOut ? "text-muted" : "text-accent"
-                    }`}
+                    className="w-[62px] text-right font-heading text-xs"
+                    style={{ color: checkedOut ? colors.textMuted : colors.page }}
                   >
                     {duration}
                   </Text>
