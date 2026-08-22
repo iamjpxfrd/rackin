@@ -19,6 +19,7 @@
 // ScrollView (ActivityFeed.jsx); the screen itself never scrolls.
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
+import Animated from "react-native-reanimated";
 import { checkInMember } from "../../domain/checkIn.js";
 import Numpad from "./Numpad.jsx";
 import SearchPanel from "./SearchPanel.jsx";
@@ -28,6 +29,7 @@ import ConfirmationCard from "./ConfirmationCard.jsx";
 import ErrorBanner from "./ErrorBanner.jsx";
 import { showToast } from "../ui/Toast.jsx";
 import { DiagonalCut } from "../ui/DiagonalCut.jsx";
+import Touchable, { usePressFlash } from "../ui/Touchable.jsx";
 import { colors } from "../../theme/colors.js";
 
 const MODES = [
@@ -35,6 +37,49 @@ const MODES = [
   { id: "search", label: "SEARCH" },
   { id: "qr", label: "SCAN QR" },
 ];
+
+// Active is a solid accent DiagonalCut fill — Touchable's flash would be
+// invisible against a matching color, so that state gets a scale pulse only
+// (same reasoning as ChoiceGroup.jsx's selected option). Inactive is a
+// plain bordered box, where Touchable's flash reads clearly.
+function ModeTab({ id, label, isActive, onPress }) {
+  const { trigger, scaleStyle } = usePressFlash();
+
+  if (isActive) {
+    return (
+      <Pressable
+        onPress={() => {
+          trigger();
+          onPress(id);
+        }}
+        accessibilityRole="button"
+        accessibilityState={{ selected: true }}
+        className="flex-1"
+      >
+        <Animated.View style={scaleStyle}>
+          <DiagonalCut
+            color={colors.accent}
+            cutPercent={90}
+            style={{ height: 38, alignItems: "center", justifyContent: "center" }}
+          >
+            <Text className="font-heading text-xs tracking-wide text-page">{label}</Text>
+          </DiagonalCut>
+        </Animated.View>
+      </Pressable>
+    );
+  }
+
+  return (
+    <Touchable
+      onPress={() => onPress(id)}
+      accessibilityState={{ selected: false }}
+      wrapperClassName="flex-1"
+      className="h-11 items-center justify-center border border-border bg-card"
+    >
+      <Text className="font-heading text-xs text-muted">{label}</Text>
+    </Touchable>
+  );
+}
 
 export default function CheckInScreen() {
   const [mode, setMode] = useState("numpad");
@@ -85,34 +130,9 @@ export default function CheckInScreen() {
   return (
     <View className="flex-1 flex-col gap-3 bg-page p-4">
       <View className="flex-row gap-1.5">
-        {MODES.map(({ id, label }) => {
-          const isActive = mode === id;
-          return (
-            <Pressable
-              key={id}
-              onPress={() => selectMode(id)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: isActive }}
-              className="flex-1"
-            >
-              {isActive ? (
-                <DiagonalCut
-                  color={colors.accent}
-                  cutPercent={90}
-                  style={{ height: 38, alignItems: "center", justifyContent: "center" }}
-                >
-                  <Text className="font-heading text-xs tracking-wide text-page">
-                    {label}
-                  </Text>
-                </DiagonalCut>
-              ) : (
-                <View className="h-11 items-center justify-center border border-border bg-card">
-                  <Text className="font-heading text-xs text-muted">{label}</Text>
-                </View>
-              )}
-            </Pressable>
-          );
-        })}
+        {MODES.map(({ id, label }) => (
+          <ModeTab key={id} id={id} label={label} isActive={mode === id} onPress={selectMode} />
+        ))}
       </View>
 
       {error && <ErrorBanner message={error} />}

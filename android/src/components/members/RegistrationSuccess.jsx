@@ -14,9 +14,9 @@
 // actually gets written onto the card.
 
 import { CheckCircle2 } from "lucide-react-native";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import QrCode from "../ui/QrCode.jsx";
-import { DiagonalCut } from "../ui/DiagonalCut.jsx";
+import { PressableDiagonalCut } from "../ui/DiagonalCut.jsx";
 import { colors } from "../../theme/colors.js";
 
 export default function RegistrationSuccess({ member, onDone }) {
@@ -48,14 +48,13 @@ export default function RegistrationSuccess({ member, onDone }) {
       </View>
 
       <View className="border-t border-border bg-card p-4">
-        <Pressable onPress={onDone} accessibilityRole="button">
-          <DiagonalCut
-            color={colors.accent}
-            style={{ height: 62, alignItems: "center", justifyContent: "center" }}
-          >
-            <Text className="font-heading text-lg tracking-wider text-page">DONE</Text>
-          </DiagonalCut>
-        </Pressable>
+        <PressableDiagonalCut
+          onPress={onDone}
+          color={colors.accent}
+          style={{ height: 62, alignItems: "center", justifyContent: "center" }}
+        >
+          <Text className="font-heading text-lg tracking-wider text-page">DONE</Text>
+        </PressableDiagonalCut>
       </View>
     </View>
   );

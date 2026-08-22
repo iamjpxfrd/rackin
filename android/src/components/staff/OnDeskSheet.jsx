@@ -4,14 +4,70 @@
 
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
+import Animated from "react-native-reanimated";
 import { Check, Plus, UserMinus } from "lucide-react-native";
 import Sheet from "../ui/Sheet.jsx";
 import Field from "../ui/Field.jsx";
 import ConfirmDialog from "../ui/ConfirmDialog.jsx";
+import Touchable, { usePressFlash } from "../ui/Touchable.jsx";
 import { useLiveQuery } from "../../hooks/useLiveQuery.js";
 import { addStaff, listStaff, retireStaff, setOnDesk } from "../../domain/staff.js";
 import { showToast } from "../ui/Toast.jsx";
 import { colors } from "../../theme/colors.js";
+
+// The on-desk pill is a solid accent fill once selected — Touchable's flash
+// would be invisible against a matching color, so that state gets a scale
+// pulse only (same reasoning as ChoiceGroup.jsx's selected option).
+function StaffSelectPill({ person, isOnDesk, onPress }) {
+  const { trigger, scaleStyle } = usePressFlash();
+
+  if (isOnDesk) {
+    return (
+      <Pressable
+        onPress={() => {
+          trigger();
+          onPress();
+        }}
+        accessibilityRole="button"
+        accessibilityState={{ selected: true }}
+        className="flex-1"
+      >
+        <Animated.View
+          style={[
+            scaleStyle,
+            {
+              height: 64,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              paddingHorizontal: 16,
+              backgroundColor: colors.accent,
+            },
+          ]}
+        >
+          <Text numberOfLines={1} className="font-body-semibold text-lg text-page">
+            {person.name}
+          </Text>
+          <Check size={20} strokeWidth={2} color={colors.page} />
+        </Animated.View>
+      </Pressable>
+    );
+  }
+
+  return (
+    <Touchable
+      onPress={onPress}
+      accessibilityState={{ selected: false }}
+      wrapperClassName="flex-1"
+      className="h-16 flex-row items-center justify-between gap-3 border border-border bg-card px-4"
+    >
+      <Text numberOfLines={1} className="font-body-semibold text-lg text-muted">
+        {person.name}
+      </Text>
+    </Touchable>
+  );
+}
 
 export default function OnDeskSheet({ onDesk, onClose }) {
   const staff = useLiveQuery(() => listStaff(), [], []);
@@ -22,6 +78,9 @@ export default function OnDeskSheet({ onDesk, onClose }) {
   // dialog showing. Retiring someone can't be undone from this screen, so
   // it's the one destructive action here that gets a confirm step.
   const [pendingRemove, setPendingRemove] = useState(null);
+  // Solid accent fill, same "flash would be invisible against a matching
+  // color" reasoning as StaffSelectPill's on-desk state — scale pulse only.
+  const addButtonPress = usePressFlash();
 
   async function handleAdd() {
     setError(null);
@@ -67,32 +126,15 @@ export default function OnDeskSheet({ onDesk, onClose }) {
             const isOnDesk = person.id === onDesk?.id;
             return (
               <View key={person.id} className="flex-row items-stretch gap-2">
-                <Pressable
-                  onPress={() => handleSelect(person.id)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: isOnDesk }}
-                  className={`h-16 flex-1 flex-row items-center justify-between gap-3 px-4 ${
-                    isOnDesk ? "bg-accent" : "border border-border bg-card"
-                  }`}
-                >
-                  <Text
-                    numberOfLines={1}
-                    className={`font-body-semibold text-lg ${
-                      isOnDesk ? "text-page" : "text-muted"
-                    }`}
-                  >
-                    {person.name}
-                  </Text>
-                  {isOnDesk && <Check size={20} strokeWidth={2} color={colors.page} />}
-                </Pressable>
-                <Pressable
+                <StaffSelectPill person={person} isOnDesk={isOnDesk} onPress={() => handleSelect(person.id)} />
+                <Touchable
                   onPress={() => setPendingRemove(person)}
-                  accessibilityRole="button"
                   accessibilityLabel={`Remove ${person.name} from the staff list`}
-                  className="h-16 w-16 shrink-0 items-center justify-center border border-border bg-card"
+                  wrapperClassName="shrink-0"
+                  className="h-16 w-16 items-center justify-center border border-border bg-card"
                 >
                   <UserMinus size={20} strokeWidth={1.75} color={colors.textMuted} />
-                </Pressable>
+                </Touchable>
               </View>
             );
           })}
@@ -115,15 +157,25 @@ export default function OnDeskSheet({ onDesk, onClose }) {
           placeholder="Their name"
         />
         <Pressable
-          onPress={handleAdd}
+          onPress={() => {
+            addButtonPress.trigger();
+            handleAdd();
+          }}
           disabled={adding || !newName.trim()}
           accessibilityRole="button"
-          className="h-16 flex-row items-center justify-center gap-2 bg-accent disabled:bg-border"
         >
-          <Plus size={20} strokeWidth={2} color={colors.page} />
-          <Text className="font-body-semibold text-lg text-page">
-            Add to staff list
-          </Text>
+          <Animated.View
+            style={[
+              addButtonPress.scaleStyle,
+              { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, height: 64 },
+            ]}
+            className={adding || !newName.trim() ? "bg-border" : "bg-accent"}
+          >
+            <Plus size={20} strokeWidth={2} color={colors.page} />
+            <Text className="font-body-semibold text-lg text-page">
+              Add to staff list
+            </Text>
+          </Animated.View>
         </Pressable>
       </View>
     </Sheet>

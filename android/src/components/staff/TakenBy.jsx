@@ -12,10 +12,58 @@
 
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
+import Animated from "react-native-reanimated";
 import { UserRound } from "lucide-react-native";
 import { useLiveQuery } from "../../hooks/useLiveQuery.js";
 import { listStaff, setOnDesk } from "../../domain/staff.js";
+import Touchable, { usePressFlash } from "../ui/Touchable.jsx";
 import { colors } from "../../theme/colors.js";
+
+// Selected is a solid accent fill — Touchable's flash would be invisible
+// against a matching color, so it gets a scale pulse only (same reasoning
+// as ChoiceGroup.jsx's selected option).
+function TakenByOption({ person, selected, onPress }) {
+  const { trigger, scaleStyle } = usePressFlash();
+
+  if (selected) {
+    return (
+      <Pressable
+        onPress={() => {
+          trigger();
+          onPress();
+        }}
+        accessibilityRole="radio"
+        accessibilityState={{ selected: true }}
+        className="min-w-[112px] flex-1"
+      >
+        <Animated.View
+          style={[
+            scaleStyle,
+            { height: 48, alignItems: "center", justifyContent: "center", backgroundColor: colors.accent },
+          ]}
+        >
+          <Text numberOfLines={1} className="font-body-semibold text-base text-page">
+            {person.name}
+          </Text>
+        </Animated.View>
+      </Pressable>
+    );
+  }
+
+  return (
+    <Touchable
+      onPress={onPress}
+      accessibilityRole="radio"
+      accessibilityState={{ selected: false }}
+      wrapperClassName="min-w-[112px] flex-1"
+      className="h-12 items-center justify-center border border-border bg-page px-3"
+    >
+      <Text numberOfLines={1} className="font-body-semibold text-base text-muted">
+        {person.name}
+      </Text>
+    </Touchable>
+  );
+}
 
 export default function TakenBy({ value, onChange }) {
   const staff = useLiveQuery(() => listStaff(), [], []);
@@ -54,41 +102,28 @@ export default function TakenBy({ value, onChange }) {
         </View>
 
         {!choosing && others.length > 0 && (
-          <Pressable
+          <Touchable
             onPress={() => setChoosing(true)}
-            accessibilityRole="button"
-            className="h-10 shrink-0 items-center justify-center border border-border bg-page px-3"
+            wrapperClassName="shrink-0"
+            className="h-10 items-center justify-center border border-border bg-page px-3"
           >
             <Text className="font-body-semibold text-sm text-muted">
               {value ? "Not me" : "Choose"}
             </Text>
-          </Pressable>
+          </Touchable>
         )}
       </View>
 
       {choosing && (
         <View accessibilityRole="radiogroup" className="flex-row flex-wrap gap-2">
-          {staff.map((person) => {
-            const selected = person.id === value?.id;
-            return (
-              <Pressable
-                key={person.id}
-                onPress={() => choose(person)}
-                accessibilityRole="radio"
-                accessibilityState={{ selected }}
-                className={`h-12 min-w-[112px] flex-1 items-center justify-center px-3 ${
-                  selected ? "bg-accent" : "border border-border bg-page"
-                }`}
-              >
-                <Text
-                  numberOfLines={1}
-                  className={`font-body-semibold text-base ${selected ? "text-page" : "text-muted"}`}
-                >
-                  {person.name}
-                </Text>
-              </Pressable>
-            );
-          })}
+          {staff.map((person) => (
+            <TakenByOption
+              key={person.id}
+              person={person}
+              selected={person.id === value?.id}
+              onPress={() => choose(person)}
+            />
+          ))}
         </View>
       )}
     </View>

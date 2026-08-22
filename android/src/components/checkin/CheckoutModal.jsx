@@ -12,7 +12,8 @@ import { useEffect, useRef } from "react";
 import { Animated, Pressable, Text, View } from "react-native";
 import { formatDuration, formatTime } from "../../domain/constants.js";
 import { colors } from "../../theme/colors.js";
-import { DiagonalCut } from "../ui/DiagonalCut.jsx";
+import { PressableDiagonalCut } from "../ui/DiagonalCut.jsx";
+import Touchable from "../ui/Touchable.jsx";
 
 export default function CheckoutModal({ visible, entry, now, onConfirm, onCancel }) {
   const scale = useRef(new Animated.Value(0.96)).current;
@@ -75,27 +76,25 @@ export default function CheckoutModal({ visible, entry, now, onConfirm, onCancel
         </View>
 
         <View className="w-full flex-row gap-2.5">
-          <Pressable
+          <Touchable
             onPress={onCancel}
-            accessibilityRole="button"
-            className="h-[52px] flex-1 items-center justify-center border border-border bg-card"
+            wrapperClassName="flex-1"
+            className="h-[52px] items-center justify-center border border-border bg-card"
           >
             <Text className="font-heading text-sm tracking-wide text-muted">CANCEL</Text>
-          </Pressable>
-          <Pressable
+          </Touchable>
+          <PressableDiagonalCut
             onPress={onConfirm}
-            accessibilityRole="button"
             accessibilityLabel={`Log out ${entry.memberName}`}
-            className="h-[52px] flex-1"
+            color={colors.accent}
+            cutPercent={88}
+            // Fixed pixel height, not "100%" — see ConfirmDialog.jsx's
+            // matching comment for why a percentage doesn't resolve here.
+            wrapperStyle={{ height: 52, flex: 1 }}
+            style={{ height: 52, width: "100%", alignItems: "center", justifyContent: "center" }}
           >
-            <DiagonalCut
-              color={colors.accent}
-              cutPercent={88}
-              style={{ height: "100%", width: "100%", alignItems: "center", justifyContent: "center" }}
-            >
-              <Text className="font-heading text-sm tracking-wide text-page">LOG OUT</Text>
-            </DiagonalCut>
-          </Pressable>
+            <Text className="font-heading text-sm tracking-wide text-page">LOG OUT</Text>
+          </PressableDiagonalCut>
         </View>
       </Animated.View>
     </View>

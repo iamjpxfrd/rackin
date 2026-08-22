@@ -13,9 +13,10 @@
 // (PRODUCT.md) — an exact match is a note, not an error.
 
 import { useEffect, useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Text, TextInput, View } from "react-native";
 import { CornerDownLeft } from "lucide-react-native";
 import { suggestNames } from "../../domain/members.js";
+import Touchable from "../ui/Touchable.jsx";
 import { colors } from "../../theme/colors.js";
 
 export default function NameField({ label, value, onChange, error }) {
@@ -64,13 +65,12 @@ export default function NameField({ label, value, onChange, error }) {
       {visible && (
         <View className="overflow-hidden border border-border bg-card">
           {suggestions.map((suggestion, index) => (
-            <Pressable
+            <Touchable
               key={suggestion.id}
               onPress={() => {
                 onChange(suggestion.name);
                 setDismissed(true);
               }}
-              accessibilityRole="button"
               className={`h-14 flex-row items-center gap-3 px-4 ${
                 index === suggestions.length - 1 ? "" : "border-b border-hairline"
               }`}
@@ -80,7 +80,7 @@ export default function NameField({ label, value, onChange, error }) {
                 {suggestion.name}
               </Text>
               <Text className="shrink-0 font-body text-sm text-dim">#{suggestion.id}</Text>
-            </Pressable>
+            </Touchable>
           ))}
         </View>
       )}

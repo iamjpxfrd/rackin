@@ -41,7 +41,7 @@
 // web version — a row tap opens the member's profile (Task 4).
 
 import { useState } from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ScrollView, Text, TextInput, View } from "react-native";
 import { Search, SlidersHorizontal } from "lucide-react-native";
 import { useLiveQuery } from "../../hooks/useLiveQuery.js";
 import { listMembers, filterMembers } from "../../domain/members.js";
@@ -49,6 +49,7 @@ import { PLAN_TYPES, planLabel } from "../../domain/constants.js";
 import { EmptyState, Panel, SectionHeader } from "../ui/Layout.jsx";
 import MemberRow from "../ui/MemberRow.jsx";
 import Sheet from "../ui/Sheet.jsx";
+import Touchable from "../ui/Touchable.jsx";
 import { colors } from "../../theme/colors.js";
 
 const SORTS = {
@@ -82,22 +83,37 @@ function FilterPills({ label, options, value, onChange }) {
       {options.map(({ key, label: optionLabel }) => {
         const selected = value === key;
         return (
-          <Pressable
+          <Touchable
             key={key}
             onPress={() => onChange(key)}
             accessibilityRole="radio"
             accessibilityState={{ selected }}
-            className={`h-11 min-w-[76px] flex-1 items-center justify-center px-3 ${
+            wrapperClassName="flex-1"
+            className={`h-11 min-w-[76px] items-center justify-center px-3 ${
               selected ? "bg-accent" : "border border-border bg-page"
             }`}
           >
             <Text className={`font-heading text-xs ${selected ? "text-page" : "text-muted"}`}>
               {optionLabel}
             </Text>
-          </Pressable>
+          </Touchable>
         );
       })}
     </View>
+  );
+}
+
+/** NAME/NEWEST sort toggle pill — its own component so each gets its own press-feedback shared values. */
+function SortPill({ label, selected, onPress }) {
+  return (
+    <Touchable
+      onPress={onPress}
+      accessibilityRole="radio"
+      accessibilityState={{ selected }}
+      className={`h-6 items-center justify-center px-2.5 ${selected ? "bg-accent" : "border border-border"}`}
+    >
+      <Text className={`font-heading text-[10px] ${selected ? "text-page" : "text-muted"}`}>{label}</Text>
+    </Touchable>
   );
 }
 
@@ -149,11 +165,11 @@ export default function MembersScreen({ onSelectMember, onRegisterFirst }) {
             />
           </View>
 
-          <Pressable
+          <Touchable
             onPress={handleFilterPress}
-            accessibilityRole="button"
             accessibilityLabel={filtersActive ? "Reset filters" : "Filter"}
-            className="h-14 w-14 shrink-0 items-center justify-center border border-border bg-card"
+            wrapperClassName="shrink-0"
+            className="h-14 w-14 items-center justify-center border border-border bg-card"
           >
             <SlidersHorizontal
               size={18}
@@ -173,7 +189,7 @@ export default function MembersScreen({ onSelectMember, onRegisterFirst }) {
                 }}
               />
             )}
-          </Pressable>
+          </Touchable>
         </View>
 
         {rows.length === 0 ? (
@@ -181,15 +197,14 @@ export default function MembersScreen({ onSelectMember, onRegisterFirst }) {
             title="No members yet."
             hint="Register the first member from the + New tab."
             action={
-              <Pressable
+              <Touchable
                 onPress={onRegisterFirst}
-                accessibilityRole="button"
                 className="h-14 items-center justify-center border border-border bg-page px-6"
               >
                 <Text className="font-body-semibold text-base text-muted">
                   Register the first member
                 </Text>
-              </Pressable>
+              </Touchable>
             }
           />
         ) : (
@@ -199,26 +214,9 @@ export default function MembersScreen({ onSelectMember, onRegisterFirst }) {
                 {matches.length} MEMBERS
               </Text>
               <View accessibilityRole="radiogroup" accessibilityLabel="Sort" className="flex-row gap-1.5">
-                {Object.entries(SORTS).map(([key, { label }]) => {
-                  const selected = sortBy === key;
-                  return (
-                    <Pressable
-                      key={key}
-                      onPress={() => setSortBy(key)}
-                      accessibilityRole="radio"
-                      accessibilityState={{ selected }}
-                      className={`h-6 items-center justify-center px-2.5 ${
-                        selected ? "bg-accent" : "border border-border"
-                      }`}
-                    >
-                      <Text
-                        className={`font-heading text-[10px] ${selected ? "text-page" : "text-muted"}`}
-                      >
-                        {label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+                {Object.entries(SORTS).map(([key, { label }]) => (
+                  <SortPill key={key} label={label} selected={sortBy === key} onPress={() => setSortBy(key)} />
+                ))}
               </View>
             </View>
 

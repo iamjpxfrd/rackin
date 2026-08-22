@@ -13,25 +13,31 @@
 
 import { useState } from "react";
 import { Image, Modal, Pressable, Text, View } from "react-native";
+import Animated from "react-native-reanimated";
 import { Maximize2, X } from "lucide-react-native";
+import Touchable, { usePressFlash } from "./Touchable.jsx";
 import { colors } from "../../theme/colors.js";
 
 const PAYMENT_QR = require("../../../assets/payment-qr.png");
 
 export default function TransferQr() {
   const [enlarged, setEnlarged] = useState(false);
+  // Borderless "Enlarge" link and the solid-white modal Close button both
+  // get a scale pulse only — see Touchable.jsx's header for why a
+  // rectangular flash doesn't suit either surface.
+  const enlargeLinkPress = usePressFlash();
+  const closePress = usePressFlash();
 
   return (
     <>
       <View className="flex-row items-center gap-4 border border-border bg-card p-4">
-        <Pressable
+        <Touchable
           onPress={() => setEnlarged(true)}
-          accessibilityRole="button"
           accessibilityLabel="Enlarge payment QR"
           className="shrink-0 border border-border p-1"
         >
           <Image source={PAYMENT_QR} style={{ width: 88, height: 88 }} resizeMode="contain" />
-        </Pressable>
+        </Touchable>
 
         <View className="min-w-0 flex-1 flex-col gap-1">
           <Text className="font-body-medium text-base text-white">
@@ -41,12 +47,19 @@ export default function TransferQr() {
             Record the payment once the transfer shows on their phone.
           </Text>
           <Pressable
-            onPress={() => setEnlarged(true)}
+            onPress={() => {
+              enlargeLinkPress.trigger();
+              setEnlarged(true);
+            }}
             accessibilityRole="button"
-            className="mt-1 flex-row items-center gap-1.5 self-start"
+            className="mt-1 self-start"
           >
-            <Maximize2 size={16} strokeWidth={1.75} color={colors.textMuted} />
-            <Text className="font-body text-sm text-muted">Enlarge</Text>
+            <Animated.View
+              style={[enlargeLinkPress.scaleStyle, { flexDirection: "row", alignItems: "center", gap: 6 }]}
+            >
+              <Maximize2 size={16} strokeWidth={1.75} color={colors.textMuted} />
+              <Text className="font-body text-sm text-muted">Enlarge</Text>
+            </Animated.View>
           </Pressable>
         </View>
       </View>
@@ -60,12 +73,19 @@ export default function TransferQr() {
             <Image source={PAYMENT_QR} style={{ width: 280, height: 280 }} resizeMode="contain" />
           </View>
           <Pressable
-            onPress={() => setEnlarged(false)}
+            onPress={() => {
+              closePress.trigger();
+              setEnlarged(false);
+            }}
             accessibilityRole="button"
-            className="h-14 flex-row items-center gap-2 bg-white px-6"
+            className="h-14 bg-white px-6"
           >
-            <X size={20} strokeWidth={1.75} color={colors.page} />
-            <Text className="font-body-semibold text-lg text-page">Close</Text>
+            <Animated.View
+              style={[closePress.scaleStyle, { flexDirection: "row", alignItems: "center", gap: 8, height: "100%" }]}
+            >
+              <X size={20} strokeWidth={1.75} color={colors.page} />
+              <Text className="font-body-semibold text-lg text-page">Close</Text>
+            </Animated.View>
           </Pressable>
         </Pressable>
       </Modal>

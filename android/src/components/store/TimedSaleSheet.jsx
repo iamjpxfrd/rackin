@@ -6,12 +6,12 @@
 // each, since the only difference between them is which item/amount to log.
 
 import { useState } from "react";
-import { Pressable, Text } from "react-native";
+import { Text } from "react-native";
 import { sellTimedItem } from "../../domain/store.js";
 import { CURRENCY_SYMBOL, formatAmount } from "../../domain/constants.js";
 import Sheet from "../ui/Sheet.jsx";
 import Field from "../ui/Field.jsx";
-import { DiagonalCut } from "../ui/DiagonalCut.jsx";
+import { PressableDiagonalCut } from "../ui/DiagonalCut.jsx";
 import ErrorBanner from "../checkin/ErrorBanner.jsx";
 import { colors } from "../../theme/colors.js";
 
@@ -62,19 +62,19 @@ export default function TimedSaleSheet({ item, onClose, onRecorded }) {
         prefix={CURRENCY_SYMBOL || undefined}
       />
 
-      <Pressable onPress={handleSubmit} disabled={disabled} accessibilityRole="button">
-        <DiagonalCut
-          color={disabled ? colors.border : colors.accent}
-          style={{ height: 62, alignItems: "center", justifyContent: "center" }}
+      <PressableDiagonalCut
+        onPress={handleSubmit}
+        disabled={disabled}
+        color={disabled ? colors.border : colors.accent}
+        style={{ height: 62, alignItems: "center", justifyContent: "center" }}
+      >
+        <Text
+          className="font-heading text-lg tracking-wider"
+          style={{ color: disabled ? colors.textMuted : colors.page }}
         >
-          <Text
-            className="font-heading text-lg tracking-wider"
-            style={{ color: disabled ? colors.textMuted : colors.page }}
-          >
-            LOG {item.label.toUpperCase()}
-          </Text>
-        </DiagonalCut>
-      </Pressable>
+          LOG {item.label.toUpperCase()}
+        </Text>
+      </PressableDiagonalCut>
     </Sheet>
   );
 }

@@ -18,7 +18,7 @@
 // tiles/Cash On Hand/Quick Sell/Log Expense controls stay fixed in place.
 
 import { useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 import { Plus } from "lucide-react-native";
 import { useLiveQuery } from "../../hooks/useLiveQuery.js";
 import {
@@ -31,6 +31,7 @@ import {
 import { formatAmount, formatTime } from "../../domain/constants.js";
 import { SectionHeader } from "../ui/Layout.jsx";
 import { DiagonalCut } from "../ui/DiagonalCut.jsx";
+import Touchable from "../ui/Touchable.jsx";
 import { showToast } from "../ui/Toast.jsx";
 import LogTransactionSheet from "./LogTransactionSheet.jsx";
 import TimedSaleSheet from "./TimedSaleSheet.jsx";
@@ -94,42 +95,39 @@ export default function StoreScreen() {
       <SectionHeader>QUICK SELL</SectionHeader>
       <View className="gap-2">
         {STORE_ITEMS.map((item) => (
-          <Pressable
+          <Touchable
             key={item.key}
             onPress={() => handleSell(item)}
             disabled={selling !== null}
-            accessibilityRole="button"
             className="h-[54px] flex-row items-center justify-between border border-border bg-card px-4"
           >
             <Text className="font-body-semibold text-[15px] text-white">{item.label}</Text>
             <Text className="font-heading text-base text-accent">+{formatAmount(item.price)}</Text>
-          </Pressable>
+          </Touchable>
         ))}
 
         {/* Amount varies with duration, unlike the fixed-price tile above —
             each opens TimedSaleSheet instead of selling instantly. */}
         {TIMED_ITEMS.map((item) => (
-          <Pressable
+          <Touchable
             key={item.key}
             onPress={() => setLoggingTimedItem(item)}
             disabled={selling !== null}
-            accessibilityRole="button"
             className="h-[54px] flex-row items-center justify-between border border-border bg-card px-4"
           >
             <Text className="font-body-semibold text-[15px] text-white">{item.label}</Text>
             <Text className="font-body text-sm text-muted">Enter amount</Text>
-          </Pressable>
+          </Touchable>
         ))}
       </View>
 
-      <Pressable
+      <Touchable
         onPress={() => setLoggingTransaction(true)}
-        accessibilityRole="button"
         className="h-[54px] flex-row items-center justify-center gap-2 border border-dashed border-border"
       >
         <Plus size={16} strokeWidth={2} color={colors.textMuted} />
         <Text className="font-body-semibold text-sm text-muted">LOG A TRANSACTION</Text>
-      </Pressable>
+      </Touchable>
 
       <View className="flex-1 flex-col gap-2">
         <SectionHeader>TODAY'S TRANSACTIONS</SectionHeader>

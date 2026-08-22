@@ -13,9 +13,10 @@
 // matching the web version's actual behavior — the ID isn't the actionable
 // fact here.
 
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { planLabel } from "../../domain/constants.js";
 import StatusBadge from "./StatusBadge.jsx";
+import Touchable from "./Touchable.jsx";
 import { colors } from "../../theme/colors.js";
 
 /** Gutter contents for a member whose coverage is about to end. */
@@ -40,9 +41,8 @@ export default function UrgencyRow({ row, mode, onSelect, isLast = false }) {
   const plan = planLabel(member.planType);
 
   return (
-    <Pressable
+    <Touchable
       onPress={() => onSelect(member.id)}
-      accessibilityRole="button"
       className={`h-[72px] flex-row items-stretch ${isLast ? "" : "border-b border-hairline"}`}
     >
       <View className="w-[52px] shrink-0 items-center justify-center gap-[1px] border-r border-hairline">
@@ -64,6 +64,6 @@ export default function UrgencyRow({ row, mode, onSelect, isLast = false }) {
       <View className="shrink-0 flex-row items-center pr-3">
         <StatusBadge status={status} isExpiringSoon={isExpiringSoon} />
       </View>
-    </Pressable>
+    </Touchable>
   );
 }

@@ -4,12 +4,14 @@
 
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
+import Animated from "react-native-reanimated";
 import { useLiveQuery } from "../hooks/useLiveQuery.js";
 import { useClock } from "../hooks/useClock.js";
 import { getOnDesk } from "../domain/staff.js";
 import { formatClock, formatDate } from "../domain/constants.js";
 import OnDeskSheet from "./staff/OnDeskSheet.jsx";
 import { Avatar } from "./ui/Avatar.jsx";
+import { usePressFlash } from "./ui/Touchable.jsx";
 
 export default function TopBar({ showClock = true }) {
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -17,6 +19,9 @@ export default function TopBar({ showClock = true }) {
   // at someone who is in fact signed in.
   const onDesk = useLiveQuery(() => getOnDesk(), []);
   const now = useClock();
+  // Borderless, no background of its own — scale pulse only, same as
+  // MemberProfileScreen's Back button.
+  const onDeskPress = usePressFlash();
 
   return (
     <>
@@ -24,23 +29,29 @@ export default function TopBar({ showClock = true }) {
         <Text className="font-display text-sm tracking-[0.06em] text-white">Jack's Gym</Text>
 
         <Pressable
-          onPress={() => setPickerOpen(true)}
+          onPress={() => {
+            onDeskPress.trigger();
+            setPickerOpen(true);
+          }}
           accessibilityRole="button"
-          className="flex-row items-center gap-2"
         >
-          {onDesk === undefined ? (
-            <Text className="font-body text-sm text-muted">{" "}</Text>
-          ) : onDesk ? (
-            <>
-              <Avatar name={onDesk.name} variant="onDesk" />
-              <Text className="font-body text-sm text-muted">{onDesk.name}</Text>
-            </>
-          ) : (
-            // Stated plainly rather than nagged about. Nobody signed in is a
-            // legitimate state — the front desk still works, records simply
-            // carry no name, which is honest (PRD 4.10's spirit).
-            <Text className="font-body text-sm text-muted">Who's on desk?</Text>
-          )}
+          <Animated.View
+            style={[onDeskPress.scaleStyle, { flexDirection: "row", alignItems: "center", gap: 8 }]}
+          >
+            {onDesk === undefined ? (
+              <Text className="font-body text-sm text-muted">{" "}</Text>
+            ) : onDesk ? (
+              <>
+                <Avatar name={onDesk.name} variant="onDesk" />
+                <Text className="font-body text-sm text-muted">{onDesk.name}</Text>
+              </>
+            ) : (
+              // Stated plainly rather than nagged about. Nobody signed in is a
+              // legitimate state — the front desk still works, records simply
+              // carry no name, which is honest (PRD 4.10's spirit).
+              <Text className="font-body text-sm text-muted">Who's on desk?</Text>
+            )}
+          </Animated.View>
         </Pressable>
       </View>
 

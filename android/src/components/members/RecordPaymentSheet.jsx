@@ -20,7 +20,7 @@
 // updates the member's stored plan in the same transaction as the payment.
 
 import { useEffect, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { ArrowRight } from "lucide-react-native";
 import { recordPayment, getLastPaymentAmount } from "../../domain/payments.js";
 import { getOnDesk } from "../../domain/staff.js";
@@ -39,7 +39,7 @@ import ChoiceGroup from "../ui/ChoiceGroup.jsx";
 import TakenBy from "../staff/TakenBy.jsx";
 import StatusBadge from "../ui/StatusBadge.jsx";
 import TransferQr from "../ui/TransferQr.jsx";
-import { DiagonalCut } from "../ui/DiagonalCut.jsx";
+import { PressableDiagonalCut } from "../ui/DiagonalCut.jsx";
 import ErrorBanner from "../checkin/ErrorBanner.jsx";
 import { colors } from "../../theme/colors.js";
 
@@ -194,19 +194,19 @@ export default function RecordPaymentSheet({ profile, onClose, onRecorded }) {
         </View>
       </View>
 
-      <Pressable onPress={handleSubmit} disabled={disabled} accessibilityRole="button">
-        <DiagonalCut
-          color={disabled ? colors.border : colors.accent}
-          style={{ height: 62, alignItems: "center", justifyContent: "center" }}
+      <PressableDiagonalCut
+        onPress={handleSubmit}
+        disabled={disabled}
+        color={disabled ? colors.border : colors.accent}
+        style={{ height: 62, alignItems: "center", justifyContent: "center" }}
+      >
+        <Text
+          className="font-heading text-lg tracking-wider"
+          style={{ color: disabled ? colors.textMuted : colors.page }}
         >
-          <Text
-            className="font-heading text-lg tracking-wider"
-            style={{ color: disabled ? colors.textMuted : colors.page }}
-          >
-            RECORD PAYMENT
-          </Text>
-        </DiagonalCut>
-      </Pressable>
+          RECORD PAYMENT
+        </Text>
+      </PressableDiagonalCut>
     </Sheet>
   );
 }

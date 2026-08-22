@@ -12,7 +12,7 @@
 // wrong prefill would silently misrecord which side of the ledger this is.
 
 import { useEffect, useState } from "react";
-import { Pressable, Text } from "react-native";
+import { Text } from "react-native";
 import { logTransaction } from "../../domain/store.js";
 import { getOnDesk } from "../../domain/staff.js";
 import { CURRENCY_SYMBOL } from "../../domain/constants.js";
@@ -20,7 +20,7 @@ import Sheet from "../ui/Sheet.jsx";
 import Field from "../ui/Field.jsx";
 import ChoiceGroup from "../ui/ChoiceGroup.jsx";
 import TakenBy from "../staff/TakenBy.jsx";
-import { DiagonalCut } from "../ui/DiagonalCut.jsx";
+import { PressableDiagonalCut } from "../ui/DiagonalCut.jsx";
 import ErrorBanner from "../checkin/ErrorBanner.jsx";
 import { colors } from "../../theme/colors.js";
 
@@ -103,19 +103,19 @@ export default function LogTransactionSheet({ onClose, onRecorded }) {
 
       <TakenBy value={takenBy} onChange={setTakenBy} />
 
-      <Pressable onPress={handleSubmit} disabled={disabled} accessibilityRole="button">
-        <DiagonalCut
-          color={buttonColor}
-          style={{ height: 62, alignItems: "center", justifyContent: "center" }}
+      <PressableDiagonalCut
+        onPress={handleSubmit}
+        disabled={disabled}
+        color={buttonColor}
+        style={{ height: 62, alignItems: "center", justifyContent: "center" }}
+      >
+        <Text
+          className="font-heading text-lg tracking-wider"
+          style={{ color: disabled ? colors.textMuted : colors.page }}
         >
-          <Text
-            className="font-heading text-lg tracking-wider"
-            style={{ color: disabled ? colors.textMuted : colors.page }}
-          >
-            {type === "income" ? "LOG INCOME" : type === "expense" ? "LOG EXPENSE" : "LOG TRANSACTION"}
-          </Text>
-        </DiagonalCut>
-      </Pressable>
+          {type === "income" ? "LOG INCOME" : type === "expense" ? "LOG EXPENSE" : "LOG TRANSACTION"}
+        </Text>
+      </PressableDiagonalCut>
     </Sheet>
   );
 }

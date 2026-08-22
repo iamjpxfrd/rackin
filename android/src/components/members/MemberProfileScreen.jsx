@@ -17,6 +17,7 @@
 
 import { useState } from "react";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
+import Animated from "react-native-reanimated";
 import { ChevronLeft, Hash, Maximize2, ScanLine, Search, X } from "lucide-react-native";
 import { getMemberProfile } from "../../domain/members.js";
 import { useLiveQuery } from "../../hooks/useLiveQuery.js";
@@ -32,7 +33,8 @@ import {
 import { SectionHeader, Panel } from "../ui/Layout.jsx";
 import StatusBadge from "../ui/StatusBadge.jsx";
 import QrCode from "../ui/QrCode.jsx";
-import { DiagonalCut } from "../ui/DiagonalCut.jsx";
+import { PressableDiagonalCut } from "../ui/DiagonalCut.jsx";
+import Touchable, { usePressFlash } from "../ui/Touchable.jsx";
 import RecordPaymentSheet from "./RecordPaymentSheet.jsx";
 import { colors } from "../../theme/colors.js";
 
@@ -53,6 +55,12 @@ export default function MemberProfileScreen({ memberId, onBack }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [qrEnlarged, setQrEnlarged] = useState(false);
   const profile = useLiveQuery(() => getMemberProfile(memberId), [memberId]);
+  // Borderless controls (Back, the "Enlarge" text link, the enlarged QR
+  // modal's Close) get a scale pulse only — see Touchable.jsx's header for
+  // why a rectangular flash doesn't suit a surface with no fill of its own.
+  const backPress = usePressFlash();
+  const enlargeLinkPress = usePressFlash();
+  const closePress = usePressFlash();
 
   if (profile === undefined) {
     return <View className="flex-1 bg-page" />;
@@ -72,9 +80,18 @@ export default function MemberProfileScreen({ memberId, onBack }) {
   return (
     <View className="flex-1 bg-page">
       <View className="h-14 flex-row items-center px-2">
-        <Pressable onPress={onBack} accessibilityRole="button" className="h-14 flex-row items-center gap-1 px-2">
-          <ChevronLeft size={20} strokeWidth={1.75} color={colors.textMuted} />
-          <Text className="font-body-medium text-lg text-muted">Back</Text>
+        <Pressable
+          onPress={() => {
+            backPress.trigger();
+            onBack();
+          }}
+          accessibilityRole="button"
+          className="h-14 flex-row items-center gap-1 px-2"
+        >
+          <Animated.View style={[backPress.scaleStyle, { flexDirection: "row", alignItems: "center", gap: 4 }]}>
+            <ChevronLeft size={20} strokeWidth={1.75} color={colors.textMuted} />
+            <Text className="font-body-medium text-lg text-muted">Back</Text>
+          </Animated.View>
         </Pressable>
       </View>
 
@@ -115,26 +132,32 @@ export default function MemberProfileScreen({ memberId, onBack }) {
         <View className="gap-2">
           <SectionHeader>MEMBER QR</SectionHeader>
           <View className="flex-row items-center gap-4 border border-border bg-card p-4">
-            <Pressable
+            <Touchable
               onPress={() => setQrEnlarged(true)}
-              accessibilityRole="button"
               accessibilityLabel="Enlarge member QR"
               className="shrink-0 border border-border p-2"
             >
               <QrCode value={member.id} size={84} />
-            </Pressable>
+            </Touchable>
             <View className="min-w-0 flex-1 gap-1">
               <Text className="font-body-medium text-base text-white">Member card code</Text>
               <Text className="font-body text-sm text-muted">
                 Hold this up to the camera to check in.
               </Text>
               <Pressable
-                onPress={() => setQrEnlarged(true)}
+                onPress={() => {
+                  enlargeLinkPress.trigger();
+                  setQrEnlarged(true);
+                }}
                 accessibilityRole="button"
-                className="mt-1 flex-row items-center gap-1.5 self-start"
+                className="mt-1 self-start"
               >
-                <Maximize2 size={16} strokeWidth={1.75} color={colors.textMuted} />
-                <Text className="font-body text-sm text-muted">Enlarge</Text>
+                <Animated.View
+                  style={[enlargeLinkPress.scaleStyle, { flexDirection: "row", alignItems: "center", gap: 6 }]}
+                >
+                  <Maximize2 size={16} strokeWidth={1.75} color={colors.textMuted} />
+                  <Text className="font-body text-sm text-muted">Enlarge</Text>
+                </Animated.View>
               </Pressable>
             </View>
           </View>
@@ -226,14 +249,13 @@ export default function MemberProfileScreen({ memberId, onBack }) {
       </ScrollView>
 
       <View className="border-t border-border bg-card p-4">
-        <Pressable onPress={() => setSheetOpen(true)} accessibilityRole="button">
-          <DiagonalCut
-            color={colors.accent}
-            style={{ height: 62, alignItems: "center", justifyContent: "center" }}
-          >
-            <Text className="font-heading text-lg tracking-wider text-page">RECORD PAYMENT</Text>
-          </DiagonalCut>
-        </Pressable>
+        <PressableDiagonalCut
+          onPress={() => setSheetOpen(true)}
+          color={colors.accent}
+          style={{ height: 62, alignItems: "center", justifyContent: "center" }}
+        >
+          <Text className="font-heading text-lg tracking-wider text-page">RECORD PAYMENT</Text>
+        </PressableDiagonalCut>
       </View>
 
       {sheetOpen && (
@@ -261,12 +283,19 @@ export default function MemberProfileScreen({ memberId, onBack }) {
             <QrCode value={member.id} size={280} />
           </View>
           <Pressable
-            onPress={() => setQrEnlarged(false)}
+            onPress={() => {
+              closePress.trigger();
+              setQrEnlarged(false);
+            }}
             accessibilityRole="button"
-            className="h-14 flex-row items-center gap-2 bg-white px-6"
+            className="h-14 bg-white px-6"
           >
-            <X size={20} strokeWidth={1.75} color={colors.page} />
-            <Text className="font-body-semibold text-lg text-page">Close</Text>
+            <Animated.View
+              style={[closePress.scaleStyle, { flexDirection: "row", alignItems: "center", gap: 8, height: "100%" }]}
+            >
+              <X size={20} strokeWidth={1.75} color={colors.page} />
+              <Text className="font-body-semibold text-lg text-page">Close</Text>
+            </Animated.View>
           </Pressable>
         </Pressable>
       </Modal>

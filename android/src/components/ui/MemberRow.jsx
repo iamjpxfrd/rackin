@@ -5,16 +5,16 @@
 // Follow Up's UrgencyRow, since a roster carries no urgency number
 // (frontend-spec.md §6.2 — that treatment stays on Follow Up).
 
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import StatusBadge from "./StatusBadge.jsx";
+import Touchable from "./Touchable.jsx";
 
 export default function MemberRow({ row, onSelect, isLast = false }) {
   const { member, status, isExpiringSoon } = row;
 
   return (
-    <Pressable
+    <Touchable
       onPress={() => onSelect(member.id)}
-      accessibilityRole="button"
       className={`h-14 flex-row items-center gap-3 px-4 ${isLast ? "" : "border-b border-hairline"}`}
     >
       <Text className="w-14 shrink-0 font-body text-xs text-dim">#{member.id}</Text>
@@ -24,6 +24,6 @@ export default function MemberRow({ row, onSelect, isLast = false }) {
       <View className="shrink-0">
         <StatusBadge status={status} isExpiringSoon={isExpiringSoon} />
       </View>
-    </Pressable>
+    </Touchable>
   );
 }
