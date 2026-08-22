@@ -1,10 +1,7 @@
 // Persistent, always-visible tab bar (app-flow.md §1, DESIGN.md
 // "One-Tap-Away Rule"). Ported from server/src/components/TabBar.jsx,
-// reskinned to Kinetic Court. "Store" has no real screen yet — see the
-// Store / daily cash ledger feature proposal in Task 3 — so it lands on the
-// same "not yet ported" placeholder as the other unbuilt tabs; it's in the
-// bar because the design already put it there and pulling it back out
-// would just mean re-adding it later.
+// reskinned to Kinetic Court. All five tabs have real screens as of Task 4's
+// Store build — see domain/store.js and components/store/.
 
 import { Pressable, Text, View } from "react-native";
 import { CalendarCheck, PhoneCall, Users, UserPlus, ShoppingBag } from "lucide-react-native";

@@ -22,6 +22,7 @@ export const PRIMARY_KEYS = {
   outbox: "id",
   staff: "id",
   deviceState: "key",
+  storeTransactions: "id",
 };
 
 export const SCHEMA_STATEMENTS = [
@@ -93,6 +94,25 @@ export const SCHEMA_STATEMENTS = [
     "key" TEXT PRIMARY KEY,
     value TEXT
   )`,
+
+  // Store / daily cash ledger (Task 4). type is "income" | "expense";
+  // itemKey is set for a quick-sell (matches STORE_ITEMS in domain/store.js)
+  // and null for an expense or any other freeform entry. A wholly new table,
+  // so CREATE TABLE IF NOT EXISTS alone covers both a fresh install and an
+  // existing device — unlike the ALTER TABLE column migrations below, which
+  // only exist for columns added to a table that already shipped.
+  `CREATE TABLE IF NOT EXISTS storeTransactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL,
+    itemKey TEXT,
+    description TEXT NOT NULL,
+    amount REAL NOT NULL,
+    occurredAt TEXT NOT NULL,
+    clientUuid TEXT UNIQUE,
+    recordedById TEXT,
+    recordedByName TEXT
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_storeTransactions_occurredAt ON storeTransactions(occurredAt)`,
 ];
 
 // Columns added after a table already shipped to a device: `CREATE TABLE IF

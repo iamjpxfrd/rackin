@@ -129,6 +129,7 @@ export const store = {
   outbox: lazyTable("outbox"),
   staff: lazyTable("staff"),
   deviceState: lazyTable("deviceState"),
+  storeTransactions: lazyTable("storeTransactions"),
 
   transaction(tableNames, fn) {
     return withChangeNotify(getStore().then((s) => s.transaction(tableNames, fn)));
@@ -157,6 +158,7 @@ export async function resetDatabase({ keepStaff = false } = {}) {
   await store.payments.clear();
   await store.checkIns.clear();
   await store.outbox.clear();
+  await store.storeTransactions.clear();
 
   if (!keepStaff) {
     await store.staff.clear();

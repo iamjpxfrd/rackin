@@ -35,6 +35,11 @@ const ENDPOINTS = {
   register: "/api/members",
   payment: "/api/payments",
   checkin: "/api/checkins",
+  // No backend endpoint exists yet — the whole app is still offline-only
+  // (Task 4's "Integrate" item). Queuing this kind now means a Store sale or
+  // expense recorded before backend integration lands still gets pushed once
+  // it does, same as every other domain's history.
+  store: "/api/store",
 };
 
 export function endpointFor(kind) {
@@ -55,7 +60,7 @@ export function endpointFor(kind) {
  * it was missing.
  *
  * @param {{ outbox: object }} tx
- * @param {"register"|"payment"|"checkin"} kind
+ * @param {"register"|"payment"|"checkin"|"store"} kind
  * @param {object} body exact JSON payload to POST
  */
 export function enqueue(tx, kind, body) {
