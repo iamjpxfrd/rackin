@@ -12,12 +12,19 @@ import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { Plus } from "lucide-react-native";
 import { useLiveQuery } from "../../hooks/useLiveQuery.js";
-import { getTodayTotals, getTodayTransactions, sellItem, STORE_ITEMS } from "../../domain/store.js";
+import {
+  getTodayTotals,
+  getTodayTransactions,
+  sellItem,
+  STORE_ITEMS,
+  TREADMILL_ITEM,
+} from "../../domain/store.js";
 import { formatAmount, formatTime } from "../../domain/constants.js";
 import { SectionHeader, Panel } from "../ui/Layout.jsx";
 import { DiagonalCut } from "../ui/DiagonalCut.jsx";
 import { showToast } from "../ui/Toast.jsx";
 import LogExpenseSheet from "./LogExpenseSheet.jsx";
+import TreadmillSaleSheet from "./TreadmillSaleSheet.jsx";
 import { colors } from "../../theme/colors.js";
 
 export default function StoreScreen() {
@@ -25,6 +32,7 @@ export default function StoreScreen() {
   const transactions = useLiveQuery(() => getTodayTransactions(), [], []);
   const [selling, setSelling] = useState(null);
   const [loggingExpense, setLoggingExpense] = useState(false);
+  const [sellingTreadmill, setSellingTreadmill] = useState(false);
 
   async function handleSell(item) {
     setSelling(item.key);
@@ -80,6 +88,18 @@ export default function StoreScreen() {
             <Text className="font-heading text-base text-accent">+{formatAmount(item.price)}</Text>
           </Pressable>
         ))}
+
+        {/* Amount varies with duration, unlike the fixed-price tiles above —
+            this opens TreadmillSaleSheet instead of selling instantly. */}
+        <Pressable
+          onPress={() => setSellingTreadmill(true)}
+          disabled={selling !== null}
+          accessibilityRole="button"
+          className="h-[54px] flex-row items-center justify-between border border-border bg-card px-4"
+        >
+          <Text className="font-body-semibold text-[15px] text-white">{TREADMILL_ITEM.label}</Text>
+          <Text className="font-body text-sm text-muted">Enter amount</Text>
+        </Pressable>
       </View>
 
       <Pressable
@@ -129,6 +149,16 @@ export default function StoreScreen() {
           onRecorded={() => {
             setLoggingExpense(false);
             showToast("Expense logged");
+          }}
+        />
+      )}
+
+      {sellingTreadmill && (
+        <TreadmillSaleSheet
+          onClose={() => setSellingTreadmill(false)}
+          onRecorded={() => {
+            setSellingTreadmill(false);
+            showToast("Treadmill sale recorded");
           }}
         />
       )}

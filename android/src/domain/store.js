@@ -4,12 +4,13 @@
 // from the Payments domain by explicit product decision (2026-08-22): Store
 // income never folds into membership payment totals.
 //
-// The item list and prices below are the Kinetic Court mockup's illustrative
-// figures (water/treadmill/stair-incline are the gym's own examples from an
-// earlier conversation), not yet confirmed as the gym's real price list —
-// worth revisiting with the gym before pilot rollout. Fixed for the pilot by
-// explicit decision: no in-app editing, same non-configurable stance as
-// constants.js's other thresholds.
+// Water and Stair Incline are fixed-price, one-tap items (STORE_ITEMS) —
+// still the Kinetic Court mockup's illustrative figures, not yet confirmed
+// as the gym's real prices. Treadmill is different by explicit product
+// decision (2026-08-22): a session can run longer than 30 minutes, so it
+// isn't a single fixed price — tapping it opens an amount entry instead of
+// selling instantly (see TreadmillSaleSheet.jsx). Only its 30-min rate (40)
+// is confirmed; that's carried as a prefill hint, not a price cap.
 
 import { generateClientUuid, store } from "../storage/store.js";
 import { enqueue } from "../sync/outbox.js";
@@ -17,9 +18,10 @@ import { attributionFor, getOnDesk } from "./staff.js";
 
 export const STORE_ITEMS = [
   { key: "water", label: "Water", price: 20 },
-  { key: "treadmill", label: "30-min Treadmill", price: 50 },
   { key: "stairIncline", label: "30-min Stair Incline", price: 50 },
 ];
+
+export const TREADMILL_ITEM = { key: "treadmill", label: "Treadmill", suggestedAmount: 40 };
 
 async function record({ type, itemKey, description, amount, recordedBy }) {
   const numericAmount = Number(amount);
@@ -77,6 +79,22 @@ export function sellItem(itemKey, { recordedBy } = {}) {
     itemKey: item.key,
     description: item.label,
     amount: item.price,
+    recordedBy,
+  });
+}
+
+/**
+ * Sell a treadmill session for a staff-entered amount — unlike sellItem's
+ * fixed price, duration (and so amount) varies session to session.
+ * @param {number} amount
+ * @param {{ recordedBy?: object|null }} [options]
+ */
+export function sellTreadmill(amount, { recordedBy } = {}) {
+  return record({
+    type: "income",
+    itemKey: TREADMILL_ITEM.key,
+    description: TREADMILL_ITEM.label,
+    amount,
     recordedBy,
   });
 }
