@@ -6,6 +6,7 @@ import { useFonts } from 'expo-font';
 import TopBar from './src/components/TopBar.jsx';
 import TabBar from './src/components/TabBar.jsx';
 import CheckInScreen from './src/components/checkin/CheckInScreen.jsx';
+import FollowUpScreen from './src/components/followup/FollowUpScreen.jsx';
 import { ToastHost } from './src/components/ui/Toast.jsx';
 import { startSync } from './src/sync/sync.js';
 
@@ -29,10 +30,10 @@ const FONTS = {
 // same reasoning (frontend-spec.md §3.4, §5.1): this is a kiosk-posture
 // tablet where history management buys nothing.
 //
-// Only "checkin" has a real screen so far — Follow Up, Members, and + New
-// are still on server/ only (Task 3's UI-port checklist). Tapping those
-// tabs shows an honest "not yet ported" placeholder rather than a router
-// dead-end or a silently missing tab.
+// "checkin" and "followup" have real screens now — Members, + New, and
+// Store are still on server/ only (Task 4's UI-port checklist). Tapping
+// those tabs shows an honest "not yet ported" placeholder rather than a
+// router dead-end or a silently missing tab.
 function App() {
   const [tab, setTab] = useState('checkin');
   const [fontsLoaded] = useFonts(FONTS);
@@ -74,10 +75,11 @@ function App() {
         <TopBar />
 
         {tab === 'checkin' && <CheckInScreen />}
-        {tab !== 'checkin' && (
+        {tab === 'followup' && <FollowUpScreen />}
+        {tab !== 'checkin' && tab !== 'followup' && (
           <View className="flex-1 items-center justify-center p-6">
             <Text className="text-center font-body text-base text-muted">
-              This tab isn't ported to the mobile app yet (Task 3).
+              This tab isn't ported to the mobile app yet (Task 4).
             </Text>
           </View>
         )}
