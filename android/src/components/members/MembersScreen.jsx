@@ -31,6 +31,12 @@
 // header down two extra rows — the sheet scales to more filter groups later
 // without eating vertical space the roster needs.
 //
+// Filter icon doubles as reset (2026-08-22, replacing a separate "Reset
+// filters" link inside the sheet): once a filter is active, the icon shows
+// the accent dot, and tapping it again clears both groups straight back to
+// ALL instead of reopening the sheet — the common re-tap once a filter's on
+// is "show me everyone again," not "let me look at the sheet."
+//
 // onSelectMember/onRegisterFirst are passed down from App.js, same as the
 // web version — a row tap opens the member's profile (Task 4).
 
@@ -115,6 +121,15 @@ export default function MembersScreen({ onSelectMember, onRegisterFirst }) {
   const matches = loading ? [] : [...filterMembers(filtered, query)].sort(SORTS[sortBy].compare);
   const filtersActive = statusFilter !== "all" || planFilter !== "all";
 
+  function handleFilterPress() {
+    if (filtersActive) {
+      setStatusFilter("all");
+      setPlanFilter("all");
+    } else {
+      setFilterSheetOpen(true);
+    }
+  }
+
   if (loading) {
     return <View className="flex-1 bg-page" />;
   }
@@ -135,9 +150,9 @@ export default function MembersScreen({ onSelectMember, onRegisterFirst }) {
           </View>
 
           <Pressable
-            onPress={() => setFilterSheetOpen(true)}
+            onPress={handleFilterPress}
             accessibilityRole="button"
-            accessibilityLabel="Filter"
+            accessibilityLabel={filtersActive ? "Reset filters" : "Filter"}
             className="h-14 w-14 shrink-0 items-center justify-center border border-border bg-card"
           >
             <SlidersHorizontal
@@ -229,19 +244,6 @@ export default function MembersScreen({ onSelectMember, onRegisterFirst }) {
 
       {filterSheetOpen && (
         <Sheet title="Filter members" onClose={() => setFilterSheetOpen(false)}>
-          {filtersActive && (
-            <Pressable
-              onPress={() => {
-                setStatusFilter("all");
-                setPlanFilter("all");
-              }}
-              accessibilityRole="button"
-              className="self-start"
-            >
-              <Text className="font-body-semibold text-sm text-accent">Reset filters</Text>
-            </Pressable>
-          )}
-
           <View className="gap-2">
             <SectionHeader>STATUS</SectionHeader>
             <FilterPills
