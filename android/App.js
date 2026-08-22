@@ -7,6 +7,7 @@ import TopBar from './src/components/TopBar.jsx';
 import TabBar from './src/components/TabBar.jsx';
 import CheckInScreen from './src/components/checkin/CheckInScreen.jsx';
 import FollowUpScreen from './src/components/followup/FollowUpScreen.jsx';
+import MembersScreen from './src/components/members/MembersScreen.jsx';
 import { ToastHost } from './src/components/ui/Toast.jsx';
 import { startSync } from './src/sync/sync.js';
 
@@ -30,7 +31,7 @@ const FONTS = {
 // same reasoning (frontend-spec.md §3.4, §5.1): this is a kiosk-posture
 // tablet where history management buys nothing.
 //
-// "checkin" and "followup" have real screens now — Members, + New, and
+// "checkin", "followup", and "members" have real screens now — + New and
 // Store are still on server/ only (Task 4's UI-port checklist). Tapping
 // those tabs shows an honest "not yet ported" placeholder rather than a
 // router dead-end or a silently missing tab.
@@ -76,7 +77,8 @@ function App() {
 
         {tab === 'checkin' && <CheckInScreen />}
         {tab === 'followup' && <FollowUpScreen />}
-        {tab !== 'checkin' && tab !== 'followup' && (
+        {tab === 'members' && <MembersScreen />}
+        {tab !== 'checkin' && tab !== 'followup' && tab !== 'members' && (
           <View className="flex-1 items-center justify-center p-6">
             <Text className="text-center font-body text-base text-muted">
               This tab isn't ported to the mobile app yet (Task 4).
