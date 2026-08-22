@@ -1,12 +1,14 @@
 // Store — daily cash ledger (Task 4's Store feature proposal, now built).
 // Matched to PhoneStore.dc.html: Income/Expenses stat tiles, a diagonal-cut
 // Cash On Hand banner, quick-sell tiles for the fixed item list, a dashed
-// "Log an expense" action, and today's transaction list. Cash On Hand resets
-// daily (product decision, 2026-08-22) — everything here is scoped to today,
-// same as Check-In's Today's Present.
+// "Log a transaction" action, and today's transaction list. Cash On Hand
+// resets daily (product decision, 2026-08-22) — everything here is scoped
+// to today, same as Check-In's Today's Present.
 //
-// Kept as its own ledger, deliberately not folded into membership Payments
-// totals (same decision) — Store's Income is store-only.
+// The dashed button (renamed from "Log an expense", 2026-08-22) now opens
+// LogTransactionSheet, which lets staff pick Income or Expense — the one
+// way to log store income beyond Water/Treadmill/Stair Incline (a walk-in
+// sundry sale, say), not just expenses.
 //
 // Layout matches CheckInScreen/ActivityFeed's fixed-screen pattern: the root
 // is a plain View (not a ScrollView), so its total height is capped at the
@@ -30,7 +32,7 @@ import { formatAmount, formatTime } from "../../domain/constants.js";
 import { SectionHeader } from "../ui/Layout.jsx";
 import { DiagonalCut } from "../ui/DiagonalCut.jsx";
 import { showToast } from "../ui/Toast.jsx";
-import LogExpenseSheet from "./LogExpenseSheet.jsx";
+import LogTransactionSheet from "./LogTransactionSheet.jsx";
 import TimedSaleSheet from "./TimedSaleSheet.jsx";
 import { colors } from "../../theme/colors.js";
 
@@ -38,7 +40,7 @@ export default function StoreScreen() {
   const totals = useLiveQuery(() => getTodayTotals(), [], { income: 0, expenses: 0, cashOnHand: 0 });
   const transactions = useLiveQuery(() => getTodayTransactions(), [], []);
   const [selling, setSelling] = useState(null);
-  const [loggingExpense, setLoggingExpense] = useState(false);
+  const [loggingTransaction, setLoggingTransaction] = useState(false);
   // The TIMED_ITEMS entry currently open in TimedSaleSheet, or null.
   const [loggingTimedItem, setLoggingTimedItem] = useState(null);
 
@@ -114,12 +116,12 @@ export default function StoreScreen() {
       </View>
 
       <Pressable
-        onPress={() => setLoggingExpense(true)}
+        onPress={() => setLoggingTransaction(true)}
         accessibilityRole="button"
         className="h-[54px] flex-row items-center justify-center gap-2 border border-dashed border-border"
       >
         <Plus size={16} strokeWidth={2} color={colors.textMuted} />
-        <Text className="font-body-semibold text-sm text-muted">LOG AN EXPENSE</Text>
+        <Text className="font-body-semibold text-sm text-muted">LOG A TRANSACTION</Text>
       </Pressable>
 
       <View className="flex-1 flex-col gap-2">
@@ -160,12 +162,12 @@ export default function StoreScreen() {
         )}
       </View>
 
-      {loggingExpense && (
-        <LogExpenseSheet
-          onClose={() => setLoggingExpense(false)}
-          onRecorded={() => {
-            setLoggingExpense(false);
-            showToast("Expense logged");
+      {loggingTransaction && (
+        <LogTransactionSheet
+          onClose={() => setLoggingTransaction(false)}
+          onRecorded={(type) => {
+            setLoggingTransaction(false);
+            showToast(type === "income" ? "Income logged" : "Expense logged");
           }}
         />
       )}

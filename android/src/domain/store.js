@@ -117,17 +117,23 @@ export function sellTimedItem(itemKey, amount, { recordedBy } = {}) {
 }
 
 /**
- * A staff expense paid out of the day's cash on hand. Amount is freeform,
- * unlike sellItem's fixed price — expenses vary (stock, repairs).
- * @param {{ description: string, amount: number, recordedBy?: object|null }} input
+ * A manually-logged transaction — income or expense, freeform description
+ * and amount. This is the one way to log store income beyond the fixed
+ * Water tile/Treadmill/Stair Incline (a walk-in sundry sale, say), and the
+ * only way to log an expense. Unlike sellItem/sellTimedItem, nothing here
+ * is item-driven — both the type and the amount are staff-entered.
+ * @param {{ type: "income"|"expense", description: string, amount: number, recordedBy?: object|null }} input
  */
-export function logExpense({ description, amount, recordedBy } = {}) {
+export function logTransaction({ type, description, amount, recordedBy } = {}) {
+  if (type !== "income" && type !== "expense") {
+    throw new Error("Choose income or expense.");
+  }
   const trimmed = String(description ?? "").trim();
   if (!trimmed) {
-    throw new Error("Describe the expense.");
+    throw new Error(type === "income" ? "Describe the income." : "Describe the expense.");
   }
   return record({
-    type: "expense",
+    type,
     itemKey: null,
     description: trimmed,
     amount,
