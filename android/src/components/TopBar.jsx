@@ -21,7 +21,7 @@ export default function TopBar() {
   return (
     <>
       <View className="h-[52px] shrink-0 flex-row items-center justify-between border-b-2 border-hairline bg-page px-4">
-        <Text className="font-display text-sm tracking-[0.06em] text-white">RACKIN</Text>
+        <Text className="font-display text-sm tracking-[0.06em] text-white">Jack's Gym</Text>
 
         <Pressable
           onPress={() => setPickerOpen(true)}
@@ -39,7 +39,7 @@ export default function TopBar() {
             // Stated plainly rather than nagged about. Nobody signed in is a
             // legitimate state — the front desk still works, records simply
             // carry no name, which is honest (PRD 4.10's spirit).
-            <Text className="font-body text-sm text-muted">Set who's on desk</Text>
+            <Text className="font-body text-sm text-muted">Who's on desk?</Text>
           )}
         </Pressable>
       </View>
@@ -47,12 +47,12 @@ export default function TopBar() {
       {/* A live readout, not decoration — a control panel has a clock (DESIGN.md's
           "gym equipment control panel" north star). Ticks every second via
           useClock so it visibly reads as live rather than a static timestamp. */}
-      <View className="h-7 shrink-0 flex-row items-center justify-center gap-2 border-b-2 border-hairline bg-page">
-        <Text className="font-heading text-xs tracking-[0.04em] text-white">
+      <View className="h-10 shrink-0 flex-row items-center justify-center gap-2 border-b-2 border-hairline bg-page">
+        <Text className="font-heading text-m tracking-[0.04em] text-white">
           {formatClock(now)}
         </Text>
-        <Text className="font-body text-xs text-dim">•</Text>
-        <Text className="font-body text-xs text-muted">{formatDate(now)}</Text>
+        <Text className="font-body text-m text-dim">•</Text>
+        <Text className="font-body text-m text-muted">{formatDate(now)}</Text>
       </View>
 
       {pickerOpen && (

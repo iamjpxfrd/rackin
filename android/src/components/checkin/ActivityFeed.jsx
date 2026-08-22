@@ -44,7 +44,7 @@ export default function ActivityFeed({ pinBottom = false }) {
           <View className="flex-1 items-center justify-center gap-3 border border-border bg-card">
             <Image source={NO_ACTIVITY_IMAGE} className="h-64 w-64" resizeMode="contain" />
             <Text className="text-center font-body text-base text-muted">
-              The rack's ready. Are you?
+              Consistent as always. Impressive work!
             </Text>
           </View>
         </>

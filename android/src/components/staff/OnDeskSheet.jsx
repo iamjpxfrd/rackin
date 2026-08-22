@@ -7,6 +7,7 @@ import { Pressable, Text, View } from "react-native";
 import { Check, Plus, UserMinus } from "lucide-react-native";
 import Sheet from "../ui/Sheet.jsx";
 import Field from "../ui/Field.jsx";
+import ConfirmDialog from "../ui/ConfirmDialog.jsx";
 import { useLiveQuery } from "../../hooks/useLiveQuery.js";
 import { addStaff, listStaff, retireStaff, setOnDesk } from "../../domain/staff.js";
 import { showToast } from "../ui/Toast.jsx";
@@ -17,6 +18,10 @@ export default function OnDeskSheet({ onDesk, onClose }) {
   const [newName, setNewName] = useState("");
   const [error, setError] = useState(null);
   const [adding, setAdding] = useState(false);
+  // The person a REMOVE tap is pending confirmation for — null means no
+  // dialog showing. Retiring someone can't be undone from this screen, so
+  // it's the one destructive action here that gets a confirm step.
+  const [pendingRemove, setPendingRemove] = useState(null);
 
   async function handleAdd() {
     setError(null);
@@ -42,12 +47,15 @@ export default function OnDeskSheet({ onDesk, onClose }) {
     onClose();
   }
 
-  async function handleRetire(person) {
+  async function confirmRetire() {
+    const person = pendingRemove;
+    setPendingRemove(null);
     await retireStaff(person.id);
     showToast(`${person.name} removed from staff list`);
   }
 
   return (
+    <>
     <Sheet
       title="Who's on the desk?"
       subtitle="Check-ins and payments are recorded under this name until it's changed."
@@ -78,7 +86,7 @@ export default function OnDeskSheet({ onDesk, onClose }) {
                   {isOnDesk && <Check size={20} strokeWidth={2} color={colors.page} />}
                 </Pressable>
                 <Pressable
-                  onPress={() => handleRetire(person)}
+                  onPress={() => setPendingRemove(person)}
                   accessibilityRole="button"
                   accessibilityLabel={`Remove ${person.name} from the staff list`}
                   className="h-16 w-16 shrink-0 items-center justify-center border border-border bg-card"
@@ -119,5 +127,19 @@ export default function OnDeskSheet({ onDesk, onClose }) {
         </Pressable>
       </View>
     </Sheet>
+
+    {/* Sibling of Sheet, not nested inside it — Sheet's own children sit
+        inside its bounded bottom-card, but this needs Sheet's same
+        absolute-inset-0 full-screen positioning context (both are mounted
+        directly under SafeAreaView via TopBar) to center over the whole
+        screen, not just the card. */}
+    <ConfirmDialog
+      visible={pendingRemove !== null}
+      title="Remove staff member?"
+      message={pendingRemove ? `${pendingRemove.name} will be removed from the staff list.` : ""}
+      onConfirm={confirmRetire}
+      onCancel={() => setPendingRemove(null)}
+    />
+    </>
   );
 }

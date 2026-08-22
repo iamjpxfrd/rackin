@@ -83,7 +83,7 @@ export default function CheckInScreen() {
                 <DiagonalCut
                   color={colors.accent}
                   cutPercent={90}
-                  style={{ height: 44, alignItems: "center", justifyContent: "center" }}
+                  style={{ height: 38, alignItems: "center", justifyContent: "center" }}
                 >
                   <Text className="font-heading text-xs tracking-wide text-page">
                     {label}
