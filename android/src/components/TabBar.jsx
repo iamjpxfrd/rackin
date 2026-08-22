@@ -14,7 +14,7 @@ const TABS = [
   { id: "checkin", label: "Check-In", icon: CalendarCheck },
   { id: "followup", label: "Follow Up", icon: PhoneCall },
   { id: "members", label: "Members", icon: Users },
-  { id: "new", label: "New", icon: UserPlus },
+  { id: "new", label: "New Member", icon: UserPlus },
   { id: "store", label: "Store", icon: ShoppingBag },
 ];
 
