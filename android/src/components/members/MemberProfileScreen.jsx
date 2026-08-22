@@ -9,10 +9,15 @@
 // "Print card" is dropped from the Member QR section — same reasoning as
 // RegistrationSuccess.jsx: no window.print() equivalent, and the web
 // version already treats printing as best-effort with no printer assumed.
+//
+// Tap-to-enlarge added 2026-08-22, same Modal pattern as TransferQr.jsx's
+// payment QR — a member holding their own phone up to photograph this code
+// needs it bigger than the 84px inline size, not just easier for the
+// front-desk camera to scan.
 
 import { useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
-import { ChevronLeft, Hash, ScanLine, Search } from "lucide-react-native";
+import { Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { ChevronLeft, Hash, Maximize2, ScanLine, Search, X } from "lucide-react-native";
 import { getMemberProfile } from "../../domain/members.js";
 import { useLiveQuery } from "../../hooks/useLiveQuery.js";
 import {
@@ -46,6 +51,7 @@ function statusGutter({ status, daysRemaining, coversUntil }) {
 
 export default function MemberProfileScreen({ memberId, onBack }) {
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [qrEnlarged, setQrEnlarged] = useState(false);
   const profile = useLiveQuery(() => getMemberProfile(memberId), [memberId]);
 
   if (profile === undefined) {
@@ -109,14 +115,27 @@ export default function MemberProfileScreen({ memberId, onBack }) {
         <View className="gap-2">
           <SectionHeader>MEMBER QR</SectionHeader>
           <View className="flex-row items-center gap-4 border border-border bg-card p-4">
-            <View className="shrink-0 border border-border p-2">
+            <Pressable
+              onPress={() => setQrEnlarged(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Enlarge member QR"
+              className="shrink-0 border border-border p-2"
+            >
               <QrCode value={member.id} size={84} />
-            </View>
+            </Pressable>
             <View className="min-w-0 flex-1 gap-1">
               <Text className="font-body-medium text-base text-white">Member card code</Text>
               <Text className="font-body text-sm text-muted">
                 Hold this up to the camera to check in.
               </Text>
+              <Pressable
+                onPress={() => setQrEnlarged(true)}
+                accessibilityRole="button"
+                className="mt-1 flex-row items-center gap-1.5 self-start"
+              >
+                <Maximize2 size={16} strokeWidth={1.75} color={colors.textMuted} />
+                <Text className="font-body text-sm text-muted">Enlarge</Text>
+              </Pressable>
             </View>
           </View>
         </View>
@@ -227,6 +246,30 @@ export default function MemberProfileScreen({ memberId, onBack }) {
           onRecorded={() => setSheetOpen(false)}
         />
       )}
+
+      <Modal
+        visible={qrEnlarged}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setQrEnlarged(false)}
+      >
+        <Pressable
+          onPress={() => setQrEnlarged(false)}
+          className="flex-1 items-center justify-center gap-6 bg-black/80 p-6"
+        >
+          <View className="bg-white p-6">
+            <QrCode value={member.id} size={280} />
+          </View>
+          <Pressable
+            onPress={() => setQrEnlarged(false)}
+            accessibilityRole="button"
+            className="h-14 flex-row items-center gap-2 bg-white px-6"
+          >
+            <X size={20} strokeWidth={1.75} color={colors.page} />
+            <Text className="font-body-semibold text-lg text-page">Close</Text>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
