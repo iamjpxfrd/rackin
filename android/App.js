@@ -8,6 +8,7 @@ import TabBar from './src/components/TabBar.jsx';
 import CheckInScreen from './src/components/checkin/CheckInScreen.jsx';
 import FollowUpScreen from './src/components/followup/FollowUpScreen.jsx';
 import MembersScreen from './src/components/members/MembersScreen.jsx';
+import MemberProfileScreen from './src/components/members/MemberProfileScreen.jsx';
 import NewMemberFlow from './src/components/members/NewMemberFlow.jsx';
 import { ToastHost } from './src/components/ui/Toast.jsx';
 import { startSync } from './src/sync/sync.js';
@@ -32,13 +33,28 @@ const FONTS = {
 // same reasoning (frontend-spec.md §3.4, §5.1): this is a kiosk-posture
 // tablet where history management buys nothing.
 //
+//   tab tap          -> set tab, clear the detail view
+//   row tap          -> open the profile over the originating tab
+//   back on profile  -> return to that tab, tab bar stays live throughout
+//
 // "checkin", "followup", "members", and "new" have real screens now — Store
 // is still on server/ only (Task 4's UI-port checklist). Tapping that tab
 // shows an honest "not yet ported" placeholder rather than a router
 // dead-end or a silently missing tab.
 function App() {
   const [tab, setTab] = useState('checkin');
+  const [detailMemberId, setDetailMemberId] = useState(null);
   const [fontsLoaded] = useFonts(FONTS);
+
+  function selectTab(nextTab) {
+    setDetailMemberId(null);
+    setTab(nextTab);
+  }
+
+  function goToNewMember() {
+    setDetailMemberId(null);
+    setTab('new');
+  }
 
   // Push queued writes whenever the tablet has a network (TRD 7). startSync
   // is async here (opening expo-sqlite is), unlike the web version's
@@ -76,21 +92,29 @@ function App() {
         <StatusBar barStyle="light-content" />
         <TopBar />
 
-        {tab === 'checkin' && <CheckInScreen />}
-        {tab === 'followup' && <FollowUpScreen />}
-        {tab === 'members' && <MembersScreen />}
-        {tab === 'new' && <NewMemberFlow onDone={() => setTab('checkin')} />}
-        {tab !== 'checkin' && tab !== 'followup' && tab !== 'members' && tab !== 'new' && (
-          <View className="flex-1 items-center justify-center p-6">
-            <Text className="text-center font-body text-base text-muted">
-              This tab isn't ported to the mobile app yet (Task 4).
-            </Text>
-          </View>
+        {detailMemberId ? (
+          <MemberProfileScreen memberId={detailMemberId} onBack={() => setDetailMemberId(null)} />
+        ) : (
+          <>
+            {tab === 'checkin' && <CheckInScreen />}
+            {tab === 'followup' && <FollowUpScreen onSelectMember={setDetailMemberId} />}
+            {tab === 'members' && (
+              <MembersScreen onSelectMember={setDetailMemberId} onRegisterFirst={goToNewMember} />
+            )}
+            {tab === 'new' && <NewMemberFlow onDone={() => setTab('checkin')} />}
+            {tab !== 'checkin' && tab !== 'followup' && tab !== 'members' && tab !== 'new' && (
+              <View className="flex-1 items-center justify-center p-6">
+                <Text className="text-center font-body text-base text-muted">
+                  This tab isn't ported to the mobile app yet (Task 4).
+                </Text>
+              </View>
+            )}
+          </>
         )}
 
-        {/* The tab bar stays live everywhere — the One-Tap-Away Rule has no
-            exception (DESIGN.md). */}
-        <TabBar active={tab} onChange={setTab} />
+        {/* The tab bar stays live everywhere, including over the profile —
+            the One-Tap-Away Rule has no exception (DESIGN.md). */}
+        <TabBar active={tab} onChange={selectTab} />
 
         {/* App-root so a toast fired from a sheet (e.g. OnDeskSheet) still
             shows after the sheet that triggered it closes. */}

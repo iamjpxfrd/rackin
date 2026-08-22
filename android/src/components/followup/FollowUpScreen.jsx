@@ -1,14 +1,13 @@
 // S1 — Follow Up (frontend-spec.md §6.1). Ported from
 // server/src/components/followup/FollowUpScreen.jsx, reskinned to Kinetic
-// Court. Two real differences from the web version:
+// Court. One real difference from the web version: no ScreenHeader ("Follow
+// Up" title + "N to call" count) — the Kinetic Court mockup
+// (PhoneFollowUp.dc.html) starts straight into the EXPIRING SOON section
+// with no title row, since the tab bar already names the active tab and
+// each section already shows its own count.
 //
-//  - No ScreenHeader ("Follow Up" title + "N to call" count): the Kinetic
-//    Court mockup (PhoneFollowUp.dc.html) starts straight into the
-//    EXPIRING SOON section with no title row — the tab bar already names
-//    the active tab, and each section already shows its own count.
-//  - onSelectMember has nowhere to navigate yet (the Members tab isn't
-//    ported), so it shows a toast instead of a dead tap target.
-//    onRegisterFirst is dropped for the same reason (+New isn't ported).
+// onSelectMember is passed down from App.js, same as the web version — a
+// row tap now opens the member's profile (Task 4).
 
 import { ScrollView, Text, View } from "react-native";
 import { useLiveQuery } from "../../hooks/useLiveQuery.js";
@@ -16,7 +15,6 @@ import { getFollowUp } from "../../domain/followUp.js";
 import { memberCount } from "../../domain/members.js";
 import { SectionHeader, EmptyState, Panel } from "../ui/Layout.jsx";
 import UrgencyRow from "../ui/UrgencyRow.jsx";
-import { showToast } from "../ui/Toast.jsx";
 
 function QuietRow({ children }) {
   return (
@@ -26,16 +24,12 @@ function QuietRow({ children }) {
   );
 }
 
-export default function FollowUpScreen() {
+export default function FollowUpScreen({ onSelectMember }) {
   // No default value: undefined is "not loaded", which must never render as
   // the empty state (frontend-spec.md §9).
   const data = useLiveQuery(() => getFollowUp());
   const totalMembers = useLiveQuery(() => memberCount());
   const hasMembers = totalMembers === undefined || totalMembers > 0;
-
-  function handleSelectMember() {
-    showToast("Member profiles aren't ported yet", "warning");
-  }
 
   if (data === undefined) {
     return <View className="flex-1 bg-page" />;
@@ -81,7 +75,7 @@ export default function FollowUpScreen() {
                 key={row.member.id}
                 row={row}
                 mode="expiring"
-                onSelect={handleSelectMember}
+                onSelect={onSelectMember}
                 isLast={index === expiring.length - 1}
               />
             ))}
@@ -100,7 +94,7 @@ export default function FollowUpScreen() {
                 key={row.member.id}
                 row={row}
                 mode="lapsed"
-                onSelect={handleSelectMember}
+                onSelect={onSelectMember}
                 isLast={index === lapsed.length - 1}
               />
             ))}

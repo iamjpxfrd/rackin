@@ -42,13 +42,14 @@ Automatic lapsed-member detection (no check-in in 14+ days) and expiring-soon de
 - Expiring-soon list: members whose plan lapses within 7 days (fixed threshold), sorted soonest-first.
 - New member registration + first payment in one flow, not two systems: name, plan type (`session` | `weekly` | `monthly` | `annually`), and membership type (`regular` | `student`) required; amount and payment method (`cash` | `transfer`) recorded in the same action; member number auto-assigned sequentially (e.g. `"1001"`); QR code generated automatically; phone number optional, captured to support lapsed-member follow-up. The name field completes from names already on the roster — names repeat at one gym, and consistent spelling is what lets search find them later.
 - `session` is a single-day drop-in (1 day of coverage): a sale, not a membership. Drop-ins are excluded from the expiring-soon list, since a one-day plan is inside the 7-day window from the moment it is sold and nothing is saved by calling someone whose plan was only ever one day.
-- Suggested pricing (staff can still type over it; no currency is committed anywhere in the repo, per OD-2 below — amounts are bare numbers): Session 80, Weekly 250, Annually 1200, flat for everyone. Monthly is the only plan that varies — by membership type and by whether the gym's seasonal discount is currently on:
+- Suggested pricing (staff can still type over it; no currency is committed anywhere in the repo, per OD-2 below — amounts are bare numbers): Session 80, Weekly 250, flat for everyone. Monthly and Annually both vary by membership type; Monthly additionally varies by whether the gym's seasonal discount is currently on (Annually has no promo):
   | | Regular | Student |
   | --- | --- | --- |
-  | Full price | 800 | 700 |
-  | Promo price | 700 | 500 |
+  | Monthly full price | 800 | 700 |
+  | Monthly promo price | 700 | 500 |
+  | Annually | 1200 | 1000 |
 
-  The promo is a staff-facing on/off switch on the New Member screen, not a date the code hardcodes — it persists per device (like who's on the desk) until staff flip it again, so it survives across registrations without being re-set each time. See [[Decisions/Membership Pricing And The Promo Toggle]].
+  The promo is a staff-facing on/off switch on the New Member screen (Monthly only), not a date the code hardcodes — it persists per device (like who's on the desk) until staff flip it again, so it survives across registrations without being re-set each time. See [[Decisions/Membership Pricing And The Promo Toggle]].
 - Choosing `transfer` as the payment method displays the gym's own receiving QR (a static image the gym supplies) so the member can scan and pay from their phone. This does not process a payment: RackIn still only records that one happened, and staff confirm manually.
 - Record payment for an existing member: extends `coversUntil` from the payment date + plan duration (session = 1 day, weekly = 7 days, monthly = a flat 30 days not a calendar month, annually = 365 days). Always calculated from the payment date, never extended from a prior `coversUntil`, even on early renewal — a deliberate pilot simplification.
 - Membership status (`active` / `expired`) is always derived from the latest payment's `coversUntil`; never manually set.

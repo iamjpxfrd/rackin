@@ -4,22 +4,19 @@
 // count on its own line, then a flat name-ascending roster with no pinned
 // groups — Expiring Soon lives on Follow Up, not here.
 //
-// onSelectMember has nowhere to navigate yet (the member profile screen
-// isn't ported — Task 4), so a row tap shows a toast instead of a dead tap
-// target, the same treatment FollowUpScreen uses. onRegisterFirst is
-// dropped for the same reason (+New isn't ported either).
+// onSelectMember/onRegisterFirst are passed down from App.js, same as the
+// web version — a row tap opens the member's profile (Task 4).
 
 import { useState } from "react";
-import { ScrollView, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Search } from "lucide-react-native";
 import { useLiveQuery } from "../../hooks/useLiveQuery.js";
 import { listMembers, filterMembers } from "../../domain/members.js";
 import { SectionHeader, EmptyState, Panel } from "../ui/Layout.jsx";
 import MemberRow from "../ui/MemberRow.jsx";
 import { colors } from "../../theme/colors.js";
-import { showToast } from "../ui/Toast.jsx";
 
-export default function MembersScreen() {
+export default function MembersScreen({ onSelectMember, onRegisterFirst }) {
   const [query, setQuery] = useState("");
   // No default value: undefined means "not loaded yet", which must never
   // render as the empty state (frontend-spec.md §9). Only a confirmed [] does.
@@ -27,10 +24,6 @@ export default function MembersScreen() {
 
   const loading = rows === undefined;
   const matches = loading ? [] : filterMembers(rows, query);
-
-  function handleSelect() {
-    showToast("Member profiles aren't ported yet", "warning");
-  }
 
   if (loading) {
     return <View className="flex-1 bg-page" />;
@@ -53,6 +46,17 @@ export default function MembersScreen() {
         <EmptyState
           title="No members yet."
           hint="Register the first member from the + New tab."
+          action={
+            <Pressable
+              onPress={onRegisterFirst}
+              accessibilityRole="button"
+              className="h-14 items-center justify-center border border-border bg-page px-6"
+            >
+              <Text className="font-body-semibold text-base text-muted">
+                Register the first member
+              </Text>
+            </Pressable>
+          }
         />
       ) : (
         <>
@@ -68,7 +72,7 @@ export default function MembersScreen() {
                 <MemberRow
                   key={row.member.id}
                   row={row}
-                  onSelect={handleSelect}
+                  onSelect={onSelectMember}
                   isLast={index === matches.length - 1}
                 />
               ))}
