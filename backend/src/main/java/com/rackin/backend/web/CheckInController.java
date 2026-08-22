@@ -3,6 +3,7 @@ package com.rackin.backend.web;
 import com.rackin.backend.service.CheckInService;
 import com.rackin.backend.web.dto.CheckInRequest;
 import com.rackin.backend.web.dto.CheckInResponse;
+import com.rackin.backend.web.dto.CheckOutRequest;
 import com.rackin.backend.web.dto.ErrorMessage;
 import com.rackin.backend.web.dto.FieldError;
 import com.rackin.backend.web.dto.LapsedMemberResponse;
@@ -54,6 +55,29 @@ public class CheckInController {
     @PostMapping
     public ResponseEntity<CheckInResponse> checkIn(@Valid @RequestBody CheckInRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(checkInService.checkIn(request));
+    }
+
+    @Operation(
+            summary = "Check out a visit",
+            description = "Closes out a check-in — a manual staff LOG OUT, or the tablet's force "
+                    + "logout past closing. Identified by the check-in's own `clientUuid`, the same "
+                    + "idempotency key check-in itself uses, since the tablet may never have received "
+                    + "the server-assigned id if the original check-in synced after this. Idempotent: "
+                    + "checking out an already-checked-out visit succeeds without overwriting the "
+                    + "first checkout time.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Checked out (or already was)"),
+            @ApiResponse(responseCode = "400", description = "Validation failed",
+                    content = @Content(mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = FieldError.class)))),
+            @ApiResponse(responseCode = "404", description = "No check-in with that clientUuid",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorMessage.class)))
+    })
+    @PostMapping("/checkout")
+    public ResponseEntity<Void> checkOut(@Valid @RequestBody CheckOutRequest request) {
+        checkInService.checkOut(request);
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(

@@ -1,5 +1,6 @@
 package com.rackin.backend.web;
 
+import com.rackin.backend.exception.CheckInNotFoundException;
 import com.rackin.backend.exception.MemberNotFoundException;
 import com.rackin.backend.model.CheckInMethod;
 import com.rackin.backend.model.PlanType;
@@ -20,8 +21,10 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -94,6 +97,44 @@ class CheckInControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void checkOut_withValidRequest_shouldReturn204() throws Exception {
+        String body = """
+                {"checkInClientUuid":"%s","checkOutAt":"2026-08-23T02:00:00Z"}
+                """.formatted(UUID.randomUUID());
+
+        mockMvc.perform(post("/api/checkins/checkout")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void checkOut_whenCheckInNotFound_shouldReturn404() throws Exception {
+        UUID clientUuid = UUID.randomUUID();
+        doThrow(new CheckInNotFoundException(clientUuid)).when(checkInService).checkOut(any());
+
+        String body = """
+                {"checkInClientUuid":"%s","checkOutAt":"2026-08-23T02:00:00Z"}
+                """.formatted(clientUuid);
+
+        mockMvc.perform(post("/api/checkins/checkout")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("No check-in found for clientUuid " + clientUuid));
+    }
+
+    @Test
+    void checkOut_withMissingFields_shouldReturn400() throws Exception {
+        mockMvc.perform(post("/api/checkins/checkout")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$[?(@.field=='checkInClientUuid')]").exists())
+                .andExpect(jsonPath("$[?(@.field=='checkOutAt')]").exists());
     }
 
     @Test

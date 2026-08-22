@@ -1,6 +1,7 @@
 package com.rackin.backend.service;
 
 import com.rackin.backend.config.RackinProperties;
+import com.rackin.backend.exception.CheckInNotFoundException;
 import com.rackin.backend.exception.MemberNotFoundException;
 import com.rackin.backend.model.CheckIn;
 import com.rackin.backend.model.CheckInMethod;
@@ -11,6 +12,7 @@ import com.rackin.backend.repository.LapsedMemberProjection;
 import com.rackin.backend.repository.MemberRepository;
 import com.rackin.backend.web.dto.CheckInRequest;
 import com.rackin.backend.web.dto.CheckInResponse;
+import com.rackin.backend.web.dto.CheckOutRequest;
 import com.rackin.backend.web.dto.LapsedMemberResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -183,6 +185,48 @@ class CheckInServiceTest {
         verify(checkInRepository).save(captor.capture());
         assertThat(captor.getValue().getRecordedById()).isNull();
         assertThat(captor.getValue().getRecordedByName()).isNull();
+    }
+
+    @Test
+    void checkOut_whenCheckInExistsAndOpen_shouldSetCheckOutAt() {
+        UUID clientUuid = UUID.randomUUID();
+        CheckIn checkIn = new CheckIn();
+        checkIn.setClientUuid(clientUuid);
+        when(checkInRepository.findByClientUuid(clientUuid)).thenReturn(Optional.of(checkIn));
+        Instant checkOutAt = Instant.now();
+
+        checkInService.checkOut(new CheckOutRequest(clientUuid, checkOutAt));
+
+        ArgumentCaptor<CheckIn> captor = ArgumentCaptor.forClass(CheckIn.class);
+        verify(checkInRepository).save(captor.capture());
+        assertThat(captor.getValue().getCheckOutAt()).isEqualTo(checkOutAt);
+    }
+
+    @Test
+    void checkOut_whenAlreadyCheckedOut_shouldBeIdempotentAndKeepFirstTime() {
+        UUID clientUuid = UUID.randomUUID();
+        Instant firstCheckOut = Instant.now().minus(1, ChronoUnit.HOURS);
+        CheckIn checkIn = new CheckIn();
+        checkIn.setClientUuid(clientUuid);
+        checkIn.setCheckOutAt(firstCheckOut);
+        when(checkInRepository.findByClientUuid(clientUuid)).thenReturn(Optional.of(checkIn));
+
+        // A sync retry, or the force-logout sweep and a manual LOG OUT racing
+        // each other — the second call must not overwrite the first time.
+        checkInService.checkOut(new CheckOutRequest(clientUuid, Instant.now()));
+
+        verify(checkInRepository, never()).save(any());
+        assertThat(checkIn.getCheckOutAt()).isEqualTo(firstCheckOut);
+    }
+
+    @Test
+    void checkOut_whenCheckInNotFound_shouldThrow() {
+        UUID clientUuid = UUID.randomUUID();
+        when(checkInRepository.findByClientUuid(clientUuid)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> checkInService.checkOut(new CheckOutRequest(clientUuid, Instant.now())))
+                .isInstanceOf(CheckInNotFoundException.class);
+        verify(checkInRepository, never()).save(any());
     }
 
     @Test

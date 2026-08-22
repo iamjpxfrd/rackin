@@ -1,6 +1,7 @@
 package com.rackin.backend.service;
 
 import com.rackin.backend.config.RackinProperties;
+import com.rackin.backend.exception.CheckInNotFoundException;
 import com.rackin.backend.exception.MemberNotFoundException;
 import com.rackin.backend.model.CheckIn;
 import com.rackin.backend.model.Member;
@@ -8,6 +9,7 @@ import com.rackin.backend.repository.CheckInRepository;
 import com.rackin.backend.repository.MemberRepository;
 import com.rackin.backend.web.dto.CheckInRequest;
 import com.rackin.backend.web.dto.CheckInResponse;
+import com.rackin.backend.web.dto.CheckOutRequest;
 import com.rackin.backend.web.dto.LapsedMemberResponse;
 import com.rackin.backend.web.dto.MemberBrief;
 import org.springframework.stereotype.Service;
@@ -66,6 +68,21 @@ public class CheckInService {
         long visitCount = checkInRepository.countByMember_IdAndTimestampGreaterThanEqual(member.getId(), monthStart);
 
         return new CheckInResponse(MemberBrief.from(member), visitCount);
+    }
+
+    // Idempotent by clientUuid, same as checkIn() — a sync retry after a lost
+    // response, or the force-logout sweep and a manual LOG OUT racing each
+    // other, must not error the second time. A check-in already checked out
+    // just answers success without overwriting the first checkout time.
+    @Transactional
+    public void checkOut(CheckOutRequest request) {
+        CheckIn checkIn = checkInRepository.findByClientUuid(request.checkInClientUuid())
+                .orElseThrow(() -> new CheckInNotFoundException(request.checkInClientUuid()));
+
+        if (checkIn.getCheckOutAt() == null) {
+            checkIn.setCheckOutAt(request.checkOutAt());
+            checkInRepository.save(checkIn);
+        }
     }
 
     // days == null means "use the pilot's configured threshold" — resolving that
