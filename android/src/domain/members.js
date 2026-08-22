@@ -16,7 +16,8 @@ import { attributionFor, getOnDesk } from "./staff.js";
  *
  * @param {{
  *   name: string, phone?: string|null,
- *   planType: "session"|"weekly"|"monthly",
+ *   planType: "session"|"weekly"|"monthly"|"annually",
+ *   isStudent?: boolean,
  *   amount: number, paymentMethod: "cash"|"transfer",
  *   recordedBy?: object|null,
  * }} input
@@ -26,6 +27,7 @@ export async function registerMember({
   name,
   phone = null,
   planType,
+  isStudent = false,
   amount,
   paymentMethod,
   recordedBy,
@@ -67,6 +69,7 @@ export async function registerMember({
       name: trimmedName,
       planType,
       phone: trimmedPhone,
+      isStudent: isStudent ? 1 : 0,
       createdAt,
       clientUuid: generateClientUuid(),
     };
@@ -92,6 +95,7 @@ export async function registerMember({
       name: trimmedName,
       planType,
       phone: trimmedPhone,
+      isStudent: member.isStudent,
       amount: numericAmount,
       method: paymentMethod,
       clientUuid: member.clientUuid,

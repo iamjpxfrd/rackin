@@ -4,22 +4,30 @@ import { generateClientUuid, store } from "../storage/store.js";
 import { enqueue } from "../sync/outbox.js";
 import { computeCoversUntil, deriveStatus, latestPaymentOf } from "./membership.js";
 import { attributionFor, getOnDesk } from "./staff.js";
+import { PLAN_TYPES } from "./constants.js";
 
 /**
- * Extends coverage from the payment date + the member's plan duration.
+ * Extends coverage from the payment date + the plan's duration.
  *
  * `recordedBy` is who takes responsibility for the money. It defaults to
  * whoever is on the desk, but the caller passes it explicitly because the
  * payment sheet confirms it — a handover nobody remembered to record shows up
  * here, at the one moment where getting it wrong costs the gym something.
  *
+ * `planType` is optional and defaults to the member's current plan — a plain
+ * renewal doesn't change it. Passing a different one (e.g. a Session drop-in
+ * deciding to go Monthly) updates the member's stored plan in the same
+ * transaction as the payment, so the switch and the money that paid for it
+ * are one atomic record rather than two separate edits.
+ *
  * @param {{
  *   memberId: string, amount: number, method: "cash"|"transfer",
+ *   planType?: "session"|"weekly"|"monthly"|"annually",
  *   recordedBy?: object|null,
  * }} input
  * @returns {Promise<{ payment: object, coversUntil: string, status: string }>}
  */
-export async function recordPayment({ memberId, amount, method, recordedBy }) {
+export async function recordPayment({ memberId, amount, method, planType, recordedBy }) {
   const numericAmount = Number(amount);
   if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
     throw new Error("Enter the amount received.");
@@ -27,14 +35,20 @@ export async function recordPayment({ memberId, amount, method, recordedBy }) {
   if (method !== "cash" && method !== "transfer") {
     throw new Error("Choose a payment method.");
   }
+  if (planType !== undefined && !PLAN_TYPES.includes(planType)) {
+    throw new Error("Choose a plan.");
+  }
 
   const member = await store.members.get(memberId);
   if (!member) {
     throw new Error(`No member found for #${memberId}`);
   }
 
+  const nextPlanType = planType ?? member.planType;
+  const planChanged = planType !== undefined && planType !== member.planType;
+
   const paidAt = new Date().toISOString();
-  const coversUntil = computeCoversUntil(paidAt, member.planType);
+  const coversUntil = computeCoversUntil(paidAt, nextPlanType);
 
   // `undefined` means the caller did not express a preference, so fall back to
   // the shift. An explicit `null` means nobody is signed in, and is preserved
@@ -53,9 +67,14 @@ export async function recordPayment({ memberId, amount, method, recordedBy }) {
     ...attribution,
   };
 
-  // Payment row and queue entry commit together, so a payment can never be
-  // taken locally and then silently never pushed (sync/outbox.js).
-  const id = await store.transaction(["payments", "outbox"], async (tx) => {
+  // Payment row, the member's plan change (if any), and the queue entry all
+  // commit together — a payment can never be taken locally and then silently
+  // never pushed (sync/outbox.js), and a plan switch can never be recorded
+  // without the payment that triggered it.
+  const id = await store.transaction(["members", "payments", "outbox"], async (tx) => {
+    if (planChanged) {
+      await tx.members.update(memberId, { planType });
+    }
     const paymentId = await tx.payments.add(payment);
     // paidAt travels with it: the backend counts coverage from when the member
     // paid, not from whenever this tablet next finds a network (TRD 7).
@@ -63,6 +82,7 @@ export async function recordPayment({ memberId, amount, method, recordedBy }) {
       memberId,
       amount: numericAmount,
       method,
+      planType: planChanged ? planType : undefined,
       clientUuid: payment.clientUuid,
       paidAt,
       ...attribution,

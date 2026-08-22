@@ -9,7 +9,12 @@
 import { Text, TextInput, View } from "react-native";
 import { colors } from "../../theme/colors.js";
 
-const KEYBOARD_TYPES = { numeric: "numeric", tel: "phone-pad", text: "default" };
+const KEYBOARD_TYPES = {
+  numeric: "numeric",
+  decimal: "decimal-pad",
+  tel: "phone-pad",
+  text: "default",
+};
 
 export default function Field({
   label,

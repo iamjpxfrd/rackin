@@ -32,7 +32,7 @@ export function daysBetween(fromIso, toIso) {
  * resulting date before staff confirm, so the rule is never a surprise.
  *
  * @param {string} paidAtIso
- * @param {"weekly"|"monthly"} planType
+ * @param {"session"|"weekly"|"monthly"|"annually"} planType
  * @returns {string} ISO timestamp
  */
 export function computeCoversUntil(paidAtIso, planType) {
