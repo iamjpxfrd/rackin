@@ -9,6 +9,18 @@ export const LAPSED_AFTER_DAYS = 14;
 export const EXPIRING_WITHIN_DAYS = 7;
 
 /**
+ * The gym's closing time (2026-08-23, explicit gym hours) — 10:00 PM local.
+ * Anyone still checked in past GYM_CLOSING_HOUR + FORCE_LOGOUT_GRACE_MINUTES
+ * gets force-checked-out (domain/checkIn.js's forceLogoutOverdue), stamped
+ * with this closing time rather than whenever the sweep happened to run.
+ */
+export const GYM_CLOSING_HOUR = 22;
+export const GYM_CLOSING_MINUTE = 0;
+
+/** Grace period past closing before an open check-in gets force-logged-out. */
+export const FORCE_LOGOUT_GRACE_MINUTES = 30;
+
+/**
  * Plan durations in days. Monthly is a flat 30 days, never a calendar
  * month — a deliberate pilot simplification (PRODUCT.md).
  *

@@ -13,6 +13,7 @@ import NewMemberFlow from './src/components/members/NewMemberFlow.jsx';
 import StoreScreen from './src/components/store/StoreScreen.jsx';
 import { ToastHost } from './src/components/ui/Toast.jsx';
 import { startSync } from './src/sync/sync.js';
+import { forceLogoutOverdue } from './src/domain/checkIn.js';
 
 // Kinetic Court's three type roles (see tailwind.config.js's fontFamily):
 // Zen Dots for the wordmark + numpad digits only, Fjalla One for shouty
@@ -71,6 +72,20 @@ function App() {
       cancelled = true;
       stop();
     };
+  }, []);
+
+  // Force-logout sweep for anyone still checked in past closing (2026-08-23,
+  // explicit gym hours). A plain 60s interval, not a per-second useClock
+  // subscription here — App is the whole tree's root, and re-rendering
+  // everything every second just for a check that's a no-op 23.5 hours a day
+  // would be real, needless churn. forceLogoutOverdue() itself is a cheap
+  // no-op outside the window (two Date comparisons, no query) — see its own
+  // header comment. Runs regardless of which tab is active, since a member
+  // left checked in shouldn't depend on staff happening to be on Check-In.
+  useEffect(() => {
+    forceLogoutOverdue();
+    const timer = setInterval(forceLogoutOverdue, 60_000);
+    return () => clearInterval(timer);
   }, []);
 
   // Blank rather than a flash of system-font text — the three custom

@@ -5,6 +5,7 @@
 import { generateClientUuid, store } from "../storage/store.js";
 import { enqueue } from "../sync/outbox.js";
 import { attributionFor, getOnDesk } from "./staff.js";
+import { FORCE_LOGOUT_GRACE_MINUTES, GYM_CLOSING_HOUR, GYM_CLOSING_MINUTE } from "./constants.js";
 
 /**
  * @param {string} memberId
@@ -116,14 +117,59 @@ async function countVisitsThisMonth(memberId) {
 }
 
 /**
- * Marks a visit as ended (Task 4's activity-list checkout action). Local
- * only for now — there's no backend checkout endpoint yet, so unlike
- * checkInMember this doesn't enqueue an outbox entry; it just stops the
- * activity row's timer and freezes its duration.
+ * Marks a visit as ended (Task 4's activity-list checkout action). Now
+ * synced (2026-08-23) via the "checkout" outbox kind, matching every other
+ * write in this file — POST /api/checkins/checkout, identified by the
+ * check-in's own clientUuid rather than a path param, so it fits the sync
+ * layer's flat POST-to-static-path shape instead of needing a dynamic URL.
  * @param {number} checkInId
  */
 export async function checkOutMember(checkInId) {
-  await store.checkIns.update(checkInId, { checkOutAt: new Date().toISOString() });
+  const checkOutAt = new Date().toISOString();
+  await store.transaction(["checkIns", "outbox"], async (tx) => {
+    const record = await tx.checkIns.get(checkInId);
+    // Already checked out (a double-tap, or the force-logout sweep beat a
+    // manual tap to it) or the row is gone — nothing left to record.
+    if (!record || record.checkOutAt) return;
+    await tx.checkIns.update(checkInId, { checkOutAt });
+    await enqueue(tx, "checkout", { checkInClientUuid: record.clientUuid, checkOutAt });
+  });
+}
+
+/**
+ * Force-checks-out anyone still open past the gym's closing time, stamped
+ * with the closing time itself rather than whenever this sweep happened to
+ * run — a member's recorded duration should read as "until closing," not
+ * "until the tablet noticed." A grace period (FORCE_LOGOUT_GRACE_MINUTES)
+ * covers the ordinary case of staff wrapping up after doors close.
+ *
+ * Deliberately swept from a live clock tick (App.js) rather than computed
+ * as part of getTodaysActivity() — that's a read, this is a write, and a
+ * query function silently mutating rows on every call would be a strange
+ * contract to depend on.
+ *
+ * @param {Date} [now]
+ * @returns {Promise<number>} how many were force-checked-out
+ */
+export async function forceLogoutOverdue(now = new Date()) {
+  const closing = new Date(now);
+  closing.setHours(GYM_CLOSING_HOUR, GYM_CLOSING_MINUTE, 0, 0);
+  const forceLogoutAt = new Date(closing.getTime() + FORCE_LOGOUT_GRACE_MINUTES * 60_000);
+  if (now < forceLogoutAt) return 0;
+
+  const dayStart = startOfLocalDay(now);
+  const todays = await store.checkIns.where("timestamp").aboveOrEqual(dayStart).toArray();
+  const open = todays.filter((entry) => !entry.checkOutAt);
+  if (open.length === 0) return 0;
+
+  const checkOutAt = closing.toISOString();
+  await store.transaction(["checkIns", "outbox"], async (tx) => {
+    for (const entry of open) {
+      await tx.checkIns.update(entry.id, { checkOutAt });
+      await enqueue(tx, "checkout", { checkInClientUuid: entry.clientUuid, checkOutAt });
+    }
+  });
+  return open.length;
 }
 
 /**
@@ -146,13 +192,19 @@ export async function findMembersByName(query) {
 
 /**
  * Today's check-ins, most recent first, joined with member name (PRD 4.4).
+ *
+ * "Today" is the tablet's own local day, not UTC — same reasoning as
+ * lastCheckInToday/hasActiveCheckInToday above. This used to compute the
+ * boundary from UTC date parts, which in a timezone ahead of UTC (e.g.
+ * UTC+8) doesn't roll over until UTC catches up hours later: local midnight
+ * arrives, but the query's "today" doesn't advance until UTC midnight — the
+ * list kept showing yesterday's activity for however many hours the local
+ * zone leads UTC. Real bug, not a display quirk; fixed by reusing
+ * startOfLocalDay() here too.
  * @returns {Promise<Array<{ id: number, memberId: string, timestamp: string, checkOutAt: string|null, method: string, memberName: string }>>}
  */
 export async function getTodaysActivity() {
-  const now = new Date();
-  const dayStart = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  ).toISOString();
+  const dayStart = startOfLocalDay();
 
   const checkIns = await store.checkIns
     .where("timestamp")

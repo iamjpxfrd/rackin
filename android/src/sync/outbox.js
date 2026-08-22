@@ -35,6 +35,11 @@ const ENDPOINTS = {
   register: "/api/members",
   payment: "/api/payments",
   checkin: "/api/checkins",
+  // Body-based, not a path param (POST /api/checkins/checkout with
+  // checkInClientUuid in the body) — the sync layer only knows how to POST
+  // to a static path per kind, so identifying the check-in has to travel in
+  // the body rather than a dynamic URL segment.
+  checkout: "/api/checkins/checkout",
   // No backend endpoint exists yet — the whole app is still offline-only
   // (Task 4's "Integrate" item). Queuing this kind now means a Store sale or
   // expense recorded before backend integration lands still gets pushed once
@@ -60,7 +65,7 @@ export function endpointFor(kind) {
  * it was missing.
  *
  * @param {{ outbox: object }} tx
- * @param {"register"|"payment"|"checkin"|"store"} kind
+ * @param {"register"|"payment"|"checkin"|"checkout"|"store"} kind
  * @param {object} body exact JSON payload to POST
  */
 export function enqueue(tx, kind, body) {
