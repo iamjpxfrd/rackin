@@ -7,7 +7,7 @@
 // conversation reaches money last.
 
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, Switch, Text, View } from "react-native";
+import { ScrollView, Switch, Text, View } from "react-native";
 import { registerMember } from "../../domain/members.js";
 import { getOnDesk } from "../../domain/staff.js";
 import { computeCoversUntil } from "../../domain/membership.js";
@@ -23,7 +23,7 @@ import { SectionHeader } from "../ui/Layout.jsx";
 import Field from "../ui/Field.jsx";
 import ChoiceGroup from "../ui/ChoiceGroup.jsx";
 import TransferQr from "../ui/TransferQr.jsx";
-import { DiagonalCut } from "../ui/DiagonalCut.jsx";
+import { PressableDiagonalCut } from "../ui/DiagonalCut.jsx";
 import TakenBy from "../staff/TakenBy.jsx";
 import NameField from "./NameField.jsx";
 import ErrorBanner from "../checkin/ErrorBanner.jsx";
@@ -247,19 +247,19 @@ export default function NewMemberScreen({ nextMemberId, onRegistered }) {
         </View>
       </View>
 
-      <Pressable onPress={handleSubmit} disabled={disabled} accessibilityRole="button">
-        <DiagonalCut
-          color={disabled ? colors.border : colors.accent}
-          style={{ height: 62, alignItems: "center", justifyContent: "center" }}
+      <PressableDiagonalCut
+        onPress={handleSubmit}
+        disabled={disabled}
+        color={disabled ? colors.border : colors.accent}
+        style={{ height: 62, alignItems: "center", justifyContent: "center" }}
+      >
+        <Text
+          className="font-heading text-lg tracking-wider"
+          style={{ color: disabled ? colors.textMuted : colors.page }}
         >
-          <Text
-            className="font-heading text-lg tracking-wider"
-            style={{ color: disabled ? colors.textMuted : colors.page }}
-          >
-            REGISTER MEMBER
-          </Text>
-        </DiagonalCut>
-      </Pressable>
+          REGISTER MEMBER
+        </Text>
+      </PressableDiagonalCut>
     </ScrollView>
   );
 }

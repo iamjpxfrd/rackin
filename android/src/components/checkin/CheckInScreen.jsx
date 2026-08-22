@@ -1,14 +1,25 @@
 // Ported from server/src/components/checkin/CheckInScreen.jsx, reskinned to
-// Kinetic Court. One real difference from both the web version and the
-// first RN port: Today's Activity's position relative to the mode content
-// isn't fixed. For numpad it leads (the design session's on-canvas edit
-// moved it above the numpad specifically, so the numpad settles at the
-// bottom of the screen — see ActivityFeed.jsx). For search/QR it trails
-// instead (`pinBottom`), so the search input / QR viewfinder is reachable
-// first rather than pushed down by the activity list.
-
+// Kinetic Court. Today's Present leads on numpad (the design session's
+// on-canvas edit moved it above the numpad specifically, so the numpad
+// settles at the bottom of the screen — see ActivityFeed.jsx) and trails on
+// search (so the search input is reachable first). It's dropped from QR
+// entirely: that viewfinder is a full-screen, glance-once mode, and a
+// successful scan bounces straight back to numpad (see handleCheckIn)
+// rather than lingering here, so there's no room — or need — for the list.
+//
+// The root is a plain View, not a ScrollView: the numpad needs to float at
+// a fixed spot at the bottom of the screen, which only holds if this
+// column's total height is capped at the screen (a ScrollView's growable
+// content area has no such cap, so a long activity list would stretch the
+// whole page and drag the numpad down with it instead of leaving it in
+// place). With a bounded column, ActivityFeed's `flex-1` card gets a real,
+// fixed pixel height — exactly what's left after the tabs/numpad/search
+// content above and below it — the same height the empty state already
+// filled. A list that outgrows that height scrolls inside the card's own
+// ScrollView (ActivityFeed.jsx); the screen itself never scrolls.
 import { useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
+import Animated from "react-native-reanimated";
 import { checkInMember } from "../../domain/checkIn.js";
 import Numpad from "./Numpad.jsx";
 import SearchPanel from "./SearchPanel.jsx";
@@ -18,6 +29,7 @@ import ConfirmationCard from "./ConfirmationCard.jsx";
 import ErrorBanner from "./ErrorBanner.jsx";
 import { showToast } from "../ui/Toast.jsx";
 import { DiagonalCut } from "../ui/DiagonalCut.jsx";
+import Touchable, { usePressFlash } from "../ui/Touchable.jsx";
 import { colors } from "../../theme/colors.js";
 
 const MODES = [
@@ -25,6 +37,49 @@ const MODES = [
   { id: "search", label: "SEARCH" },
   { id: "qr", label: "SCAN QR" },
 ];
+
+// Active is a solid accent DiagonalCut fill — Touchable's flash would be
+// invisible against a matching color, so that state gets a scale pulse only
+// (same reasoning as ChoiceGroup.jsx's selected option). Inactive is a
+// plain bordered box, where Touchable's flash reads clearly.
+function ModeTab({ id, label, isActive, onPress }) {
+  const { trigger, scaleStyle } = usePressFlash();
+
+  if (isActive) {
+    return (
+      <Pressable
+        onPress={() => {
+          trigger();
+          onPress(id);
+        }}
+        accessibilityRole="button"
+        accessibilityState={{ selected: true }}
+        className="flex-1"
+      >
+        <Animated.View style={scaleStyle}>
+          <DiagonalCut
+            color={colors.accent}
+            cutPercent={90}
+            style={{ height: 38, alignItems: "center", justifyContent: "center" }}
+          >
+            <Text className="font-heading text-xs tracking-wide text-page">{label}</Text>
+          </DiagonalCut>
+        </Animated.View>
+      </Pressable>
+    );
+  }
+
+  return (
+    <Touchable
+      onPress={() => onPress(id)}
+      accessibilityState={{ selected: false }}
+      wrapperClassName="flex-1"
+      className="h-11 items-center justify-center border border-border bg-card"
+    >
+      <Text className="font-heading text-xs text-muted">{label}</Text>
+    </Touchable>
+  );
+}
 
 export default function CheckInScreen() {
   const [mode, setMode] = useState("numpad");
@@ -42,15 +97,21 @@ export default function CheckInScreen() {
       );
       setConfirmation({ member, visitCountThisMonth, alreadyCheckedInAt });
       setNumpadValue("");
+      // A QR scan is a glance-once action — staff scan and move on, so the
+      // screen is already back on the main numpad tab underneath the
+      // confirmation card by the time it auto-dismisses.
+      if (method === "qr") setMode("numpad");
     } catch (err) {
       // A brief toast, not an inline banner — a bad number/scan is common
       // enough during a busy shift that a lingering banner would just pile
       // up; staff read it and keep going (PRD 4.2: no check-in path
       // dead-ends, but nothing says the message has to persist).
-      showToast(
-        method === "numpad" ? `${err.message} — try search by name.` : err.message,
-        "warning",
-      );
+      //
+      // The "try search by name" nudge only makes sense for a numpad lookup
+      // miss — an already-checked-in rejection isn't a typo, so it needs
+      // its own plain message regardless of which mode triggered it.
+      const suggestSearch = method === "numpad" && err.code !== "ALREADY_CHECKED_IN";
+      showToast(suggestSearch ? `${err.message} — try search by name.` : err.message, "warning");
     } finally {
       setSubmitting(false);
     }
@@ -67,44 +128,18 @@ export default function CheckInScreen() {
   }
 
   return (
-    <ScrollView className="flex-1 bg-page p-4" contentContainerClassName="flex-grow flex-col gap-3">
+    <View className="flex-1 flex-col gap-3 bg-page p-4">
       <View className="flex-row gap-1.5">
-        {MODES.map(({ id, label }) => {
-          const isActive = mode === id;
-          return (
-            <Pressable
-              key={id}
-              onPress={() => selectMode(id)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: isActive }}
-              className="flex-1"
-            >
-              {isActive ? (
-                <DiagonalCut
-                  color={colors.accent}
-                  cutPercent={90}
-                  style={{ height: 38, alignItems: "center", justifyContent: "center" }}
-                >
-                  <Text className="font-heading text-xs tracking-wide text-page">
-                    {label}
-                  </Text>
-                </DiagonalCut>
-              ) : (
-                <View className="h-11 items-center justify-center border border-border bg-card">
-                  <Text className="font-heading text-xs text-muted">{label}</Text>
-                </View>
-              )}
-            </Pressable>
-          );
-        })}
+        {MODES.map(({ id, label }) => (
+          <ModeTab key={id} id={id} label={label} isActive={mode === id} onPress={selectMode} />
+        ))}
       </View>
 
       {error && <ErrorBanner message={error} />}
 
       {/* Activity leads for numpad (so the numpad settles at the bottom of
-          the screen) but trails for search/QR (so their input/viewfinder is
-          reachable first, with the activity list pinned to the bottom
-          below it instead). */}
+          the screen) but trails for search (so the input is reachable
+          first). QR skips it entirely — see the header comment. */}
       {mode === "numpad" && (
         <>
           <ActivityFeed />
@@ -122,17 +157,14 @@ export default function CheckInScreen() {
             onSelect={(memberId) => handleCheckIn(memberId, "search")}
             disabled={submitting}
           />
-          <ActivityFeed pinBottom />
+          <ActivityFeed />
         </>
       )}
       {mode === "qr" && (
-        <>
-          <QrScanner
-            onDecode={(memberId) => handleCheckIn(memberId, "qr")}
-            onUnavailable={handleQrUnavailable}
-          />
-          <ActivityFeed pinBottom />
-        </>
+        <QrScanner
+          onDecode={(memberId) => handleCheckIn(memberId, "qr")}
+          onUnavailable={handleQrUnavailable}
+        />
       )}
 
       {confirmation && (
@@ -143,6 +175,6 @@ export default function CheckInScreen() {
           onDismiss={() => setConfirmation(null)}
         />
       )}
-    </ScrollView>
+    </View>
   );
 }

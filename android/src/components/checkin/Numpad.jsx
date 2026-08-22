@@ -15,18 +15,17 @@
 // press/release, so it reads clearly even on a fast tap. The digit's own
 // text color is never touched — only a translucent accent wash sits behind
 // it, low enough opacity that white text stays readable through it.
+//
+// The hook that makes this work (usePressFlash) moved to ui/Touchable.jsx
+// (2026-08-22) so every button in the app gets the same treatment, not just
+// the numpad — this file just calls it now instead of defining its own copy.
 
 import { Pressable, Text, View } from "react-native";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withDelay,
-  withSequence,
-  withTiming,
-} from "react-native-reanimated";
+import Animated from "react-native-reanimated";
 import { Delete } from "lucide-react-native";
 import { colors } from "../../theme/colors.js";
 import { DiagonalCut } from "../ui/DiagonalCut.jsx";
+import { usePressFlash } from "../ui/Touchable.jsx";
 
 const ROWS = [
   ["1", "2", "3"],
@@ -35,26 +34,8 @@ const ROWS = [
   ["", "0", "⌫"],
 ];
 
-function useKeyFlash() {
-  const scale = useSharedValue(1);
-  const flash = useSharedValue(0);
-
-  function trigger() {
-    scale.value = withSequence(withTiming(0.9, { duration: 60 }), withTiming(1, { duration: 120 }));
-    flash.value = withSequence(
-      withTiming(0.4, { duration: 60 }),
-      withDelay(90, withTiming(0, { duration: 220 })),
-    );
-  }
-
-  const scaleStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-  const flashStyle = useAnimatedStyle(() => ({ opacity: flash.value }));
-
-  return { trigger, scaleStyle, flashStyle };
-}
-
 function NumpadKey({ onPress, disabled, accessibilityLabel, children }) {
-  const { trigger, scaleStyle, flashStyle } = useKeyFlash();
+  const { trigger, scaleStyle, flashStyle } = usePressFlash();
 
   function handlePress() {
     if (disabled) return;
@@ -88,7 +69,7 @@ function NumpadKey({ onPress, disabled, accessibilityLabel, children }) {
 }
 
 export default function Numpad({ value, onChange, onSubmit, disabled }) {
-  const confirm = useKeyFlash();
+  const confirm = usePressFlash();
 
   function pressDigit(digit) {
     onChange((value + digit).slice(0, 6));

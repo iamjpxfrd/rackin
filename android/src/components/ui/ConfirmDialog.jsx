@@ -9,7 +9,8 @@
 import { useEffect, useRef } from "react";
 import { Animated, Pressable, Text, View } from "react-native";
 import { Trash2 } from "lucide-react-native";
-import { DiagonalCut } from "./DiagonalCut.jsx";
+import { PressableDiagonalCut } from "./DiagonalCut.jsx";
+import Touchable from "./Touchable.jsx";
 import { colors } from "../../theme/colors.js";
 
 export default function ConfirmDialog({
@@ -56,26 +57,32 @@ export default function ConfirmDialog({
         </View>
 
         <View className="w-full flex-row gap-2.5">
-          <Pressable
+          <Touchable
             onPress={onCancel}
-            accessibilityRole="button"
-            className="h-[52px] flex-1 items-center justify-center border border-border bg-card"
+            wrapperClassName="flex-1"
+            className="h-[52px] items-center justify-center border border-border bg-card"
           >
             <Text className="font-heading text-sm tracking-wide text-muted">
               {cancelLabel}
             </Text>
-          </Pressable>
-          <Pressable onPress={onConfirm} accessibilityRole="button" className="h-[52px] flex-1">
-            <DiagonalCut
-              color={colors.danger}
-              cutPercent={88}
-              style={{ height: "100%", width: "100%", alignItems: "center", justifyContent: "center" }}
-            >
-              <Text className="font-heading text-sm tracking-wide text-page">
-                {confirmLabel}
-              </Text>
-            </DiagonalCut>
-          </Pressable>
+          </Touchable>
+          <PressableDiagonalCut
+            onPress={onConfirm}
+            color={colors.danger}
+            cutPercent={88}
+            // A fixed pixel height here, not "100%": the animated wrapper in
+            // between has no height of its own to resolve a percentage
+            // against (Yoga can't resolve percentage-height against an
+            // auto-height parent) — width still works as "100%" because the
+            // wrapper's WIDTH comes from cross-axis stretch, a different
+            // layout path that doesn't have this problem.
+            wrapperStyle={{ height: 52, flex: 1 }}
+            style={{ height: 52, width: "100%", alignItems: "center", justifyContent: "center" }}
+          >
+            <Text className="font-heading text-sm tracking-wide text-page">
+              {confirmLabel}
+            </Text>
+          </PressableDiagonalCut>
         </View>
       </Animated.View>
     </View>

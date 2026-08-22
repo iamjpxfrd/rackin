@@ -11,12 +11,20 @@
 
 import { useEffect, useRef } from "react";
 import { Animated, Pressable, Text, View } from "react-native";
+// Aliased: this file already uses RN's own core Animated for the slide-up
+// entrance (see the header comment) — reanimated's Animated.View is only
+// for the close button's scale pulse (usePressFlash).
+import ReanimatedAnimated from "react-native-reanimated";
 import { X } from "lucide-react-native";
+import { usePressFlash } from "./Touchable.jsx";
 import { colors } from "../../theme/colors.js";
 
 export default function Sheet({ title, subtitle, onClose, children }) {
   const translateY = useRef(new Animated.Value(16)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+  // Borderless icon-only button — scale pulse only, same reasoning as every
+  // other plain-surface control (Touchable.jsx's header).
+  const closePress = usePressFlash();
 
   useEffect(() => {
     Animated.parallel([
@@ -38,7 +46,7 @@ export default function Sheet({ title, subtitle, onClose, children }) {
           style={{ transform: [{ translateY }], opacity }}
           className="flex-col gap-5 border-t-2 border-hairline bg-card p-4 pt-6"
         >
-          <View className="flex-row items-start justify-between gap-4">
+          <View className="flex-row items-center justify-between gap-4">
             <View className="min-w-0 flex-1 flex-col gap-1">
               <Text className="font-heading text-xl text-white">{title}</Text>
               {subtitle && (
@@ -48,12 +56,17 @@ export default function Sheet({ title, subtitle, onClose, children }) {
               )}
             </View>
             <Pressable
-              onPress={onClose}
+              onPress={() => {
+                closePress.trigger();
+                onClose();
+              }}
               accessibilityRole="button"
               accessibilityLabel="Close"
               className="h-14 w-14 shrink-0 items-center justify-center"
             >
-              <X size={22} strokeWidth={1.75} color={colors.textMuted} />
+              <ReanimatedAnimated.View style={closePress.scaleStyle}>
+                <X size={22} strokeWidth={1.75} color={colors.textMuted} />
+              </ReanimatedAnimated.View>
             </Pressable>
           </View>
 

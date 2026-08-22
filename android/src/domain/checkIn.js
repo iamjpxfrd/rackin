@@ -21,16 +21,27 @@ export async function checkInMember(memberId, method) {
     throw new Error(`No member found for #${memberId}`);
   }
 
+  // Blocked, not just reported, unlike the same-day-but-checked-out case
+  // below: a still-open session means this member is, right now, on the
+  // premises — a second check-in on top of it isn't a real second visit,
+  // it's the same one being entered twice. Checking them out first is the
+  // one thing that makes a new check-in meaningful again.
+  if (await hasActiveCheckInToday(memberId)) {
+    const err = new Error(`${member.name} is already checked in.`);
+    err.code = "ALREADY_CHECKED_IN";
+    throw err;
+  }
+
   const timestamp = new Date().toISOString();
   const clientUuid = generateClientUuid();
 
   // Read before writing, or this visit becomes its own "earlier" visit.
   //
-  // Reported, never blocked. A member really can train twice in a day, and no
-  // check-in path is allowed to dead-end (Product Principle 2) — so the visit
-  // is recorded either way and staff are simply told what they are looking at,
-  // which is enough to stop an accidental double-tap being mistaken for a
-  // second session.
+  // A member really can train twice in a day — the block above only catches
+  // an *open* session, so a legitimate second visit (checked out, then back
+  // later) still gets through here. Reported, not blocked, in that case:
+  // staff are simply told what they're looking at, which is enough to stop
+  // a same-day return from being mistaken for a fresh first-time visit.
   const alreadyCheckedInAt = await lastCheckInToday(memberId);
 
   // Whoever signed in for this shift, stamped automatically. A check-in is a
@@ -75,6 +86,17 @@ async function lastCheckInToday(memberId) {
   );
 }
 
+/** Whether this member has a check-in today that hasn't been checked out of yet. */
+async function hasActiveCheckInToday(memberId) {
+  const dayStart = startOfLocalDay();
+  const openVisits = await store.checkIns
+    .where("memberId")
+    .equals(memberId)
+    .and((checkIn) => checkIn.timestamp >= dayStart && !checkIn.checkOutAt)
+    .toArray();
+  return openVisits.length > 0;
+}
+
 function startOfLocalDay(now = new Date()) {
   const start = new Date(now);
   start.setHours(0, 0, 0, 0);
@@ -91,6 +113,17 @@ async function countVisitsThisMonth(memberId) {
     .equals(memberId)
     .and((checkIn) => checkIn.timestamp >= monthStart)
     .count();
+}
+
+/**
+ * Marks a visit as ended (Task 4's activity-list checkout action). Local
+ * only for now — there's no backend checkout endpoint yet, so unlike
+ * checkInMember this doesn't enqueue an outbox entry; it just stops the
+ * activity row's timer and freezes its duration.
+ * @param {number} checkInId
+ */
+export async function checkOutMember(checkInId) {
+  await store.checkIns.update(checkInId, { checkOutAt: new Date().toISOString() });
 }
 
 /**
@@ -113,7 +146,7 @@ export async function findMembersByName(query) {
 
 /**
  * Today's check-ins, most recent first, joined with member name (PRD 4.4).
- * @returns {Promise<Array<{ id: number, memberId: string, timestamp: string, method: string, memberName: string }>>}
+ * @returns {Promise<Array<{ id: number, memberId: string, timestamp: string, checkOutAt: string|null, method: string, memberName: string }>>}
  */
 export async function getTodaysActivity() {
   const now = new Date();

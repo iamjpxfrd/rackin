@@ -11,8 +11,10 @@
 // independently — a percentage cut stays proportional to width regardless
 // of height, exactly like the CSS version.
 
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
+import Animated from "react-native-reanimated";
 import Svg, { Polygon } from "react-native-svg";
+import { usePressFlash } from "./Touchable.jsx";
 
 export function DiagonalCut({ color, cutPercent = 92, style, children }) {
   return (
@@ -28,5 +30,48 @@ export function DiagonalCut({ color, cutPercent = 92, style, children }) {
       </Svg>
       {children}
     </View>
+  );
+}
+
+/**
+ * A tappable DiagonalCut — the `Pressable` → scale-pulse → `DiagonalCut`
+ * stack that every solid-color action button in the app repeats (CHECK IN,
+ * RECORD PAYMENT, REGISTER MEMBER, LOG A TRANSACTION, …). Scale-only, no
+ * flash overlay: a rectangular flash wouldn't match this shape, and the
+ * button is already a solid color, so a same-color flash would be invisible
+ * anyway (see Touchable.jsx's header for the full reasoning).
+ */
+export function PressableDiagonalCut({
+  onPress,
+  disabled,
+  color,
+  cutPercent,
+  style,
+  wrapperStyle,
+  accessibilityLabel,
+  children,
+}) {
+  const { trigger, scaleStyle } = usePressFlash();
+
+  function handlePress() {
+    if (disabled) return;
+    trigger();
+    onPress();
+  }
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      style={wrapperStyle}
+    >
+      <Animated.View style={scaleStyle}>
+        <DiagonalCut color={color} cutPercent={cutPercent} style={style}>
+          {children}
+        </DiagonalCut>
+      </Animated.View>
+    </Pressable>
   );
 }

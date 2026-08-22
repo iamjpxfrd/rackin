@@ -1,6 +1,6 @@
 import './global.css';
 import { useEffect, useState } from 'react';
-import { StatusBar, Text, View } from 'react-native';
+import { StatusBar } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
 import TopBar from './src/components/TopBar.jsx';
@@ -10,6 +10,7 @@ import FollowUpScreen from './src/components/followup/FollowUpScreen.jsx';
 import MembersScreen from './src/components/members/MembersScreen.jsx';
 import MemberProfileScreen from './src/components/members/MemberProfileScreen.jsx';
 import NewMemberFlow from './src/components/members/NewMemberFlow.jsx';
+import StoreScreen from './src/components/store/StoreScreen.jsx';
 import { ToastHost } from './src/components/ui/Toast.jsx';
 import { startSync } from './src/sync/sync.js';
 
@@ -37,10 +38,7 @@ const FONTS = {
 //   row tap          -> open the profile over the originating tab
 //   back on profile  -> return to that tab, tab bar stays live throughout
 //
-// "checkin", "followup", "members", and "new" have real screens now — Store
-// is still on server/ only (Task 4's UI-port checklist). Tapping that tab
-// shows an honest "not yet ported" placeholder rather than a router
-// dead-end or a silently missing tab.
+// Every tab now has a real screen — Store (Task 4) was the last one built.
 function App() {
   const [tab, setTab] = useState('checkin');
   const [detailMemberId, setDetailMemberId] = useState(null);
@@ -90,7 +88,7 @@ function App() {
     <SafeAreaProvider>
       <SafeAreaView className="flex-1 bg-page">
         <StatusBar barStyle="light-content" />
-        <TopBar />
+        <TopBar showClock={tab === 'checkin' && !detailMemberId} />
 
         {detailMemberId ? (
           <MemberProfileScreen memberId={detailMemberId} onBack={() => setDetailMemberId(null)} />
@@ -102,13 +100,7 @@ function App() {
               <MembersScreen onSelectMember={setDetailMemberId} onRegisterFirst={goToNewMember} />
             )}
             {tab === 'new' && <NewMemberFlow onDone={() => setTab('checkin')} />}
-            {tab !== 'checkin' && tab !== 'followup' && tab !== 'members' && tab !== 'new' && (
-              <View className="flex-1 items-center justify-center p-6">
-                <Text className="text-center font-body text-base text-muted">
-                  This tab isn't ported to the mobile app yet (Task 4).
-                </Text>
-              </View>
-            )}
+            {tab === 'store' && <StoreScreen />}
           </>
         )}
 

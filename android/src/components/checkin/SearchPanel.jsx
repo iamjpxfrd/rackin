@@ -3,9 +3,10 @@
 // Court.
 
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ScrollView, Text, TextInput, View } from "react-native";
 import { Search } from "lucide-react-native";
 import { findMembersByName } from "../../domain/checkIn.js";
+import Touchable from "../ui/Touchable.jsx";
 import { colors } from "../../theme/colors.js";
 
 export default function SearchPanel({ onSelect, disabled }) {
@@ -43,16 +44,15 @@ export default function SearchPanel({ onSelect, disabled }) {
           </Text>
         )}
         {results.map((member) => (
-          <Pressable
+          <Touchable
             key={member.id}
             onPress={() => onSelect(member.id)}
             disabled={disabled}
-            accessibilityRole="button"
-            className="h-14 w-full flex-row items-center justify-between border-b border-hairline px-4 disabled:opacity-50"
+            className="h-14 w-full flex-row items-center justify-between border-b border-hairline px-4"
           >
             <Text className="font-body text-lg text-white">{member.name}</Text>
             <Text className="font-heading text-base text-muted">#{member.id}</Text>
-          </Pressable>
+          </Touchable>
         ))}
       </ScrollView>
     </View>
