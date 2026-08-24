@@ -156,16 +156,24 @@ export function formatClock(date) {
 }
 
 /**
+ * "1h 05m" / "42m" from a raw millisecond duration — the shared core behind
+ * formatDuration below. Split out (2026-08-25) so a duration that isn't
+ * simply end-minus-start — e.g. today's running total across a member's
+ * earlier visit(s) plus their current elapsed session (ActivityFeed.jsx) —
+ * can share the same formatting without re-deriving hours/minutes by hand.
+ */
+export function formatDurationMs(totalMs) {
+  const totalMinutes = Math.max(0, Math.floor(totalMs / 60000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return hours === 0 ? `${minutes}m` : `${hours}h ${String(minutes).padStart(2, "0")}m`;
+}
+
+/**
  * How long a visit has run, "1h 05m" / "42m", for the activity list's
  * checked-in/checked-out timer. `end` defaults to now, so the same
  * formatter covers both a still-running session and a closed one.
  */
 export function formatDuration(startIso, endIso = new Date().toISOString()) {
-  const totalMinutes = Math.max(
-    0,
-    Math.floor((new Date(endIso) - new Date(startIso)) / 60000),
-  );
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return hours === 0 ? `${minutes}m` : `${hours}h ${String(minutes).padStart(2, "0")}m`;
+  return formatDurationMs(new Date(endIso) - new Date(startIso));
 }

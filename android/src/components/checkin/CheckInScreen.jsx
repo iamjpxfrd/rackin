@@ -81,7 +81,7 @@ function ModeTab({ id, label, isActive, onPress }) {
   );
 }
 
-export default function CheckInScreen() {
+export default function CheckInScreen({ active = true }) {
   const [mode, setMode] = useState("numpad");
   const [numpadValue, setNumpadValue] = useState("");
   const [error, setError] = useState(null);
@@ -144,7 +144,7 @@ export default function CheckInScreen() {
           first). QR skips it entirely — see the header comment. */}
       {mode === "numpad" && (
         <>
-          <ActivityFeed />
+          <ActivityFeed active={active} />
           <Numpad
             value={numpadValue}
             onChange={setNumpadValue}
@@ -159,7 +159,7 @@ export default function CheckInScreen() {
             onSelect={(memberId) => handleCheckIn(memberId, "search")}
             disabled={submitting}
           />
-          <ActivityFeed />
+          <ActivityFeed active={active} />
         </>
       )}
       {mode === "qr" && (

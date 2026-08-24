@@ -37,6 +37,7 @@ import QrCode from "../ui/QrCode.jsx";
 import { PressableDiagonalCut } from "../ui/DiagonalCut.jsx";
 import Touchable, { usePressFlash } from "../ui/Touchable.jsx";
 import RecordPaymentSheet from "./RecordPaymentSheet.jsx";
+import PaymentDetailSheet from "./PaymentDetailSheet.jsx";
 import { colors } from "../../theme/colors.js";
 
 const METHOD_ICON = { numpad: Hash, qr: ScanLine, search: Search };
@@ -55,6 +56,7 @@ function statusGutter({ status, daysRemaining, coversUntil }) {
 export default function MemberProfileScreen({ memberId, onBack }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [qrEnlarged, setQrEnlarged] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState(null);
   const profile = useLiveQuery(() => getMemberProfile(memberId), [memberId]);
   // Borderless controls (Back, the "Enlarge" text link, the enlarged QR
   // modal's Close) get a scale pulse only — see Touchable.jsx's header for
@@ -217,8 +219,10 @@ export default function MemberProfileScreen({ memberId, onBack }) {
             <>
               <Panel>
                 {profile.payments.map((payment, index) => (
-                  <View
+                  <Touchable
                     key={payment.id}
+                    onPress={() => setSelectedPayment(payment)}
+                    accessibilityLabel={`${formatAmount(payment.amount)} paid ${formatDate(payment.paidAt)}, view details`}
                     className={`h-14 flex-row items-center px-4 ${
                       index === profile.payments.length - 1 ? "" : "border-b border-hairline"
                     }`}
@@ -238,7 +242,7 @@ export default function MemberProfileScreen({ memberId, onBack }) {
                     >
                       covers to {formatDate(payment.coversUntil)}
                     </Text>
-                  </View>
+                  </Touchable>
                 ))}
               </Panel>
               {profile.paymentCount > HISTORY_PAGE_SIZE && (
@@ -269,6 +273,14 @@ export default function MemberProfileScreen({ memberId, onBack }) {
           // in place. No confirmation card here: that celebration is
           // check-in's alone (DESIGN.md).
           onRecorded={() => setSheetOpen(false)}
+        />
+      )}
+
+      {selectedPayment && (
+        <PaymentDetailSheet
+          payment={selectedPayment}
+          member={member}
+          onClose={() => setSelectedPayment(null)}
         />
       )}
 
