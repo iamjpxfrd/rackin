@@ -34,18 +34,10 @@ const SOURCE_LABEL = { store: "Store sale/expense", payment: "Membership payment
 export default function StoreTransactionDetailSheet({ transaction, onClose }) {
   if (!transaction) return null;
 
-  const signedAmount = `${transaction.type === "income" ? "+" : "−"}${formatAmount(transaction.amount)}`;
-
   return (
     <Sheet
-      title={signedAmount}
-      titleIcon={
-        <PhilippinePeso
-          size={18}
-          strokeWidth={2}
-          color={transaction.type === "income" ? colors.accent : colors.danger}
-        />
-      }
+      title={formatAmount(transaction.amount)}
+      titleIcon={<PhilippinePeso size={18} strokeWidth={2} color={colors.textPrimary} />}
       subtitle={transaction.description}
       onClose={onClose}
     >
