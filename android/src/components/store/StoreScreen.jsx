@@ -39,6 +39,7 @@ import { showToast } from "../ui/Toast.jsx";
 import LogTransactionSheet from "./LogTransactionSheet.jsx";
 import TimedSaleSheet from "./TimedSaleSheet.jsx";
 import CloseRegisterSheet from "./CloseRegisterSheet.jsx";
+import StoreTransactionDetailSheet from "./StoreTransactionDetailSheet.jsx";
 import { colors } from "../../theme/colors.js";
 
 export default function StoreScreen() {
@@ -50,6 +51,7 @@ export default function StoreScreen() {
   // The TIMED_ITEMS entry currently open in TimedSaleSheet, or null.
   const [loggingTimedItem, setLoggingTimedItem] = useState(null);
   const [closingRegister, setClosingRegister] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
 
   async function handleSell(item) {
     setSelling(item.key);
@@ -159,8 +161,9 @@ export default function StoreScreen() {
           <View className="flex-1 border border-border bg-card">
             <ScrollView>
               {transactions.map((entry, index) => (
-                <View
+                <Touchable
                   key={entry.id}
+                  onPress={() => setSelectedTransaction(entry)}
                   className={`h-[52px] flex-row items-center gap-2.5 px-3.5 ${
                     index === transactions.length - 1 ? "" : "border-b border-hairline"
                   }`}
@@ -178,7 +181,7 @@ export default function StoreScreen() {
                     {entry.type === "income" ? "+" : "−"}
                     {formatAmount(entry.amount)}
                   </Text>
-                </View>
+                </Touchable>
               ))}
             </ScrollView>
           </View>
@@ -216,6 +219,13 @@ export default function StoreScreen() {
             setClosingRegister(false);
             showToast("Register closed");
           }}
+        />
+      )}
+
+      {selectedTransaction && (
+        <StoreTransactionDetailSheet
+          transaction={selectedTransaction}
+          onClose={() => setSelectedTransaction(null)}
         />
       )}
     </View>

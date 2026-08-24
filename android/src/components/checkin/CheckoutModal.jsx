@@ -21,7 +21,7 @@
 
 import { useEffect, useRef } from "react";
 import { Animated, Modal, Pressable, Text, View } from "react-native";
-import { formatDuration, formatTime } from "../../domain/constants.js";
+import { formatDurationMs, formatTime } from "../../domain/constants.js";
 import { colors } from "../../theme/colors.js";
 import { PressableDiagonalCut } from "../ui/DiagonalCut.jsx";
 import Touchable from "../ui/Touchable.jsx";
@@ -43,7 +43,14 @@ export default function CheckoutModal({ visible, entry, now, onConfirm, onCancel
   if (!entry) return null;
 
   const initial = (entry.memberName?.trim()?.[0] ?? "?").toUpperCase();
-  const duration = formatDuration(entry.timestamp, now.toISOString());
+  // Today's running total, not just this segment - matches
+  // ActivityFeed.jsx's displayDurationMs and the whole point of the
+  // 2026-08-25 follow-up: a member who stepped out and came back should
+  // see the checkout confirmation reflect the whole day, not just the
+  // time since they walked back in.
+  const duration = formatDurationMs(
+    (entry.bankedMs ?? 0) + (now.getTime() - new Date(entry.timestamp).getTime()),
+  );
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onCancel}>
@@ -81,8 +88,12 @@ export default function CheckoutModal({ visible, entry, now, onConfirm, onCancel
           </View>
 
           <View className="items-center gap-1">
+            {/* "TODAY'S TOTAL" rather than "CHECKED IN FOR" - the number
+                above can include earlier visits today, which would read as
+                a mismatch against "Checked in at {time}" if it were still
+                labeled as this one segment's own length. */}
             <Text className="font-heading text-xs tracking-[0.1em] text-muted">
-              CHECKED IN FOR
+              TODAY'S TOTAL
             </Text>
             <Text className="font-heading text-5xl text-accent">{duration}</Text>
           </View>

@@ -50,11 +50,11 @@ export async function checkInMember(memberId, method) {
   // Read before writing, or this visit becomes its own "earlier" visit.
   //
   // A member really can train twice in a day — the block above only catches
-  // an *open* session, so a legitimate second visit (checked out, then back
-  // later) still gets through here. Reported, not blocked, in that case:
-  // staff are simply told what they're looking at, which is enough to stop
-  // a same-day return from being mistaken for a fresh first-time visit.
-  const alreadyCheckedInAt = await lastCheckInToday(memberId);
+  // an *open* session. Read here, not blocked: staff are simply told what
+  // they're looking at, which is enough to stop a same-day return from
+  // being mistaken for a fresh first-time visit.
+  const todaysRow = await todaysCheckInRow(memberId);
+  const alreadyCheckedInAt = todaysRow?.timestamp ?? null;
 
   // Whoever signed in for this shift, stamped automatically. A check-in is a
   // fast, high-frequency action, so it takes the shift default without asking
@@ -64,7 +64,27 @@ export async function checkInMember(memberId, method) {
   // Check-in row and queue entry commit together, so a visit recorded at the
   // desk can never go missing from the backend (sync/outbox.js).
   await store.transaction(["checkIns", "outbox"], async (tx) => {
-    await tx.checkIns.add({ memberId, timestamp, method, clientUuid, ...attribution });
+    if (todaysRow) {
+      // Reopening today's row rather than adding another one — one entry
+      // per member per day in the activity list (2026-08-25 follow-up),
+      // not a new row every time someone steps out and comes back.
+      // bankedMs is untouched: checkOutMember already folded the finished
+      // segment into it, so it's exactly the running total to resume from.
+      // A fresh clientUuid still gets enqueued below for the sync side —
+      // the backend keeps recording each open/close as its own visit
+      // exactly as it always has (its schema has no "reopen" concept, and
+      // doesn't need one just because the tablet's own list merges them);
+      // only what staff see on this screen changes.
+      await tx.checkIns.update(todaysRow.id, {
+        timestamp,
+        method,
+        clientUuid,
+        checkOutAt: null,
+        ...attribution,
+      });
+    } else {
+      await tx.checkIns.add({ memberId, timestamp, method, clientUuid, bankedMs: 0, ...attribution });
+    }
     // timestamp travels with it: a day of offline check-ins pushed at closing
     // time must land at the hours members actually walked in, not all at once
     // (TRD 7).
@@ -75,27 +95,16 @@ export async function checkInMember(memberId, method) {
   return { member, visitCountThisMonth, alreadyCheckedInAt };
 }
 
-/**
- * The most recent visit already recorded for this member today, or null.
- *
- * "Today" is the tablet's own day, not UTC: the question staff are really
- * asking is whether this person came through the door earlier during this
- * shift, and a gym opening at 6am would otherwise still be on yesterday's
- * date by UTC reckoning.
- */
-async function lastCheckInToday(memberId) {
+/** This member's check-in row for today, if any — reopened rather than duplicated by checkInMember above. */
+async function todaysCheckInRow(memberId) {
   const dayStart = startOfLocalDay();
-  const todaysVisits = await store.checkIns
+  const rows = await store.checkIns
     .where("memberId")
     .equals(memberId)
     .and((checkIn) => checkIn.timestamp >= dayStart)
     .toArray();
-
-  if (todaysVisits.length === 0) return null;
-  return todaysVisits.reduce(
-    (latest, checkIn) => (checkIn.timestamp > latest ? checkIn.timestamp : latest),
-    todaysVisits[0].timestamp,
-  );
+  if (rows.length === 0) return null;
+  return rows.reduce((latest, row) => (row.timestamp > latest.timestamp ? row : latest), rows[0]);
 }
 
 /** Whether this member has a check-in today that hasn't been checked out of yet. */
@@ -142,7 +151,12 @@ export async function checkOutMember(checkInId) {
     // Already checked out (a double-tap, or the force-logout sweep beat a
     // manual tap to it) or the row is gone — nothing left to record.
     if (!record || record.checkOutAt) return;
-    await tx.checkIns.update(checkInId, { checkOutAt });
+    // Folds this segment into the row's running total (2026-08-25 follow-up)
+    // — a later re-check-in reopens this same row rather than adding a new
+    // one, and needs bankedMs to already hold everything logged before it.
+    const segmentMs = new Date(checkOutAt) - new Date(record.timestamp);
+    const bankedMs = (record.bankedMs ?? 0) + segmentMs;
+    await tx.checkIns.update(checkInId, { checkOutAt, bankedMs });
     await enqueue(tx, "checkout", { checkInClientUuid: record.clientUuid, checkOutAt });
   });
 }
@@ -176,7 +190,11 @@ export async function forceLogoutOverdue(now = new Date()) {
   const checkOutAt = closing.toISOString();
   await store.transaction(["checkIns", "outbox"], async (tx) => {
     for (const entry of open) {
-      await tx.checkIns.update(entry.id, { checkOutAt });
+      // Same banking checkOutMember does above — a force-logout is still a
+      // real checkout, and the row could in principle be reopened later.
+      const segmentMs = new Date(checkOutAt) - new Date(entry.timestamp);
+      const bankedMs = (entry.bankedMs ?? 0) + segmentMs;
+      await tx.checkIns.update(entry.id, { checkOutAt, bankedMs });
       await enqueue(tx, "checkout", { checkInClientUuid: entry.clientUuid, checkOutAt });
     }
   });
@@ -205,7 +223,7 @@ export async function findMembersByName(query) {
  * Today's check-ins, most recent first, joined with member name (PRD 4.4).
  *
  * "Today" is the tablet's own local day, not UTC — same reasoning as
- * lastCheckInToday/hasActiveCheckInToday above. This used to compute the
+ * todaysCheckInRow/hasActiveCheckInToday above. This used to compute the
  * boundary from UTC date parts, which in a timezone ahead of UTC (e.g.
  * UTC+8) doesn't roll over until UTC catches up hours later: local midnight
  * arrives, but the query's "today" doesn't advance until UTC midnight — the

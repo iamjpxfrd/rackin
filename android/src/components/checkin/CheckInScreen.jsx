@@ -141,32 +141,52 @@ export default function CheckInScreen({ active = true }) {
 
       {/* Activity leads for numpad (so the numpad settles at the bottom of
           the screen) but trails for search (so the input is reachable
-          first). QR skips it entirely — see the header comment. */}
-      {mode === "numpad" && (
-        <>
-          <ActivityFeed active={active} />
-          <Numpad
-            value={numpadValue}
-            onChange={setNumpadValue}
-            onSubmit={(memberId) => handleCheckIn(memberId, "numpad")}
-            disabled={submitting}
-          />
-        </>
-      )}
-      {mode === "search" && (
-        <>
-          <SearchPanel
-            onSelect={(memberId) => handleCheckIn(memberId, "search")}
-            disabled={submitting}
-          />
-          <ActivityFeed active={active} />
-        </>
-      )}
-      {mode === "qr" && (
-        <QrScanner
-          onDecode={(memberId) => handleCheckIn(memberId, "qr")}
-          onUnavailable={handleQrUnavailable}
+          first). QR skips it entirely — see the header comment.
+          All three modes stay mounted (display:none instead of unmounting,
+          2026-08-25) rather than switching on `mode === ...`: each
+          ActivityFeed's useLiveQuery resets to undefined on mount, so
+          unmounting/remounting it every tab switch was the empty-state
+          flash the user was seeing — same root cause and fix as App.js's
+          own tab-mounting, just one level down inside this screen's own
+          numpad/search/qr modes. */}
+      <View
+        style={{ flex: 1, display: mode === "numpad" ? "flex" : "none" }}
+        className="flex-col gap-3"
+      >
+        <ActivityFeed active={active && mode === "numpad"} />
+        <Numpad
+          value={numpadValue}
+          onChange={setNumpadValue}
+          onSubmit={(memberId) => handleCheckIn(memberId, "numpad")}
+          disabled={submitting}
         />
+      </View>
+      <View
+        style={{ flex: 1, display: mode === "search" ? "flex" : "none" }}
+        className="flex-col gap-3"
+      >
+        <SearchPanel
+          onSelect={(memberId) => handleCheckIn(memberId, "search")}
+          disabled={submitting}
+        />
+        <ActivityFeed active={active && mode === "search"} />
+      </View>
+      {/* QR stays conditionally mounted, not display:none like the two
+          modes above — CameraView keeps the camera hardware live even while
+          hidden behind display:none (it's not unmounted, just not laid
+          out), which would leave the camera running in the background on
+          every other tab. That's a real cost (battery, and on some devices
+          a visible camera-active light) the empty-state flash isn't worth
+          trading for, so QR still pays a re-init ("Starting camera…") on
+          every switch back — inherent camera startup, not the same bug as
+          ActivityFeed's useLiveQuery reset. */}
+      {mode === "qr" && (
+        <View style={{ flex: 1 }}>
+          <QrScanner
+            onDecode={(memberId) => handleCheckIn(memberId, "qr")}
+            onUnavailable={handleQrUnavailable}
+          />
+        </View>
       )}
 
       {confirmation && (

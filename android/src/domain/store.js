@@ -202,6 +202,11 @@ async function getPeriodPaymentsAsTransactions(periodStart) {
       method: payment.method,
       source: "payment",
       memberId: payment.memberId,
+      // Carried through so a payment-sourced row's detail (Task 6's
+      // StoreTransactionDetailSheet) can show who was at the desk, same as
+      // a store-native row already can via its own recordedById/Name.
+      recordedById: payment.recordedById,
+      recordedByName: payment.recordedByName,
     };
   });
 }
