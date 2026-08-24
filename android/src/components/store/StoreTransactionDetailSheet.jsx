@@ -37,7 +37,14 @@ export default function StoreTransactionDetailSheet({ transaction, onClose }) {
   return (
     <Sheet
       title={formatAmount(transaction.amount)}
-      titleIcon={<PhilippinePeso size={18} strokeWidth={2} color={colors.textPrimary} />}
+      titleColor={transaction.type === "income" ? colors.accent : colors.danger}
+      titleIcon={
+        <PhilippinePeso
+          size={18}
+          strokeWidth={2}
+          color={transaction.type === "income" ? colors.accent : colors.danger}
+        />
+      }
       subtitle={transaction.description}
       onClose={onClose}
     >
