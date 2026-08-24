@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Rackin",
-    "slug": "Rackin",
+    "slug": "rackin",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,7 +15,11 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -30,6 +34,12 @@
         }
       ],
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "4833e764-22ac-4dd1-9003-d52b0fda72a3"
+      }
+    },
+    "owner": "iamjpxfrds-team"
   }
 }
