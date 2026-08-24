@@ -26,7 +26,7 @@ import { usePressFlash } from "./Touchable.jsx";
 import { useBackHandler } from "../../hooks/useBackHandler.js";
 import { colors } from "../../theme/colors.js";
 
-export default function Sheet({ title, subtitle, onClose, children }) {
+export default function Sheet({ title, titleIcon, subtitle, onClose, children }) {
   const translateY = useRef(new Animated.Value(16)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   // Borderless icon-only button — scale pulse only, same reasoning as every
@@ -61,7 +61,10 @@ export default function Sheet({ title, subtitle, onClose, children }) {
         >
           <View className="flex-row items-center justify-between gap-4">
             <View className="min-w-0 flex-1 flex-col gap-1">
-              <Text className="font-heading text-xl text-white">{title}</Text>
+              <View className="flex-row items-center gap-1.5">
+                {titleIcon}
+                <Text className="font-heading text-xl text-white">{title}</Text>
+              </View>
               {subtitle && (
                 <Text numberOfLines={1} className="font-body text-sm text-muted">
                   {subtitle}

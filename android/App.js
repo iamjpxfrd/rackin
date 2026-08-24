@@ -48,6 +48,16 @@ function App() {
   const [tab, setTab] = useState('checkin');
   const [detailMemberId, setDetailMemberId] = useState(null);
   const [fontsLoaded] = useFonts(FONTS);
+  // Bumped every time the New Member tab is left, then handed to
+  // NewMemberFlow as its `key` (2026-08-25 follow-up: "don't save state
+  // after leaving the tab"). Changing a component's key forces React to
+  // fully unmount+remount it — a clean reset for every field in the form
+  // (name/phone/plan/amount/etc.) without hand-listing each one, and
+  // without undoing the tab-persistence fix above (this only remounts the
+  // New Member subtree specifically, on this one event, not on every
+  // render). Only needed here: NewMemberScreen's fields are the one true
+  // "half-filled form" case in the app the user actually called out.
+  const [newMemberResetKey, setNewMemberResetKey] = useState(0);
 
   // Members tab gate (Task 5's Security Measures item). No PIN set is the
   // default and leaves Members open, same as today. Once set, every tap on
@@ -60,6 +70,9 @@ function App() {
     if (nextTab === 'members' && membersPin) {
       setPinPromptOpen(true);
       return;
+    }
+    if (tab === 'new' && nextTab !== 'new') {
+      setNewMemberResetKey((key) => key + 1);
     }
     setDetailMemberId(null);
     setTab(nextTab);
@@ -91,6 +104,7 @@ function App() {
       if (detailMemberId) {
         setDetailMemberId(null);
       } else {
+        if (tab === 'new') setNewMemberResetKey((key) => key + 1);
         setTab('checkin');
       }
     },
@@ -165,13 +179,17 @@ function App() {
             <FollowUpScreen onSelectMember={setDetailMemberId} />
           </View>
           <View style={{ flex: 1, display: tab === 'members' ? 'flex' : 'none' }}>
-            <MembersScreen onSelectMember={setDetailMemberId} onRegisterFirst={goToNewMember} />
+            <MembersScreen
+              active={tab === 'members'}
+              onSelectMember={setDetailMemberId}
+              onRegisterFirst={goToNewMember}
+            />
           </View>
           <View style={{ flex: 1, display: tab === 'new' ? 'flex' : 'none' }}>
-            <NewMemberFlow onDone={() => setTab('checkin')} />
+            <NewMemberFlow key={newMemberResetKey} onDone={() => setTab('checkin')} />
           </View>
           <View style={{ flex: 1, display: tab === 'store' ? 'flex' : 'none' }}>
-            <StoreScreen />
+            <StoreScreen active={tab === 'store'} />
           </View>
         </View>
 

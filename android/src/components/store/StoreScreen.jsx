@@ -18,7 +18,7 @@
 // with its own internal ScrollView — only that list scrolls, the stat
 // tiles/Cash On Hand/Quick Sell/Log Expense controls stay fixed in place.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { Plus } from "lucide-react-native";
 import { useLiveQuery } from "../../hooks/useLiveQuery.js";
@@ -35,6 +35,7 @@ import { formatAmount, formatDate, formatTime } from "../../domain/constants.js"
 import { SectionHeader } from "../ui/Layout.jsx";
 import { DiagonalCut } from "../ui/DiagonalCut.jsx";
 import Touchable from "../ui/Touchable.jsx";
+import Amount from "../ui/Amount.jsx";
 import { showToast } from "../ui/Toast.jsx";
 import LogTransactionSheet from "./LogTransactionSheet.jsx";
 import TimedSaleSheet from "./TimedSaleSheet.jsx";
@@ -42,7 +43,7 @@ import CloseRegisterSheet from "./CloseRegisterSheet.jsx";
 import StoreTransactionDetailSheet from "./StoreTransactionDetailSheet.jsx";
 import { colors } from "../../theme/colors.js";
 
-export default function StoreScreen() {
+export default function StoreScreen({ active = true }) {
   const totals = useLiveQuery(() => getRegisterTotals(), [], { income: 0, expenses: 0, cashOnHand: 0 });
   const transactions = useLiveQuery(() => getRegisterTransactions(), [], []);
   const closedAt = useLiveQuery(() => getRegisterClosedAt(), [], null);
@@ -52,6 +53,21 @@ export default function StoreScreen() {
   const [loggingTimedItem, setLoggingTimedItem] = useState(null);
   const [closingRegister, setClosingRegister] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
+
+  // Closes any sheet left open on leaving the tab (2026-08-25 follow-up:
+  // "don't save any state after leaving the tab") — this screen stays
+  // mounted across tab switches (App.js's tab-persistence fix), so an open
+  // LogTransactionSheet/TimedSaleSheet would otherwise still be sitting
+  // there, half-filled-in, next time Store is opened. Unmounting a sheet
+  // discards its own internal form state along with it.
+  useEffect(() => {
+    if (!active) {
+      setLoggingTransaction(false);
+      setLoggingTimedItem(null);
+      setClosingRegister(false);
+      setSelectedTransaction(null);
+    }
+  }, [active]);
 
   async function handleSell(item) {
     setSelling(item.key);
@@ -70,13 +86,11 @@ export default function StoreScreen() {
       <View className="flex-row gap-2">
         <View className="h-[68px] flex-1 justify-center gap-0.5 border border-border bg-card px-3.5">
           <Text className="font-body-bold text-[10px] tracking-[0.06em] text-muted">INCOME</Text>
-          <Text className="font-heading text-[22px] text-accent">{formatAmount(totals.income)}</Text>
+          <Amount value={totals.income} textClassName="font-heading text-[22px]" color={colors.accent} iconSize={16} />
         </View>
         <View className="h-[68px] flex-1 justify-center gap-0.5 border border-border bg-card px-3.5">
           <Text className="font-body-bold text-[10px] tracking-[0.06em] text-muted">EXPENSES</Text>
-          <Text className="font-heading text-[22px]" style={{ color: colors.danger }}>
-            {formatAmount(totals.expenses)}
-          </Text>
+          <Amount value={totals.expenses} textClassName="font-heading text-[22px]" color={colors.danger} iconSize={16} />
         </View>
       </View>
 
@@ -95,9 +109,13 @@ export default function StoreScreen() {
             narrows toward the bottom-right, not the left) — padding on the
             text itself (not the row) keeps the amount clear of it instead of
             tucking under the diagonal, which was clipping the last digit. */}
-        <Text className="font-heading text-xl" style={{ color: colors.page, paddingRight: 32 }}>
-          {formatAmount(totals.cashOnHand)}
-        </Text>
+        <Amount
+          value={totals.cashOnHand}
+          textClassName="font-heading text-xl"
+          color={colors.page}
+          iconSize={16}
+          wrapperClassName="pr-8"
+        />
       </DiagonalCut>
 
       <Touchable
@@ -117,7 +135,7 @@ export default function StoreScreen() {
             className="h-[54px] flex-row items-center justify-between border border-border bg-card px-4"
           >
             <Text className="font-body-semibold text-[15px] text-white">{item.label}</Text>
-            <Text className="font-heading text-base text-accent">+{formatAmount(item.price)}</Text>
+            <Amount value={item.price} textClassName="font-heading text-base" color={colors.accent} />
           </Touchable>
         ))}
 
@@ -174,6 +192,10 @@ export default function StoreScreen() {
                   <Text numberOfLines={1} className="flex-1 font-body text-sm text-white">
                     {entry.description}
                   </Text>
+                  {/* No peso icon here, unlike the amounts above — the
+                      register list is dense enough that the +/− sign alone
+                      reads clearly as income/expense (2026-08-25 follow-up:
+                      icon+sign together felt redundant on this one screen). */}
                   <Text
                     className="font-heading text-sm"
                     style={{ color: entry.type === "income" ? colors.accent : colors.danger }}

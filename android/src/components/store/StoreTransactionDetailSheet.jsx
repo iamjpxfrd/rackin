@@ -9,6 +9,7 @@
 // PaymentDetailSheet — this is a lookup, not a form.
 
 import { Text, View } from "react-native";
+import { PhilippinePeso } from "lucide-react-native";
 import { formatAmount, formatDate, formatTime } from "../../domain/constants.js";
 import { colors } from "../../theme/colors.js";
 import Sheet from "../ui/Sheet.jsx";
@@ -38,6 +39,13 @@ export default function StoreTransactionDetailSheet({ transaction, onClose }) {
   return (
     <Sheet
       title={signedAmount}
+      titleIcon={
+        <PhilippinePeso
+          size={18}
+          strokeWidth={2}
+          color={transaction.type === "income" ? colors.accent : colors.danger}
+        />
+      }
       subtitle={transaction.description}
       onClose={onClose}
     >

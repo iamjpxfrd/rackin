@@ -17,7 +17,7 @@
 // content above and below it — the same height the empty state already
 // filled. A list that outgrows that height scrolls inside the card's own
 // ScrollView (ActivityFeed.jsx); the screen itself never scrolls.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import Animated from "react-native-reanimated";
 import { checkInMember } from "../../domain/checkIn.js";
@@ -87,6 +87,24 @@ export default function CheckInScreen({ active = true }) {
   const [error, setError] = useState(null);
   const [confirmation, setConfirmation] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Clears in-progress input whenever this screen (or its numpad mode)
+  // isn't the thing on screen (2026-08-25 follow-up: "don't save any state
+  // after leaving the tab"). numpad/search/qr are themselves treated as
+  // sub-tabs here, same as the empty-state-flash fix above already does —
+  // leaving either one, or leaving the whole Check-In app-tab, clears what
+  // was typed rather than leaving it sitting there for whoever opens it
+  // next. SearchPanel resets its own query the same way, below.
+  useEffect(() => {
+    if (!active || mode !== "numpad") setNumpadValue("");
+  }, [active, mode]);
+
+  useEffect(() => {
+    if (!active) {
+      setError(null);
+      setConfirmation(null);
+    }
+  }, [active]);
 
   async function handleCheckIn(memberId, method) {
     setSubmitting(true);
@@ -166,6 +184,7 @@ export default function CheckInScreen({ active = true }) {
         className="flex-col gap-3"
       >
         <SearchPanel
+          active={active && mode === "search"}
           onSelect={(memberId) => handleCheckIn(memberId, "search")}
           disabled={submitting}
         />

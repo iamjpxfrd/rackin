@@ -9,7 +9,7 @@ import { findMembersByName } from "../../domain/checkIn.js";
 import Touchable from "../ui/Touchable.jsx";
 import { colors } from "../../theme/colors.js";
 
-export default function SearchPanel({ onSelect, disabled }) {
+export default function SearchPanel({ active = true, onSelect, disabled }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
 
@@ -22,6 +22,14 @@ export default function SearchPanel({ onSelect, disabled }) {
       cancelled = true;
     };
   }, [query]);
+
+  // Clears the typed search on leaving (2026-08-25 follow-up) — this panel
+  // stays mounted across mode switches now (CheckInScreen's own tab-flash
+  // fix), so without this a query typed earlier would just sit there next
+  // time search is opened instead of starting fresh.
+  useEffect(() => {
+    if (!active) setQuery("");
+  }, [active]);
 
   return (
     <View className="flex-col gap-3">
