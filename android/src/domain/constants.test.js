@@ -1,6 +1,7 @@
 import { describe, it, expect } from "@jest/globals";
 import {
   formatDuration,
+  formatDurationMs,
   isDropIn,
   membershipTypeLabel,
   planDuration,
@@ -74,5 +75,27 @@ describe("formatDuration", () => {
 
   it("never goes negative if end precedes start", () => {
     expect(formatDuration("2026-08-11T10:00:00.000Z", "2026-08-11T09:00:00.000Z")).toBe("0m");
+  });
+});
+
+describe("formatDurationMs", () => {
+  const MINUTE = 60_000;
+
+  it("shows minutes only under an hour", () => {
+    expect(formatDurationMs(42 * MINUTE)).toBe("42m");
+  });
+
+  it("shows hours and zero-padded minutes past an hour", () => {
+    expect(formatDurationMs(65 * MINUTE)).toBe("1h 05m");
+  });
+
+  it("never goes negative for a negative input", () => {
+    expect(formatDurationMs(-5 * MINUTE)).toBe("0m");
+  });
+
+  it("supports totals well past 24 hours - the whole point of accumulating across visits", () => {
+    // A member's second visit today, arriving already 5h into today's
+    // total from an earlier visit, 90 minutes into the current one.
+    expect(formatDurationMs(5 * 60 * MINUTE + 90 * MINUTE)).toBe("6h 30m");
   });
 });

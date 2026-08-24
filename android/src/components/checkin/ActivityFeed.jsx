@@ -36,6 +36,14 @@
 // Checked-out rows are tappable again (Task 6, 2026-08-25) — previously a
 // plain non-interactive View. Now opens CheckInAgainModal, a re-check-in
 // action rather than the checkout confirmation active rows get.
+//
+// Re-checking in picks up today's running total rather than starting the
+// clock at zero (same day, same 2026-08-25 change) — an active row's shown
+// duration is its own elapsed time plus whatever this member already banked
+// from earlier visits today (priorDurationByMember/displayDurationMs
+// below). A checked-out row still shows only that one visit's own length;
+// only the currently-active row accumulates, since that's the one actually
+// continuing "from where they left off."
 
 import { useEffect, useState } from "react";
 import { Image, Pressable, ScrollView, Text, View } from "react-native";
@@ -43,7 +51,7 @@ import { ArrowUpDown } from "lucide-react-native";
 import { useLiveQuery } from "../../hooks/useLiveQuery.js";
 import { useClock } from "../../hooks/useClock.js";
 import { getTodaysActivity, checkOutMember, checkInMember } from "../../domain/checkIn.js";
-import { formatDuration, formatTime } from "../../domain/constants.js";
+import { formatDurationMs, formatTime } from "../../domain/constants.js";
 import { Avatar } from "../ui/Avatar.jsx";
 import Touchable from "../ui/Touchable.jsx";
 import CheckoutModal from "./CheckoutModal.jsx";
@@ -59,9 +67,39 @@ const NO_ACTIVITY_IMAGE = require("../../../assets/checkin/no-activity.png");
 // "muted" without disappearing against lime.
 const ACCENT_MUTED = "#3a4a10";
 
-function durationMs(entry, now) {
+function ownDurationMs(entry, now) {
   const end = entry.checkOutAt ?? now.toISOString();
   return new Date(end) - new Date(entry.timestamp);
+}
+
+/**
+ * A member's total checked-out time today, across every visit before their
+ * current one — the number a re-check-in (CheckInAgainModal) should pick up
+ * from, not restart at zero. Only sums checked-out entries: the currently
+ * active one (if any) has no checkOutAt and adds its own elapsed time on
+ * top of this at render time instead.
+ */
+function priorDurationByMember(checkedOutEntries) {
+  const totals = new Map();
+  for (const entry of checkedOutEntries) {
+    const ownMs = new Date(entry.checkOutAt) - new Date(entry.timestamp);
+    totals.set(entry.memberId, (totals.get(entry.memberId) ?? 0) + ownMs);
+  }
+  return totals;
+}
+
+/**
+ * The duration shown/sorted for one row. A checked-out row shows only that
+ * visit's own length — it's a closed, historical fact and shouldn't change
+ * because of a later visit. An active row shows today's running total:
+ * whatever this member had already banked from earlier visits today, plus
+ * elapsed time on the current one — so checking back in continues from
+ * where they left off instead of the clock resetting to zero.
+ */
+function displayDurationMs(entry, now, priorByMember) {
+  const own = ownDurationMs(entry, now);
+  if (entry.checkOutAt) return own;
+  return own + (priorByMember.get(entry.memberId) ?? 0);
 }
 
 export default function ActivityFeed({ active: tabActive = true }) {
@@ -94,9 +132,12 @@ export default function ActivityFeed({ active: tabActive = true }) {
   // how long the session has run, longest first.
   const active = activity.filter((entry) => !entry.checkOutAt);
   const checkedOutEntries = activity.filter((entry) => entry.checkOutAt);
+  const priorByMember = priorDurationByMember(checkedOutEntries);
   if (sortMode === "duration") {
-    active.sort((a, b) => durationMs(b, now) - durationMs(a, now));
-    checkedOutEntries.sort((a, b) => durationMs(b, now) - durationMs(a, now));
+    active.sort(
+      (a, b) => displayDurationMs(b, now, priorByMember) - displayDurationMs(a, now, priorByMember),
+    );
+    checkedOutEntries.sort((a, b) => ownDurationMs(b, now) - ownDurationMs(a, now));
   }
   const orderedActivity = [...active, ...checkedOutEntries];
 
@@ -163,7 +204,7 @@ export default function ActivityFeed({ active: tabActive = true }) {
           <ScrollView>
             {orderedActivity.map((entry, index) => {
               const checkedOut = Boolean(entry.checkOutAt);
-              const duration = formatDuration(entry.timestamp, entry.checkOutAt ?? now.toISOString());
+              const duration = formatDurationMs(displayDurationMs(entry, now, priorByMember));
               const row = (
                 <View
                   style={checkedOut ? undefined : { backgroundColor: colors.accent }}
