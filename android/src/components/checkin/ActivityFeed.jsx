@@ -32,17 +32,23 @@
 // treatment for consistency (longest-currently-checked-in first), which
 // wasn't separately specified but follows the same logic. The grouping
 // itself (active always above checked-out) holds in both modes.
+//
+// Checked-out rows are tappable again (Task 6, 2026-08-25) — previously a
+// plain non-interactive View. Now opens CheckInAgainModal, a re-check-in
+// action rather than the checkout confirmation active rows get.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import { ArrowUpDown } from "lucide-react-native";
 import { useLiveQuery } from "../../hooks/useLiveQuery.js";
 import { useClock } from "../../hooks/useClock.js";
-import { getTodaysActivity, checkOutMember } from "../../domain/checkIn.js";
+import { getTodaysActivity, checkOutMember, checkInMember } from "../../domain/checkIn.js";
 import { formatDuration, formatTime } from "../../domain/constants.js";
 import { Avatar } from "../ui/Avatar.jsx";
 import Touchable from "../ui/Touchable.jsx";
 import CheckoutModal from "./CheckoutModal.jsx";
+import CheckInAgainModal from "./CheckInAgainModal.jsx";
+import { showToast } from "../ui/Toast.jsx";
 import { colors } from "../../theme/colors.js";
 
 // Placeholder — swap the file, not the reference, once real artwork lands.
@@ -58,10 +64,25 @@ function durationMs(entry, now) {
   return new Date(end) - new Date(entry.timestamp);
 }
 
-export default function ActivityFeed() {
+export default function ActivityFeed({ active: tabActive = true }) {
   const activity = useLiveQuery(() => getTodaysActivity(), [], []);
   const [checkoutTarget, setCheckoutTarget] = useState(null);
+  const [checkInAgainTarget, setCheckInAgainTarget] = useState(null);
   const [sortMode, setSortMode] = useState("recent");
+
+  // Now that App.js keeps every tab mounted (Task 6, hidden via display:
+  // none rather than unmounted) instead of destroying the screen on every
+  // tab switch, an open confirmation modal would otherwise keep floating
+  // over whichever tab staff switch to next — RN's native Modal portals to
+  // its own top-level window, so it isn't hidden by a display:none ancestor
+  // the way the rest of this screen is (see CheckoutModal.jsx's header for
+  // why Modal is used here at all). Closing both on deactivation matches
+  // what unmounting used to do for free.
+  useEffect(() => {
+    if (tabActive) return;
+    setCheckoutTarget(null);
+    setCheckInAgainTarget(null);
+  }, [tabActive]);
   // Ticks the still-checked-in rows' durations forward every second — a
   // frozen "42m" next to someone mid-session would read as broken, not
   // just stale (matches TopBar's live clock for the same reason).
@@ -83,6 +104,24 @@ export default function ActivityFeed() {
     const target = checkoutTarget;
     setCheckoutTarget(null);
     if (target) await checkOutMember(target.id);
+  }
+
+  // Starts a brand new visit through the same checkInMember every other
+  // entry path uses, so it picks up the same blocking rules (expired
+  // membership, etc.) rather than a special-cased bypass. A rejection
+  // surfaces as a toast and the row stays as it was — matches
+  // CheckInScreen's own handleCheckIn error handling, not an inline banner,
+  // since this is a lightweight confirm rather than a form with values to
+  // protect.
+  async function confirmCheckInAgain() {
+    const target = checkInAgainTarget;
+    setCheckInAgainTarget(null);
+    if (!target) return;
+    try {
+      await checkInMember(target.memberId, "numpad");
+    } catch (err) {
+      showToast(err.message, "warning");
+    }
   }
 
   return (
@@ -157,16 +196,16 @@ export default function ActivityFeed() {
                 </View>
               );
 
-              // Only a still-checked-in row can be checked out — a finished
-              // session has nothing left to confirm.
-              return checkedOut ? (
-                <View key={entry.id}>{row}</View>
-              ) : (
+              return (
                 <Pressable
                   key={entry.id}
-                  onPress={() => setCheckoutTarget(entry)}
+                  onPress={() =>
+                    checkedOut ? setCheckInAgainTarget(entry) : setCheckoutTarget(entry)
+                  }
                   accessibilityRole="button"
-                  accessibilityLabel={`Check out ${entry.memberName}`}
+                  accessibilityLabel={
+                    checkedOut ? `Check in ${entry.memberName} again` : `Check out ${entry.memberName}`
+                  }
                 >
                   {row}
                 </Pressable>
@@ -182,6 +221,12 @@ export default function ActivityFeed() {
         now={now}
         onConfirm={confirmCheckout}
         onCancel={() => setCheckoutTarget(null)}
+      />
+      <CheckInAgainModal
+        visible={Boolean(checkInAgainTarget)}
+        entry={checkInAgainTarget}
+        onConfirm={confirmCheckInAgain}
+        onCancel={() => setCheckInAgainTarget(null)}
       />
     </View>
   );

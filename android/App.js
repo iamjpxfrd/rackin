@@ -1,6 +1,6 @@
 import './global.css';
 import { useEffect, useState } from 'react';
-import { StatusBar } from 'react-native';
+import { StatusBar, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
 import TopBar from './src/components/TopBar.jsx';
@@ -125,18 +125,36 @@ function App() {
         <StatusBar barStyle="light-content" />
         <TopBar showClock={tab === 'checkin' && !detailMemberId} />
 
-        {detailMemberId ? (
+        {/* All five tabs stay mounted underneath detailMemberId's overlay
+            (Task 6) instead of the previous {tab === 'x' && <Screen/>}
+            conditional rendering. That pattern unmounted and remounted a
+            screen on every switch, resetting every useLiveQuery back to its
+            undefined "not loaded" state — staff would see the empty state
+            flash before the query re-ran, even for data that was already
+            loaded seconds earlier. display: 'none' on the inactive tabs'
+            wrapper hides them the same way conditional rendering did
+            visually, but keeps each screen's state (and its live query
+            results) alive across switches. */}
+        <View style={{ flex: 1, display: detailMemberId ? 'none' : 'flex' }}>
+          <View style={{ flex: 1, display: tab === 'checkin' ? 'flex' : 'none' }}>
+            <CheckInScreen active={tab === 'checkin'} />
+          </View>
+          <View style={{ flex: 1, display: tab === 'followup' ? 'flex' : 'none' }}>
+            <FollowUpScreen onSelectMember={setDetailMemberId} />
+          </View>
+          <View style={{ flex: 1, display: tab === 'members' ? 'flex' : 'none' }}>
+            <MembersScreen onSelectMember={setDetailMemberId} onRegisterFirst={goToNewMember} />
+          </View>
+          <View style={{ flex: 1, display: tab === 'new' ? 'flex' : 'none' }}>
+            <NewMemberFlow onDone={() => setTab('checkin')} />
+          </View>
+          <View style={{ flex: 1, display: tab === 'store' ? 'flex' : 'none' }}>
+            <StoreScreen />
+          </View>
+        </View>
+
+        {detailMemberId && (
           <MemberProfileScreen memberId={detailMemberId} onBack={() => setDetailMemberId(null)} />
-        ) : (
-          <>
-            {tab === 'checkin' && <CheckInScreen />}
-            {tab === 'followup' && <FollowUpScreen onSelectMember={setDetailMemberId} />}
-            {tab === 'members' && (
-              <MembersScreen onSelectMember={setDetailMemberId} onRegisterFirst={goToNewMember} />
-            )}
-            {tab === 'new' && <NewMemberFlow onDone={() => setTab('checkin')} />}
-            {tab === 'store' && <StoreScreen />}
-          </>
         )}
 
         {/* The tab bar stays live everywhere, including over the profile —
