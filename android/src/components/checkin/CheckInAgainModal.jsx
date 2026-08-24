@@ -4,17 +4,20 @@
 // deliberately the same pattern rather than a new one, since staff are
 // making the same kind of decision (act on this specific visit) either way.
 //
-// Shows when the member checked out and how long that visit ran, then a
-// CHECK IN action that starts a brand new visit via the same checkInMember
-// used everywhere else — so it picks up the same blocking rules (expired
-// membership, etc.) rather than a special-cased bypass. A rejection (e.g.
-// EXPIRED) surfaces as a toast and leaves the modal open, matching
-// CheckInScreen's own handleCheckIn error handling, rather than an inline
-// banner — this is a lightweight confirm, not a form with values to protect.
+// Shows when the member checked out and today's running total so far, then
+// a CHECK IN action that reopens this same day's row (domain/checkIn.js's
+// checkInMember, 2026-08-25 follow-up — a member who steps out and comes
+// back stays one entry in the list, picking up from where they left off
+// rather than starting a fresh clock) — going through the same blocking
+// rules (expired membership, etc.) rather than a special-cased bypass. A
+// rejection (e.g. EXPIRED) surfaces as a toast and leaves the modal open,
+// matching CheckInScreen's own handleCheckIn error handling, rather than an
+// inline banner — this is a lightweight confirm, not a form with values to
+// protect.
 
 import { useEffect, useRef } from "react";
 import { Animated, Modal, Pressable, Text, View } from "react-native";
-import { formatDuration, formatTime } from "../../domain/constants.js";
+import { formatDurationMs, formatTime } from "../../domain/constants.js";
 import { colors } from "../../theme/colors.js";
 import { PressableDiagonalCut } from "../ui/DiagonalCut.jsx";
 import Touchable from "../ui/Touchable.jsx";
@@ -36,7 +39,10 @@ export default function CheckInAgainModal({ visible, entry, onConfirm, onCancel 
   if (!entry) return null;
 
   const initial = (entry.memberName?.trim()?.[0] ?? "?").toUpperCase();
-  const visitDuration = formatDuration(entry.timestamp, entry.checkOutAt);
+  // bankedMs already is today's full total — checkOutMember folds each
+  // closing segment into it, so this needs nothing added (same value
+  // ActivityFeed.jsx's displayDurationMs shows for this checked-out row).
+  const totalToday = formatDurationMs(entry.bankedMs ?? 0);
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onCancel}>
@@ -75,9 +81,9 @@ export default function CheckInAgainModal({ visible, entry, onConfirm, onCancel 
 
           <View className="items-center gap-1">
             <Text className="font-heading text-xs tracking-[0.1em] text-muted">
-              WAS CHECKED IN FOR
+              TODAY'S TOTAL SO FAR
             </Text>
-            <Text className="font-heading text-5xl text-accent">{visitDuration}</Text>
+            <Text className="font-heading text-5xl text-accent">{totalToday}</Text>
           </View>
 
           <View className="w-full flex-row gap-3">

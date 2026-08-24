@@ -9,16 +9,14 @@
 import { Text, View } from "react-native";
 import Sheet from "../ui/Sheet.jsx";
 import { PressableDiagonalCut } from "../ui/DiagonalCut.jsx";
-import { formatAmount } from "../../domain/constants.js";
+import Amount from "../ui/Amount.jsx";
 import { colors } from "../../theme/colors.js";
 
-function TotalRow({ label, value, color }) {
+function TotalRow({ label, amount, color }) {
   return (
     <View className="flex-row items-center justify-between">
       <Text className="font-body text-sm text-muted">{label}</Text>
-      <Text className="font-heading text-base" style={{ color }}>
-        {value}
-      </Text>
+      <Amount value={amount} textClassName="font-heading text-base" color={color} />
     </View>
   );
 }
@@ -31,11 +29,11 @@ export default function CloseRegisterSheet({ totals, onConfirm, onClose }) {
       onClose={onClose}
     >
       <View className="gap-2.5 border border-border bg-page p-4">
-        <TotalRow label="Income" value={formatAmount(totals.income)} color={colors.accent} />
-        <TotalRow label="Expenses" value={formatAmount(totals.expenses)} color={colors.danger} />
+        <TotalRow label="Income" amount={totals.income} color={colors.accent} />
+        <TotalRow label="Expenses" amount={totals.expenses} color={colors.danger} />
         <TotalRow
           label="Cash on hand"
-          value={formatAmount(totals.cashOnHand)}
+          amount={totals.cashOnHand}
           color={colors.textPrimary}
         />
       </View>

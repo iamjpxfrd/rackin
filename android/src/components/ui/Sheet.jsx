@@ -8,23 +8,32 @@
 //  - The web version's CSS @keyframes slide-up is done with RN's core
 //    Animated API instead — NativeWind has no CSS animation engine, and this
 //    is a one-shot entrance, not worth pulling in reanimated for.
+//  - Wrapped in KeyboardAvoidingView (2026-08-25 follow-up): a sheet is
+//    bottom-anchored (`justify-end`), so a text input near the bottom of one
+//    (e.g. OnDeskSheet's "Add a staff member" field) sat right where the
+//    on-screen keyboard covers it. `behavior="height"` rather than
+//    "padding" — this is an Android-only app, and "padding" is the
+//    iOS-oriented option in RN's docs.
 
 import { useEffect, useRef } from "react";
-import { Animated, Pressable, Text, View } from "react-native";
+import { Animated, KeyboardAvoidingView, Pressable, Text, View } from "react-native";
 // Aliased: this file already uses RN's own core Animated for the slide-up
 // entrance (see the header comment) — reanimated's Animated.View is only
 // for the close button's scale pulse (usePressFlash).
 import ReanimatedAnimated from "react-native-reanimated";
 import { X } from "lucide-react-native";
 import { usePressFlash } from "./Touchable.jsx";
+import { useBackHandler } from "../../hooks/useBackHandler.js";
 import { colors } from "../../theme/colors.js";
 
-export default function Sheet({ title, subtitle, onClose, children }) {
+export default function Sheet({ title, titleIcon, titleColor = colors.textPrimary, subtitle, onClose, children }) {
   const translateY = useRef(new Animated.Value(16)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   // Borderless icon-only button — scale pulse only, same reasoning as every
   // other plain-surface control (Touchable.jsx's header).
   const closePress = usePressFlash();
+
+  useBackHandler(onClose);
 
   useEffect(() => {
     Animated.parallel([
@@ -41,14 +50,23 @@ export default function Sheet({ title, subtitle, onClose, children }) {
         accessibilityRole="button"
         accessibilityLabel="Close"
       />
-      <View className="absolute inset-0 flex-col justify-end" pointerEvents="box-none">
+      <KeyboardAvoidingView
+        className="absolute inset-0 flex-col justify-end"
+        pointerEvents="box-none"
+        behavior="height"
+      >
         <Animated.View
           style={{ transform: [{ translateY }], opacity }}
           className="flex-col gap-5 border-t-2 border-hairline bg-card p-4 pt-6"
         >
           <View className="flex-row items-center justify-between gap-4">
             <View className="min-w-0 flex-1 flex-col gap-1">
-              <Text className="font-heading text-xl text-white">{title}</Text>
+              <View className="flex-row items-center gap-1.5">
+                {titleIcon}
+                <Text className="font-heading text-xl" style={{ color: titleColor }}>
+                  {title}
+                </Text>
+              </View>
               {subtitle && (
                 <Text numberOfLines={1} className="font-body text-sm text-muted">
                   {subtitle}
@@ -72,7 +90,7 @@ export default function Sheet({ title, subtitle, onClose, children }) {
 
           {children}
         </Animated.View>
-      </View>
+      </KeyboardAvoidingView>
     </View>
   );
 }

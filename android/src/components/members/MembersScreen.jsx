@@ -40,7 +40,7 @@
 // onSelectMember/onRegisterFirst are passed down from App.js, same as the
 // web version — a row tap opens the member's profile (Task 4).
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ScrollView, Text, TextInput, View } from "react-native";
 import { Search, SlidersHorizontal } from "lucide-react-native";
 import { useLiveQuery } from "../../hooks/useLiveQuery.js";
@@ -117,7 +117,7 @@ function SortPill({ label, selected, onPress }) {
   );
 }
 
-export default function MembersScreen({ onSelectMember, onRegisterFirst }) {
+export default function MembersScreen({ active = true, onSelectMember, onRegisterFirst }) {
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState("name");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -126,6 +126,18 @@ export default function MembersScreen({ onSelectMember, onRegisterFirst }) {
   // No default value: undefined means "not loaded yet", which must never
   // render as the empty state (frontend-spec.md §9). Only a confirmed [] does.
   const rows = useLiveQuery(() => listMembers());
+
+  // Clears in-progress input on leaving the tab (2026-08-25 follow-up), same
+  // reasoning as CheckInScreen's numpad/search reset below — a typed search
+  // shouldn't still be sitting there next time staff open Members. Sort/
+  // status/plan filters are left alone: those read as a chosen view, not
+  // something someone was mid-typing, so they're worth keeping.
+  useEffect(() => {
+    if (!active) {
+      setQuery("");
+      setFilterSheetOpen(false);
+    }
+  }, [active]);
 
   const loading = rows === undefined;
   const statusMatch = STATUS_FILTERS.find((entry) => entry.key === statusFilter).matches;

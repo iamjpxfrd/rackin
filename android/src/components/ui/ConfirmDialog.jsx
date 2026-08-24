@@ -11,6 +11,7 @@ import { Animated, Pressable, Text, View } from "react-native";
 import { Trash2 } from "lucide-react-native";
 import { PressableDiagonalCut } from "./DiagonalCut.jsx";
 import Touchable from "./Touchable.jsx";
+import { useBackHandler } from "../../hooks/useBackHandler.js";
 import { colors } from "../../theme/colors.js";
 
 export default function ConfirmDialog({
@@ -24,6 +25,11 @@ export default function ConfirmDialog({
 }) {
   const scale = useRef(new Animated.Value(0.96)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+
+  // Always mounted (visibility is the `visible` prop, not conditional
+  // rendering — see below), so the listener has to be gated the same way,
+  // not just skipped by an early return after the hook already ran.
+  useBackHandler(onCancel, visible);
 
   useEffect(() => {
     if (!visible) return;

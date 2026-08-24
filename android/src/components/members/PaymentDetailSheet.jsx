@@ -10,8 +10,10 @@
 // anything that needs more room than a list row, just without a button.
 
 import { Text, View } from "react-native";
+import { PhilippinePeso } from "lucide-react-native";
 import { formatAmount, formatDate, formatTime, planLabel } from "../../domain/constants.js";
 import Sheet from "../ui/Sheet.jsx";
+import { colors } from "../../theme/colors.js";
 
 function DetailRow({ label, value, accentValue = false }) {
   return (
@@ -32,6 +34,7 @@ export default function PaymentDetailSheet({ payment, member, onClose }) {
   return (
     <Sheet
       title={formatAmount(payment.amount)}
+      titleIcon={<PhilippinePeso size={18} strokeWidth={2} color={colors.textPrimary} />}
       subtitle={`${member.name} · #${member.id}`}
       onClose={onClose}
     >

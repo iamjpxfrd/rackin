@@ -34,6 +34,7 @@ import {
 import { SectionHeader, Panel } from "../ui/Layout.jsx";
 import StatusBadge from "../ui/StatusBadge.jsx";
 import QrCode from "../ui/QrCode.jsx";
+import Amount from "../ui/Amount.jsx";
 import { PressableDiagonalCut } from "../ui/DiagonalCut.jsx";
 import Touchable, { usePressFlash } from "../ui/Touchable.jsx";
 import RecordPaymentSheet from "./RecordPaymentSheet.jsx";
@@ -230,9 +231,12 @@ export default function MemberProfileScreen({ memberId, onBack }) {
                     <Text className="w-16 shrink-0 font-heading text-sm text-white">
                       {formatDayMonth(payment.paidAt)}
                     </Text>
-                    <Text className="w-20 shrink-0 font-heading text-sm text-white">
-                      {formatAmount(payment.amount)}
-                    </Text>
+                    <Amount
+                      value={payment.amount}
+                      wrapperClassName="w-20 shrink-0"
+                      textClassName="font-heading text-sm"
+                      color={colors.textPrimary}
+                    />
                     <Text className="w-20 shrink-0 font-body text-sm text-muted">
                       {payment.method === "cash" ? "Cash" : "Transfer"}
                     </Text>
