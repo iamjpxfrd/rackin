@@ -15,6 +15,7 @@ final class PlanDurations {
             case session -> 1;
             case weekly -> 7;
             case monthly -> 30;
+            case annually -> 365;
         };
     }
 }
