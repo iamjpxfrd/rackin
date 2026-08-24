@@ -27,6 +27,7 @@ import {
   formatDate,
   formatDayMonth,
   formatTime,
+  membershipTypeLabel,
   planDuration,
   planLabel,
 } from "../../domain/constants.js";
@@ -76,6 +77,7 @@ export default function MemberProfileScreen({ memberId, onBack }) {
   const { member, status, isExpiringSoon, coversUntil } = profile;
   const gutter = statusGutter(profile);
   const plan = planLabel(member.planType);
+  const membershipTag = membershipTypeLabel(member);
 
   return (
     <View className="flex-1 bg-page">
@@ -102,6 +104,7 @@ export default function MemberProfileScreen({ memberId, onBack }) {
             <Text className="font-heading text-base text-white">#{member.id}</Text>
             {"  ·  "}
             {plan}
+            {membershipTag ? ` · ${membershipTag}` : ""}
             {member.phone ? ` · ${member.phone}` : ""}
           </Text>
         </View>
