@@ -69,27 +69,35 @@ function selectLapsed(snapshots) {
 }
 
 /**
- * Members needing a renewal call: coverage ending within 7 days OR already
- * ended, worst-first. Originally "active and ending soon" only — broadened
- * so an already-expired member who's still visiting (so isn't yet on the
- * Stopped Coming list either) doesn't fall through the cracks between the
- * two sections. Ascending sort on daysRemaining already ranks worst-first
- * for free: a member expired 30 days ago (-30) sorts ahead of one expiring
- * tomorrow (1) with no extra logic needed.
+ * Members needing a renewal call: coverage ending within 7 days, already
+ * ended, or never paid at all — worst-first. Originally "active and ending
+ * soon" only — broadened so an already-expired member who's still visiting
+ * (so isn't yet on the Stopped Coming list either) doesn't fall through the
+ * cracks between the two sections. `daysRemaining === null` (no payment on
+ * record at all — registerMember always creates one, so this is only a
+ * corrupted/legacy row, but it still needs a call, arguably the most urgent
+ * one) sorts ahead of every dated case, same "never visited sorts first"
+ * logic selectLapsed already uses; ascending sort on daysRemaining then
+ * ranks the rest worst-first for free: a member expired 30 days ago (-30)
+ * sorts ahead of one expiring tomorrow (1) with no extra logic needed.
  */
 function selectExpiring(snapshots) {
   return snapshots
     .filter(
       (row) =>
-        row.daysRemaining !== null &&
-        row.daysRemaining <= EXPIRING_WITHIN_DAYS &&
+        (row.daysRemaining === null || row.daysRemaining <= EXPIRING_WITHIN_DAYS) &&
         // A one-day drop-in is inside the 7-day window from the moment it is
         // sold, so including sessions would put every day-pass on this list
         // and drown the memberships actually worth a call. Nothing is being
         // saved by phoning someone whose plan was only ever one day.
         !isDropIn(row.member.planType),
     )
-    .sort((a, b) => a.daysRemaining - b.daysRemaining);
+    .sort((a, b) => {
+      if (a.daysRemaining === null && b.daysRemaining === null) return 0;
+      if (a.daysRemaining === null) return -1;
+      if (b.daysRemaining === null) return 1;
+      return a.daysRemaining - b.daysRemaining;
+    });
 }
 
 /**

@@ -22,14 +22,20 @@ import { PLAN_TYPES } from "./constants.js";
  * transaction as the payment, so the switch and the money that paid for it
  * are one atomic record rather than two separate edits.
  *
+ * `isStudent` works the same way — optional, defaults to the member's
+ * current membership type. A member's student/regular status can change
+ * (graduation, etc.), and the renewal that reflects the correction should
+ * record it rather than needing a separate edit.
+ *
  * @param {{
  *   memberId: string, amount: number, method: "cash"|"transfer",
  *   planType?: "session"|"weekly"|"monthly"|"annually",
+ *   isStudent?: boolean,
  *   recordedBy?: object|null,
  * }} input
  * @returns {Promise<{ payment: object, coversUntil: string, status: string }>}
  */
-export async function recordPayment({ memberId, amount, method, planType, recordedBy }) {
+export async function recordPayment({ memberId, amount, method, planType, isStudent, recordedBy }) {
   const numericAmount = Number(amount);
   if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
     throw new Error("Enter the amount received.");
@@ -48,6 +54,8 @@ export async function recordPayment({ memberId, amount, method, planType, record
 
   const nextPlanType = planType ?? member.planType;
   const planChanged = planType !== undefined && planType !== member.planType;
+  const studentChanged =
+    isStudent !== undefined && !!isStudent !== !!member.isStudent;
 
   const existingPayments = await store.payments.where("memberId").equals(memberId).toArray();
   const currentCoversUntil = latestPaymentOf(existingPayments)?.coversUntil ?? null;
@@ -77,8 +85,11 @@ export async function recordPayment({ memberId, amount, method, planType, record
   // never pushed (sync/outbox.js), and a plan switch can never be recorded
   // without the payment that triggered it.
   const id = await store.transaction(["members", "payments", "outbox"], async (tx) => {
-    if (planChanged) {
-      await tx.members.update(memberId, { planType });
+    if (planChanged || studentChanged) {
+      await tx.members.update(memberId, {
+        ...(planChanged ? { planType } : {}),
+        ...(studentChanged ? { isStudent: isStudent ? 1 : 0 } : {}),
+      });
     }
     const paymentId = await tx.payments.add(payment);
     // paidAt travels with it: the backend counts coverage from when the member
@@ -88,6 +99,7 @@ export async function recordPayment({ memberId, amount, method, planType, record
       amount: numericAmount,
       method,
       planType: planChanged ? planType : undefined,
+      isStudent: studentChanged ? !!isStudent : undefined,
       clientUuid: payment.clientUuid,
       paidAt,
       ...attribution,

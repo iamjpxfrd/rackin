@@ -19,6 +19,7 @@ import {
   formatDate,
   planDuration,
   planLabel,
+  planNeedsMembershipType,
 } from "../../domain/constants.js";
 import { SectionHeader } from "../ui/Layout.jsx";
 import Field from "../ui/Field.jsx";
@@ -48,12 +49,6 @@ const METHOD_OPTIONS = [
   { value: "transfer", label: "TRANSFER" },
 ];
 
-// Monthly and Annually are the two plans priced by membership type
-// (pricing.js) — Session/Weekly are flat for everyone.
-function planNeedsMembershipType(planType) {
-  return planType === "monthly" || planType === "annually";
-}
-
 export default function NewMemberScreen({ nextMemberId, onRegistered }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -76,11 +71,9 @@ export default function NewMemberScreen({ nextMemberId, onRegistered }) {
   const [takenBy, setTakenBy] = useState(undefined);
   // Live duplicate-name check, not just a submit-time one — the button
   // should already read disabled while a matching name sits in the field,
-  // not just reject the tap. Blocked by default, but overridable: same name,
-  // different people happens at a single gym, so confirmDifferentPerson lets
-  // staff say so explicitly rather than hitting an absolute wall.
+  // not just reject the tap. Always blocked, no override (removed
+  // 2026-08-24 per explicit request) — two members can never share a name.
   const [duplicateMember, setDuplicateMember] = useState(null);
-  const [confirmDifferentPerson, setConfirmDifferentPerson] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,9 +90,6 @@ export default function NewMemberScreen({ nextMemberId, onRegistered }) {
 
   useEffect(() => {
     let cancelled = false;
-    // A name change always needs fresh confirmation — the duplicate it
-    // matched (if any) may no longer be the same one.
-    setConfirmDifferentPerson(false);
     findMemberByName(name).then((match) => {
       if (!cancelled) setDuplicateMember(match);
     });
@@ -146,7 +136,7 @@ export default function NewMemberScreen({ nextMemberId, onRegistered }) {
   const needsMembershipType = planNeedsMembershipType(planType);
   const canSubmit =
     name.trim() !== "" &&
-    (!duplicateMember || confirmDifferentPerson) &&
+    !duplicateMember &&
     planType !== null &&
     (!needsMembershipType || isStudent !== null) &&
     amountIsValid &&
@@ -177,7 +167,6 @@ export default function NewMemberScreen({ nextMemberId, onRegistered }) {
         paymentMethod,
         recordedBy: takenBy,
         memberId: nextMemberId !== "—" ? nextMemberId : undefined,
-        allowDuplicateName: confirmDifferentPerson,
       });
       onRegistered(member);
     } catch (err) {
@@ -213,15 +202,9 @@ export default function NewMemberScreen({ nextMemberId, onRegistered }) {
                 #{duplicateMember.id} already uses this name.
               </Text>
               <Text className="font-body text-xs text-danger">
-                Confirm this is a different person to register anyway.
+                Choose a different name to register this member.
               </Text>
             </View>
-            <Switch
-              value={confirmDifferentPerson}
-              onValueChange={setConfirmDifferentPerson}
-              trackColor={{ false: colors.border, true: colors.danger }}
-              thumbColor={colors.textPrimary}
-            />
           </View>
         )}
 

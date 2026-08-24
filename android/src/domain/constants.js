@@ -64,6 +64,24 @@ export function isDropIn(planType) {
 }
 
 /**
+ * Monthly and Annually are the two plans priced by membership type
+ * (pricing.js) — Session/Weekly are flat for everyone.
+ */
+export function planNeedsMembershipType(planType) {
+  return planType === "monthly" || planType === "annually";
+}
+
+/**
+ * "STUDENT"/"REGULAR" for a member whose plan actually splits by membership
+ * type, else null — a Session/Weekly member's stored `isStudent` defaults to
+ * false but was never a real choice, so it's not shown as "Regular".
+ */
+export function membershipTypeLabel(member) {
+  if (!planNeedsMembershipType(member.planType)) return null;
+  return member.isStudent ? "STUDENT" : "REGULAR";
+}
+
+/**
  * Currency symbol shown beside amounts.
  *
  * frontend-spec.md §11 OD-2: no currency is committed anywhere in the repo

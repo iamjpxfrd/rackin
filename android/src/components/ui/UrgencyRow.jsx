@@ -21,6 +21,10 @@ import { colors } from "../../theme/colors.js";
 
 /** Gutter contents for a member whose coverage is ending soon or already ended. */
 function expiringGutter(daysRemaining) {
+  // No payment on record at all — sorts as the most urgent case
+  // (followUp.js's selectExpiring), so it needs its own gutter rather than
+  // falling through to the dated cases below and rendering "null days".
+  if (daysRemaining === null) return { value: "—", caption: "unpaid", color: colors.danger };
   // Already expired — this section now includes those, not just
   // still-active/ending-soon members (followUp.js's selectExpiring).
   if (daysRemaining < 0) {

@@ -34,6 +34,7 @@ import {
   formatDate,
   planDuration,
   planLabel,
+  planNeedsMembershipType,
 } from "../../domain/constants.js";
 import Sheet from "../ui/Sheet.jsx";
 import Field from "../ui/Field.jsx";
@@ -51,6 +52,11 @@ const PLAN_OPTIONS = PLAN_TYPES.map((value) => ({
   detail: planDuration(value),
 }));
 
+const MEMBERSHIP_TYPE_OPTIONS = [
+  { value: false, label: "REGULAR" },
+  { value: true, label: "STUDENT" },
+];
+
 const METHOD_OPTIONS = [
   { value: "cash", label: "CASH" },
   { value: "transfer", label: "TRANSFER" },
@@ -59,10 +65,11 @@ const METHOD_OPTIONS = [
 export default function RecordPaymentSheet({ profile, onClose, onRecorded }) {
   const { member, status, isExpiringSoon } = profile;
 
-  // Pre-selected to the member's current plan — a renewal, not a fresh
-  // choice, so there's a correct default here unlike NewMemberScreen's
-  // deliberately-null Plan/Membership-type fields.
+  // Pre-selected to the member's current plan/membership type — a renewal,
+  // not a fresh choice, so there's a correct default here unlike
+  // NewMemberScreen's deliberately-null Plan/Membership-type fields.
   const [planType, setPlanType] = useState(member.planType);
+  const [isStudent, setIsStudent] = useState(!!member.isStudent);
   const [amount, setAmount] = useState("");
   // No default method: cash and transfer are equally likely, and a wrong
   // prefill is a silently wrong record.
@@ -95,17 +102,23 @@ export default function RecordPaymentSheet({ profile, onClose, onRecorded }) {
     };
   }, [member.id]);
 
-  // Changing Plan away from what the member is currently on suggests a fresh
-  // amount from pricing.js (using their stored membership type) — the old
+  // Changing Plan away from what the member is currently on, or correcting
+  // Membership type, suggests a fresh amount from pricing.js — the old
   // plan's last-paid amount would otherwise silently carry over as the
-  // wrong number for the new plan. Switching back to the original plan
-  // leaves whatever amount is already typed alone.
+  // wrong number. Switching Plan back to the original with Membership type
+  // unchanged leaves whatever amount is already typed alone.
   function selectPlan(next) {
     setPlanType(next);
     if (next !== member.planType) {
-      const suggested = suggestedAmount(next, { isStudent: !!member.isStudent, promoActive });
+      const suggested = suggestedAmount(next, { isStudent, promoActive });
       if (suggested !== null) setAmount(String(suggested));
     }
+  }
+
+  function selectMembershipType(next) {
+    setIsStudent(next);
+    const suggested = suggestedAmount(planType, { isStudent: next, promoActive });
+    if (suggested !== null) setAmount(String(suggested));
   }
 
   const numericAmount = Number(amount);
@@ -133,6 +146,7 @@ export default function RecordPaymentSheet({ profile, onClose, onRecorded }) {
         amount: numericAmount,
         method,
         planType,
+        isStudent,
         recordedBy: takenBy,
       });
       onRecorded();
@@ -156,6 +170,14 @@ export default function RecordPaymentSheet({ profile, onClose, onRecorded }) {
       {saveError && <ErrorBanner message={saveError} />}
 
       <ChoiceGroup label="Plan" options={PLAN_OPTIONS} value={planType} onChange={selectPlan} />
+      {planNeedsMembershipType(planType) && (
+        <ChoiceGroup
+          label="Membership type"
+          options={MEMBERSHIP_TYPE_OPTIONS}
+          value={isStudent}
+          onChange={selectMembershipType}
+        />
+      )}
 
       <Field
         label="Amount"

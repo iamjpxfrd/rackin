@@ -6,11 +6,13 @@
 // (frontend-spec.md §6.2 — that treatment stays on Follow Up).
 
 import { Text, View } from "react-native";
+import { membershipTypeLabel } from "../../domain/constants.js";
 import StatusBadge from "./StatusBadge.jsx";
 import Touchable from "./Touchable.jsx";
 
 export default function MemberRow({ row, onSelect, isLast = false }) {
   const { member, status, isExpiringSoon } = row;
+  const membershipTag = membershipTypeLabel(member);
 
   return (
     <Touchable
@@ -21,6 +23,11 @@ export default function MemberRow({ row, onSelect, isLast = false }) {
       <Text numberOfLines={1} className="min-w-0 flex-1 font-body-semibold text-base text-white">
         {member.name}
       </Text>
+      {membershipTag && (
+        <View className="shrink-0 border border-border px-1.5 py-[3px]">
+          <Text className="font-heading text-[9px] text-dim">{membershipTag}</Text>
+        </View>
+      )}
       <View className="shrink-0">
         <StatusBadge status={status} isExpiringSoon={isExpiringSoon} />
       </View>

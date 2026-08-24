@@ -21,7 +21,6 @@ import { attributionFor, getOnDesk } from "./staff.js";
  *   amount: number, paymentMethod: "cash"|"transfer",
  *   recordedBy?: object|null,
  *   memberId?: string,
- *   allowDuplicateName?: boolean,
  * }} input
  * @returns {Promise<{ member: object, payment: object }>}
  */
@@ -34,20 +33,18 @@ export async function registerMember({
   paymentMethod,
   recordedBy,
   memberId,
-  allowDuplicateName = false,
 }) {
   const trimmedName = String(name ?? "").trim();
   if (!trimmedName) {
     throw new Error("Enter the member's name.");
   }
-  // Blocked by default, but staff can explicitly say "yes, different person"
-  // (NewMemberScreen's duplicate-name override) — same name, different
-  // people is a real thing at a single gym, so this can't be an absolute wall.
-  if (!allowDuplicateName) {
-    const duplicate = await findMemberByName(trimmedName);
-    if (duplicate) {
-      throw new Error(`#${duplicate.id} already uses this name.`);
-    }
+  // Always blocked — two members can never share a name (see
+  // findMemberByName), no override. An earlier version let staff confirm
+  // "different person" and register anyway; removed per explicit request
+  // (2026-08-24) rather than left as an escape hatch.
+  const duplicate = await findMemberByName(trimmedName);
+  if (duplicate) {
+    throw new Error(`#${duplicate.id} already uses this name.`);
   }
   if (!PLAN_TYPES.includes(planType)) {
     throw new Error("Choose a plan.");
