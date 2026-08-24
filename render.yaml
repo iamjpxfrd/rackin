@@ -1,0 +1,62 @@
+# Render Blueprint for the Rackin sync backend (docs/how-to/run-the-backend-locally.md
+# covers local dev; this is the first real deployment target — see
+# docs/architecture/ADR-002-build-the-backend-before-the-pilot.md for why the
+# backend exists and what it is/isn't load-bearing for).
+#
+# rootDir scopes rebuilds to backend/ changes only - a commit touching only
+# android/ or server/ shouldn't redeploy this service. dockerfilePath/
+# dockerContext are relative to the repo root regardless of rootDir (Render's
+# own rule, not a choice made here).
+#
+# RACKIN_API_KEY is deliberately `sync: false` - a secret, generated once in
+# the Render dashboard during the initial Blueprint setup (openssl rand
+# -base64 32, same as the local dev key's generation, but a DIFFERENT value:
+# never reuse the local dev key here). The Android build's
+# EXPO_PUBLIC_RACKIN_API_KEY must be set to match once this key exists.
+
+services:
+  - type: web
+    name: rackin-backend
+    runtime: docker
+    plan: free
+    rootDir: backend
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: DB_HOST
+        fromDatabase:
+          name: rackin-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: rackin-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: rackin-db
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: rackin-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: rackin-db
+          property: password
+      - key: RACKIN_API_KEY
+        sync: false
+      # Empty by default - the sync API's only client is the Android app,
+      # which isn't a browser and isn't subject to CORS. Only needs a real
+      # value if server/ (the web dashboard-to-be) ever points at this
+      # backend directly from a browser.
+      - key: CORS_ALLOWED_ORIGINS
+        value: ""
+
+databases:
+  - name: rackin-db
+    plan: free
+    databaseName: rackin
+    user: rackin_app
