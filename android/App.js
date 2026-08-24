@@ -14,6 +14,7 @@ import StoreScreen from './src/components/store/StoreScreen.jsx';
 import { ToastHost } from './src/components/ui/Toast.jsx';
 import PinEntrySheet from './src/components/security/PinEntrySheet.jsx';
 import { useLiveQuery } from './src/hooks/useLiveQuery.js';
+import { useBackHandler } from './src/hooks/useBackHandler.js';
 import { getMembersPin } from './src/domain/security.js';
 import { startSync } from './src/sync/sync.js';
 import { forceLogoutOverdue } from './src/domain/checkIn.js';
@@ -74,6 +75,27 @@ function App() {
     setDetailMemberId(null);
     setTab('new');
   }
+
+  // Hardware/gesture back button (2026-08-25 follow-up): Member Profile and
+  // the New Member form are both reached without leaving the tab bar (see
+  // the header comment above), so a back press here should step back
+  // through that same local navigation instead of falling through to
+  // Android's default "exit the app" — New Member returns to Check-In,
+  // matching where a completed registration's own onDone already sends it
+  // (see NewMemberFlow below). Each open sheet/dialog/confirmation handles
+  // its own back press (useBackHandler.js's header comment) and consumes it
+  // before this one ever sees it, so this only fires once nothing else is
+  // open over the current tab.
+  useBackHandler(
+    () => {
+      if (detailMemberId) {
+        setDetailMemberId(null);
+      } else {
+        setTab('checkin');
+      }
+    },
+    Boolean(detailMemberId) || tab === 'new',
+  );
 
   // Push queued writes whenever the tablet has a network (TRD 7). startSync
   // is async here (opening expo-sqlite is), unlike the web version's

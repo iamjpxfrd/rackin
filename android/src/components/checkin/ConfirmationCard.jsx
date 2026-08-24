@@ -7,6 +7,7 @@ import { useEffect, useRef } from "react";
 import { Animated, Pressable, Text, View } from "react-native";
 import { CheckCircle2, RotateCcw } from "lucide-react-native";
 import { formatTime } from "../../domain/constants.js";
+import { useBackHandler } from "../../hooks/useBackHandler.js";
 import { colors } from "../../theme/colors.js";
 
 const AUTO_DISMISS_MS = 2500;
@@ -19,6 +20,8 @@ export default function ConfirmationCard({
 }) {
   const scale = useRef(new Animated.Value(0.96)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+
+  useBackHandler(onDismiss);
 
   useEffect(() => {
     Animated.parallel([
