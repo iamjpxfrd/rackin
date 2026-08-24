@@ -4,8 +4,8 @@ This guide takes you from a fresh clone to a running Rackin backend with a
 verified database schema.
 
 It covers local development only. For production deployment see
-`docs/architecture/system-design.md`; for the API contract itself, start the
-backend and open Swagger UI (step 5).
+`docs/how-to/deploy-the-backend-to-render.md`; for the API contract itself,
+start the backend and open Swagger UI (step 5).
 
 All commands run from the `backend/` directory unless stated otherwise.
 
