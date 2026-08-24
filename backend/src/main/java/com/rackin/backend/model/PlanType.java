@@ -7,5 +7,6 @@ public enum PlanType {
     // than a membership, which is why Follow Up treats it differently.
     session,
     weekly,
-    monthly
+    monthly,
+    annually
 }

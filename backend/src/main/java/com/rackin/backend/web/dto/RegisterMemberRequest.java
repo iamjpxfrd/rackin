@@ -23,6 +23,9 @@ public record RegisterMemberRequest(
         @NotNull(message = "method is required") PaymentMethod method,
         @Schema(description = "Optional contact number", example = "09171234567")
         String phone,
+        @Schema(description = "Student rate vs. regular. Only meaningful for Monthly/Annually plans, "
+                + "which are the only ones priced by it; ignored for Session/Weekly.", example = "false")
+        boolean isStudent,
         @Schema(description = "Tablet-generated idempotency key. Leave blank to let the server generate one.")
         UUID clientUuid,
 

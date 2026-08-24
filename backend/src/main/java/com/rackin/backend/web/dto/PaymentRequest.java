@@ -1,6 +1,7 @@
 package com.rackin.backend.web.dto;
 
 import com.rackin.backend.model.PaymentMethod;
+import com.rackin.backend.model.PlanType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
@@ -18,6 +19,14 @@ public record PaymentRequest(
         @NotNull(message = "amount is required") @DecimalMin(value = "0.01", message = "amount must be greater than 0") BigDecimal amount,
         @Schema(description = "How the payment was made", example = "transfer")
         @NotNull(message = "method is required") PaymentMethod method,
+        @Schema(description = "Switches the member's plan at the point of payment (e.g. a Session "
+                + "drop-in converting to Monthly) — the natural moment someone changes plans, rather "
+                + "than needing a separate edit-member action that doesn't exist. Omit to keep the "
+                + "member's current plan; coverage is computed from whichever plan applies.")
+        PlanType planType,
+        @Schema(description = "Corrects the member's Student/Regular membership type at the point of "
+                + "payment. Omit to leave it unchanged. Only meaningful for Monthly/Annually.")
+        Boolean isStudent,
         @Schema(description = "Tablet-generated idempotency key. Leave blank to let the server generate one.")
         UUID clientUuid,
         @Schema(description = "When the member actually paid, which may predate this request if the "

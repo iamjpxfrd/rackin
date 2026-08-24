@@ -54,6 +54,12 @@ public class Member implements Persistable<String> {
     @Column(length = 20)
     private String phone;
 
+    // Only meaningful for plans that actually split by it (Monthly/Annually,
+    // pricing.js) — Session/Weekly members carry the column's default with
+    // no real choice behind it, same as the tablet's own tag omits them.
+    @Column(name = "is_student", nullable = false)
+    private boolean isStudent;
+
     // Because the id is assigned rather than generated, Spring Data's default
     // isNew() (id == null) reports every new Member as existing and routes
     // save() to merge(). Merge does a SELECT first, so a registration that lost

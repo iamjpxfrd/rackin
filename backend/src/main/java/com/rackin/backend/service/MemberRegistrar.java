@@ -66,6 +66,7 @@ public class MemberRegistrar {
         member.setPlanType(request.planType());
         member.setCreatedAt(createdAt);
         member.setPhone(request.phone());
+        member.setStudent(request.isStudent());
         member.setClientUuid(request.clientUuid() != null ? request.clientUuid() : UUID.randomUUID());
 
         // Flush here rather than at commit: a lost id race then surfaces as a

@@ -6,6 +6,7 @@ import com.rackin.backend.model.Member;
 import com.rackin.backend.model.MembershipStatus;
 import com.rackin.backend.model.Payment;
 import com.rackin.backend.model.PaymentMethod;
+import com.rackin.backend.model.PlanType;
 import com.rackin.backend.repository.MemberRepository;
 import com.rackin.backend.repository.PaymentRepository;
 import com.rackin.backend.web.dto.ExpiringMemberResponse;
@@ -36,10 +37,24 @@ public class PaymentService {
 
     @Transactional
     public PaymentResponse recordPayment(String memberId, BigDecimal amount, PaymentMethod method,
-                                         UUID clientUuid, Instant paidAt, String recordedById,
-                                         String recordedByName) {
+                                         PlanType planType, Boolean isStudent, UUID clientUuid,
+                                         Instant paidAt, String recordedById, String recordedByName) {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new MemberNotFoundException(memberId));
+
+        // A renewal can switch the member's plan or correct their Student/Regular
+        // type at the point of payment (RecordPaymentSheet.jsx) — applied before
+        // recordPayment(Member, ...) below computes coverage, since a plan switch
+        // must use the NEW plan's duration, not the one being replaced. Dirty
+        // checking flushes this with the same transaction's payment insert; no
+        // separate save() needed for a managed entity.
+        if (planType != null && planType != member.getPlanType()) {
+            member.setPlanType(planType);
+        }
+        if (isStudent != null && isStudent != member.isStudent()) {
+            member.setStudent(isStudent);
+        }
+
         Payment payment = recordPayment(member, amount, method, clientUuid, paidAt, recordedById, recordedByName);
         return new PaymentResponse(payment.getCoversUntil(), deriveStatus(payment.getCoversUntil()));
     }
@@ -61,7 +76,23 @@ public class PaymentService {
         // tablet managed to reach the network. A payment taken offline on Monday
         // and synced on Friday still expires on Monday + plan duration.
         Instant paidAtOrNow = paidAt != null ? paidAt : Instant.now();
-        Instant coversUntil = paidAtOrNow.plus(PlanDurations.days(member.getPlanType()), ChronoUnit.DAYS);
+
+        // Extends from whichever is later: the member's coverage before this
+        // payment (if it hasn't lapsed yet) or the payment date — a renewal made
+        // while still covered stacks its plan's days on top of the remaining
+        // time rather than resetting it. Mirrors
+        // android/src/domain/membership.js's computeCoversUntil, reversing this
+        // backend's original "always paidAt + planDays, never extended, even on
+        // early renewal" pilot simplification (frontend-spec.md §5.4) to match
+        // what the tablet has done since PR #14/#15. Empty for a first-ever
+        // payment (registration, or a hand-seeded row with no history), which
+        // still starts fresh from paidAt exactly as before.
+        Instant currentCoversUntil = paymentRepository.findFirstByMember_IdOrderByPaidAtDesc(member.getId())
+                .map(Payment::getCoversUntil)
+                .orElse(null);
+        Instant base = currentCoversUntil != null && currentCoversUntil.isAfter(paidAtOrNow)
+                ? currentCoversUntil : paidAtOrNow;
+        Instant coversUntil = base.plus(PlanDurations.days(member.getPlanType()), ChronoUnit.DAYS);
 
         Payment payment = new Payment();
         payment.setMember(member);

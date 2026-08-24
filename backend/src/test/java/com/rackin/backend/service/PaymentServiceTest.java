@@ -66,7 +66,8 @@ class PaymentServiceTest {
         when(memberRepository.findById("1001")).thenReturn(Optional.of(member));
         when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        PaymentResponse response = paymentService.recordPayment("1001", new BigDecimal("1200.00"), PaymentMethod.cash, null, null, null, null);
+        PaymentResponse response = paymentService.recordPayment(
+                "1001", new BigDecimal("1200.00"), PaymentMethod.cash, null, null, null, null, null, null);
 
         assertThat(response.status()).isEqualTo(MembershipStatus.active);
         assertThat(response.coversUntil()).isAfter(Instant.now());
@@ -76,7 +77,8 @@ class PaymentServiceTest {
     void recordPayment_whenMemberNotFound_shouldThrowAndNeverSave() {
         when(memberRepository.findById("9999")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> paymentService.recordPayment("9999", new BigDecimal("1200.00"), PaymentMethod.cash, null, null, null, null))
+        assertThatThrownBy(() -> paymentService.recordPayment(
+                "9999", new BigDecimal("1200.00"), PaymentMethod.cash, null, null, null, null, null, null))
                 .isInstanceOf(MemberNotFoundException.class)
                 .hasMessage("No member found for #9999");
         verify(paymentRepository, never()).save(any());
@@ -86,10 +88,12 @@ class PaymentServiceTest {
     void recordPayment_whenWeeklyPlan_shouldCoverSevenDaysFromPaidAt() {
         Member member = member("1001", PlanType.weekly);
         when(memberRepository.findById("1001")).thenReturn(Optional.of(member));
+        when(paymentRepository.findFirstByMember_IdOrderByPaidAtDesc("1001")).thenReturn(Optional.empty());
         when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Instant before = Instant.now();
-        PaymentResponse response = paymentService.recordPayment("1001", new BigDecimal("300.00"), PaymentMethod.cash, null, null, null, null);
+        PaymentResponse response = paymentService.recordPayment(
+                "1001", new BigDecimal("300.00"), PaymentMethod.cash, null, null, null, null, null, null);
         Instant after = Instant.now();
 
         assertThat(response.coversUntil()).isBetween(before.plus(7, ChronoUnit.DAYS), after.plus(7, ChronoUnit.DAYS));
@@ -99,12 +103,70 @@ class PaymentServiceTest {
     void recordPayment_whenMonthlyPlan_shouldCoverThirtyDaysFromPaidAt() {
         Member member = member("1001", PlanType.monthly);
         when(memberRepository.findById("1001")).thenReturn(Optional.of(member));
+        when(paymentRepository.findFirstByMember_IdOrderByPaidAtDesc("1001")).thenReturn(Optional.empty());
         when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Instant before = Instant.now();
-        PaymentResponse response = paymentService.recordPayment("1001", new BigDecimal("1200.00"), PaymentMethod.cash, null, null, null, null);
+        PaymentResponse response = paymentService.recordPayment(
+                "1001", new BigDecimal("1200.00"), PaymentMethod.cash, null, null, null, null, null, null);
         Instant after = Instant.now();
 
+        assertThat(response.coversUntil()).isBetween(before.plus(30, ChronoUnit.DAYS), after.plus(30, ChronoUnit.DAYS));
+    }
+
+    @Test
+    void recordPayment_whenAnnualPlan_shouldCoverThreeSixtyFiveDaysFromPaidAt() {
+        Member member = member("1001", PlanType.annually);
+        when(memberRepository.findById("1001")).thenReturn(Optional.of(member));
+        when(paymentRepository.findFirstByMember_IdOrderByPaidAtDesc("1001")).thenReturn(Optional.empty());
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Instant before = Instant.now();
+        PaymentResponse response = paymentService.recordPayment(
+                "1001", new BigDecimal("1200.00"), PaymentMethod.cash, null, null, null, null, null, null);
+        Instant after = Instant.now();
+
+        assertThat(response.coversUntil()).isBetween(before.plus(365, ChronoUnit.DAYS), after.plus(365, ChronoUnit.DAYS));
+    }
+
+    @Test
+    void recordPayment_whenStillCovered_shouldStackOnExistingCoverageRatherThanResetFromToday() {
+        Member member = member("1001", PlanType.monthly);
+        when(memberRepository.findById("1001")).thenReturn(Optional.of(member));
+        Instant existingCoversUntil = Instant.now().plus(20, ChronoUnit.DAYS);
+        Payment existing = new Payment();
+        existing.setCoversUntil(existingCoversUntil);
+        when(paymentRepository.findFirstByMember_IdOrderByPaidAtDesc("1001")).thenReturn(Optional.of(existing));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // A second Monthly payment while 20 days of the first are still left:
+        // 20 (remaining) + 30 (new plan) = 50 days out, not just 30 from today —
+        // the exact "2 monthly payments = 60 days, not 30" bug (PR #14/#15 on
+        // the tablet) mirrored here on the backend.
+        PaymentResponse response = paymentService.recordPayment(
+                "1001", new BigDecimal("800.00"), PaymentMethod.cash, null, null, null, null, null, null);
+
+        assertThat(response.coversUntil()).isCloseTo(
+                existingCoversUntil.plus(30, ChronoUnit.DAYS), org.assertj.core.api.Assertions.within(2, ChronoUnit.SECONDS));
+    }
+
+    @Test
+    void recordPayment_whenLapsed_shouldStartFreshFromPaidAtRatherThanStackOnAnExpiredDate() {
+        Member member = member("1001", PlanType.monthly);
+        when(memberRepository.findById("1001")).thenReturn(Optional.of(member));
+        Instant lapsedCoversUntil = Instant.now().minus(10, ChronoUnit.DAYS);
+        Payment existing = new Payment();
+        existing.setCoversUntil(lapsedCoversUntil);
+        when(paymentRepository.findFirstByMember_IdOrderByPaidAtDesc("1001")).thenReturn(Optional.of(existing));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Instant before = Instant.now();
+        PaymentResponse response = paymentService.recordPayment(
+                "1001", new BigDecimal("800.00"), PaymentMethod.cash, null, null, null, null, null, null);
+        Instant after = Instant.now();
+
+        // Not lapsedCoversUntil + 30 - a membership that already ended doesn't
+        // get to stack on top of a date in the past.
         assertThat(response.coversUntil()).isBetween(before.plus(30, ChronoUnit.DAYS), after.plus(30, ChronoUnit.DAYS));
     }
 
@@ -112,9 +174,11 @@ class PaymentServiceTest {
     void recordPayment_whenClientUuidOmitted_shouldGenerateOne() {
         Member member = member("1001", PlanType.monthly);
         when(memberRepository.findById("1001")).thenReturn(Optional.of(member));
+        when(paymentRepository.findFirstByMember_IdOrderByPaidAtDesc("1001")).thenReturn(Optional.empty());
         when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        paymentService.recordPayment("1001", new BigDecimal("1200.00"), PaymentMethod.cash, null, null, null, null);
+        paymentService.recordPayment(
+                "1001", new BigDecimal("1200.00"), PaymentMethod.cash, null, null, null, null, null, null);
 
         ArgumentCaptor<Payment> captor = ArgumentCaptor.forClass(Payment.class);
         verify(paymentRepository).save(captor.capture());
@@ -125,10 +189,12 @@ class PaymentServiceTest {
     void recordPayment_whenClientUuidProvided_shouldUseIt() {
         Member member = member("1001", PlanType.monthly);
         when(memberRepository.findById("1001")).thenReturn(Optional.of(member));
+        when(paymentRepository.findFirstByMember_IdOrderByPaidAtDesc("1001")).thenReturn(Optional.empty());
         when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
         UUID clientUuid = UUID.randomUUID();
 
-        paymentService.recordPayment("1001", new BigDecimal("1200.00"), PaymentMethod.cash, clientUuid, null, null, null);
+        paymentService.recordPayment(
+                "1001", new BigDecimal("1200.00"), PaymentMethod.cash, null, null, clientUuid, null, null, null);
 
         ArgumentCaptor<Payment> captor = ArgumentCaptor.forClass(Payment.class);
         verify(paymentRepository).save(captor.capture());
@@ -147,7 +213,7 @@ class PaymentServiceTest {
         when(paymentRepository.findByClientUuid(clientUuid)).thenReturn(Optional.of(original));
 
         PaymentResponse response = paymentService.recordPayment(
-                "1001", new BigDecimal("1200.00"), PaymentMethod.cash, clientUuid, null, null, null);
+                "1001", new BigDecimal("1200.00"), PaymentMethod.cash, null, null, clientUuid, null, null, null);
 
         // The whole point of TRD 7's idempotency: a retried sync must not hand
         // the member another 30 days nobody paid for.
@@ -159,12 +225,13 @@ class PaymentServiceTest {
     void recordPayment_whenPaidAtProvided_shouldCountCoverageFromThenNotFromNow() {
         Member member = member("1001", PlanType.weekly);
         when(memberRepository.findById("1001")).thenReturn(Optional.of(member));
+        when(paymentRepository.findFirstByMember_IdOrderByPaidAtDesc("1001")).thenReturn(Optional.empty());
         when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
         // Paid at the desk four days ago, on a tablet that only just found wifi.
         Instant paidAt = Instant.now().minus(4, ChronoUnit.DAYS);
 
         PaymentResponse response = paymentService.recordPayment(
-                "1001", new BigDecimal("300.00"), PaymentMethod.cash, null, paidAt, null, null);
+                "1001", new BigDecimal("300.00"), PaymentMethod.cash, null, null, null, paidAt, null, null);
 
         // Three days of coverage left, not seven — syncing late must not silently
         // extend a membership past what the member actually bought.
@@ -176,10 +243,11 @@ class PaymentServiceTest {
     void recordPayment_shouldStoreWhoTookTheMoney() {
         Member member = member("1001", PlanType.monthly);
         when(memberRepository.findById("1001")).thenReturn(Optional.of(member));
+        when(paymentRepository.findFirstByMember_IdOrderByPaidAtDesc("1001")).thenReturn(Optional.empty());
         when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         paymentService.recordPayment("1001", new BigDecimal("1200.00"), PaymentMethod.cash,
-                null, null, "staff-ana", "Ana Reyes");
+                null, null, null, null, "staff-ana", "Ana Reyes");
 
         ArgumentCaptor<Payment> captor = ArgumentCaptor.forClass(Payment.class);
         verify(paymentRepository).save(captor.capture());
@@ -193,16 +261,76 @@ class PaymentServiceTest {
     void recordPayment_whenNobodyIsSignedIn_shouldRecordItUnattributedRatherThanRefuse() {
         Member member = member("1001", PlanType.monthly);
         when(memberRepository.findById("1001")).thenReturn(Optional.of(member));
+        when(paymentRepository.findFirstByMember_IdOrderByPaidAtDesc("1001")).thenReturn(Optional.empty());
         when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         paymentService.recordPayment("1001", new BigDecimal("1200.00"), PaymentMethod.cash,
-                null, null, null, null);
+                null, null, null, null, null, null);
 
         // Refusing would mean the app declines to record money the gym has
         // already taken, which is a worse record than an unattributed one.
         ArgumentCaptor<Payment> captor = ArgumentCaptor.forClass(Payment.class);
         verify(paymentRepository).save(captor.capture());
         assertThat(captor.getValue().getRecordedById()).isNull();
+    }
+
+    @Test
+    void recordPayment_whenPlanTypeProvidedAndDifferent_shouldSwitchTheMembersPlanAndUseItsDuration() {
+        Member member = member("1001", PlanType.session);
+        when(memberRepository.findById("1001")).thenReturn(Optional.of(member));
+        when(paymentRepository.findFirstByMember_IdOrderByPaidAtDesc("1001")).thenReturn(Optional.empty());
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // A Session drop-in converting to Monthly at the point of payment
+        // (RecordPaymentSheet.jsx's Plan picker).
+        Instant before = Instant.now();
+        PaymentResponse response = paymentService.recordPayment(
+                "1001", new BigDecimal("800.00"), PaymentMethod.cash, PlanType.monthly, null, null, null, null, null);
+        Instant after = Instant.now();
+
+        assertThat(member.getPlanType()).isEqualTo(PlanType.monthly);
+        assertThat(response.coversUntil()).isBetween(before.plus(30, ChronoUnit.DAYS), after.plus(30, ChronoUnit.DAYS));
+    }
+
+    @Test
+    void recordPayment_whenPlanTypeOmitted_shouldLeaveTheMembersPlanUnchanged() {
+        Member member = member("1001", PlanType.monthly);
+        when(memberRepository.findById("1001")).thenReturn(Optional.of(member));
+        when(paymentRepository.findFirstByMember_IdOrderByPaidAtDesc("1001")).thenReturn(Optional.empty());
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        paymentService.recordPayment(
+                "1001", new BigDecimal("800.00"), PaymentMethod.cash, null, null, null, null, null, null);
+
+        assertThat(member.getPlanType()).isEqualTo(PlanType.monthly);
+    }
+
+    @Test
+    void recordPayment_whenIsStudentProvidedAndDifferent_shouldCorrectTheMembersMembershipType() {
+        Member member = member("1001", PlanType.monthly);
+        member.setStudent(false);
+        when(memberRepository.findById("1001")).thenReturn(Optional.of(member));
+        when(paymentRepository.findFirstByMember_IdOrderByPaidAtDesc("1001")).thenReturn(Optional.empty());
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        paymentService.recordPayment(
+                "1001", new BigDecimal("700.00"), PaymentMethod.cash, null, true, null, null, null, null);
+
+        assertThat(member.isStudent()).isTrue();
+    }
+
+    @Test
+    void recordPayment_whenIsStudentOmitted_shouldLeaveTheMembersMembershipTypeUnchanged() {
+        Member member = member("1001", PlanType.monthly);
+        member.setStudent(true);
+        when(memberRepository.findById("1001")).thenReturn(Optional.of(member));
+        when(paymentRepository.findFirstByMember_IdOrderByPaidAtDesc("1001")).thenReturn(Optional.empty());
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        paymentService.recordPayment(
+                "1001", new BigDecimal("700.00"), PaymentMethod.cash, null, null, null, null, null, null);
+
+        assertThat(member.isStudent()).isTrue();
     }
 
     @Test
