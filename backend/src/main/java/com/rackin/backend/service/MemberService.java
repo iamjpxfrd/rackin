@@ -2,11 +2,13 @@ package com.rackin.backend.service;
 
 import com.rackin.backend.web.dto.RegisterMemberRequest;
 import com.rackin.backend.web.dto.RegisterMemberResponse;
+import com.rackin.backend.web.dto.RosterMemberResponse;
 import com.rackin.backend.web.dto.StatusResponse;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -65,5 +67,13 @@ public class MemberService {
     @Transactional(readOnly = true)
     public StatusResponse getStatus(String memberId) {
         return new StatusResponse(paymentService.getStatus(memberId));
+    }
+
+    // Status/expiring-soon derivation is payment policy, not member data, so
+    // this delegates to PaymentService rather than carrying a second copy —
+    // same split as getStatus above.
+    @Transactional(readOnly = true)
+    public List<RosterMemberResponse> listMembers() {
+        return paymentService.getRoster();
     }
 }

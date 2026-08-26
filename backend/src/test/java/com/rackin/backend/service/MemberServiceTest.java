@@ -5,6 +5,8 @@ import com.rackin.backend.model.PaymentMethod;
 import com.rackin.backend.model.PlanType;
 import com.rackin.backend.web.dto.RegisterMemberRequest;
 import com.rackin.backend.web.dto.RegisterMemberResponse;
+import com.rackin.backend.web.dto.RosterMemberResponse;
+import com.rackin.backend.web.dto.RosterMemberSummary;
 import com.rackin.backend.web.dto.StatusResponse;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -14,6 +16,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -113,5 +116,18 @@ class MemberServiceTest {
         StatusResponse response = memberService.getStatus("1001");
 
         assertThat(response.status()).isEqualTo(MembershipStatus.expired);
+    }
+
+    @Test
+    void listMembers_shouldDelegateToPaymentService() {
+        MemberService memberService = new MemberService(registrar, paymentService);
+        List<RosterMemberResponse> roster = List.of(new RosterMemberResponse(
+                new RosterMemberSummary("1001", "Maria Santos", PlanType.monthly, null),
+                MembershipStatus.active, false));
+        when(paymentService.getRoster()).thenReturn(roster);
+
+        List<RosterMemberResponse> response = memberService.listMembers();
+
+        assertThat(response).isEqualTo(roster);
     }
 }

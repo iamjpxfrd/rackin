@@ -10,8 +10,10 @@ import com.rackin.backend.model.PlanType;
 import com.rackin.backend.repository.ExpiringMemberProjection;
 import com.rackin.backend.repository.MemberRepository;
 import com.rackin.backend.repository.PaymentRepository;
+import com.rackin.backend.repository.RosterMemberProjection;
 import com.rackin.backend.web.dto.ExpiringMemberResponse;
 import com.rackin.backend.web.dto.PaymentResponse;
+import com.rackin.backend.web.dto.RosterMemberResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -419,5 +421,95 @@ class PaymentServiceTest {
         assertThat(result.get(0).member().id()).isEqualTo("1098");
         assertThat(result.get(0).member().name()).isEqualTo("Mika Perez");
         assertThat(result.get(0).coversUntil()).isEqualTo(Instant.parse("2026-07-14T00:00:00Z"));
+    }
+
+    private RosterMemberProjection rosterProjection(String id, String name, PlanType planType, String phone,
+                                                      OffsetDateTime coversUntil) {
+        return new RosterMemberProjection() {
+            public String getId() {
+                return id;
+            }
+
+            public String getName() {
+                return name;
+            }
+
+            public String getPlanType() {
+                return planType.name();
+            }
+
+            public String getPhone() {
+                return phone;
+            }
+
+            public OffsetDateTime getCoversUntil() {
+                return coversUntil;
+            }
+        };
+    }
+
+    @Test
+    void getRoster_shouldMapProjectionsToResponses() {
+        OffsetDateTime coversUntil = OffsetDateTime.now().plusDays(20);
+        when(paymentRepository.findRoster()).thenReturn(List.of(
+                rosterProjection("1098", "Mika Perez", PlanType.monthly, "555", coversUntil)));
+
+        List<RosterMemberResponse> result = paymentService.getRoster();
+
+        assertThat(result).hasSize(1);
+        RosterMemberResponse response = result.get(0);
+        assertThat(response.member().id()).isEqualTo("1098");
+        assertThat(response.member().name()).isEqualTo("Mika Perez");
+        assertThat(response.member().planType()).isEqualTo(PlanType.monthly);
+        assertThat(response.member().phone()).isEqualTo("555");
+        assertThat(response.status()).isEqualTo(MembershipStatus.active);
+    }
+
+    @Test
+    void getRoster_whenNoPaymentAtAll_shouldReturnExpiredAndNotExpiringSoon() {
+        when(paymentRepository.findRoster()).thenReturn(List.of(
+                rosterProjection("1098", "Mika Perez", PlanType.monthly, null, null)));
+
+        List<RosterMemberResponse> result = paymentService.getRoster();
+
+        assertThat(result.get(0).status()).isEqualTo(MembershipStatus.expired);
+        assertThat(result.get(0).isExpiringSoon()).isFalse();
+    }
+
+    @Test
+    void getRoster_whenCoverageAlreadyPast_shouldReturnExpiredAndNotExpiringSoon() {
+        when(paymentRepository.findRoster()).thenReturn(List.of(
+                rosterProjection("1098", "Mika Perez", PlanType.monthly, null,
+                        OffsetDateTime.now().minusDays(1))));
+
+        List<RosterMemberResponse> result = paymentService.getRoster();
+
+        assertThat(result.get(0).status()).isEqualTo(MembershipStatus.expired);
+        assertThat(result.get(0).isExpiringSoon()).isFalse();
+    }
+
+    @Test
+    void getRoster_whenActiveAndWithinConfiguredExpiringWindow_shouldMarkExpiringSoon() {
+        // RackinProperties(14, 7) in setUp: expiringDaysDefault is 7.
+        when(paymentRepository.findRoster()).thenReturn(List.of(
+                rosterProjection("1098", "Mika Perez", PlanType.monthly, null,
+                        OffsetDateTime.now().plusDays(3))));
+
+        List<RosterMemberResponse> result = paymentService.getRoster();
+
+        assertThat(result.get(0).status()).isEqualTo(MembershipStatus.active);
+        assertThat(result.get(0).isExpiringSoon()).isTrue();
+    }
+
+    @Test
+    void getRoster_whenActiveButOutsideConfiguredExpiringWindow_shouldNotMarkExpiringSoon() {
+        when(paymentRepository.findRoster()).thenReturn(List.of(
+                rosterProjection("1098", "Mika Perez", PlanType.monthly, null,
+                        OffsetDateTime.now().plusDays(20))));
+
+        List<RosterMemberResponse> result = paymentService.getRoster();
+
+        assertThat(result.get(0).status()).isEqualTo(MembershipStatus.active);
+        assertThat(result.get(0).isExpiringSoon()).isFalse();
     }
 }

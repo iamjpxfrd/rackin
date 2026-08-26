@@ -9,8 +9,11 @@ import com.rackin.backend.model.PaymentMethod;
 import com.rackin.backend.model.PlanType;
 import com.rackin.backend.repository.MemberRepository;
 import com.rackin.backend.repository.PaymentRepository;
+import com.rackin.backend.repository.RosterMemberProjection;
 import com.rackin.backend.web.dto.ExpiringMemberResponse;
 import com.rackin.backend.web.dto.PaymentResponse;
+import com.rackin.backend.web.dto.RosterMemberResponse;
+import com.rackin.backend.web.dto.RosterMemberSummary;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -145,5 +148,31 @@ public class PaymentService {
     // registration and must not carry a second copy of this rule.
     MembershipStatus deriveStatus(Instant coversUntil) {
         return !coversUntil.isBefore(Instant.now()) ? MembershipStatus.active : MembershipStatus.expired;
+    }
+
+    // The full roster (dashboard Members screen). Reuses deriveStatus and the
+    // same expiringDaysDefault threshold getExpiring applies, so a controller
+    // never has to decide what "active" or "expiring soon" means on its own.
+    @Transactional(readOnly = true)
+    public List<RosterMemberResponse> getRoster() {
+        Instant now = Instant.now();
+        Instant expiringUntil = now.plus(properties.expiringDaysDefault(), ChronoUnit.DAYS);
+        return paymentRepository.findRoster().stream()
+                .map(projection -> toRosterMemberResponse(projection, now, expiringUntil))
+                .toList();
+    }
+
+    private RosterMemberResponse toRosterMemberResponse(RosterMemberProjection projection, Instant now,
+                                                          Instant expiringUntil) {
+        // No payment at all (a hand-seeded row; registration always creates
+        // one) has nothing to derive coverage from, so it's simply expired.
+        Instant coversUntil = projection.getCoversUntil() != null ? projection.getCoversUntil().toInstant() : null;
+        MembershipStatus status = coversUntil != null ? deriveStatus(coversUntil) : MembershipStatus.expired;
+        boolean isExpiringSoon = status == MembershipStatus.active && !coversUntil.isAfter(expiringUntil);
+
+        RosterMemberSummary summary = new RosterMemberSummary(
+                projection.getId(), projection.getName(),
+                PlanType.valueOf(projection.getPlanType()), projection.getPhone());
+        return new RosterMemberResponse(summary, status, isExpiringSoon);
     }
 }

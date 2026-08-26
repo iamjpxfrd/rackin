@@ -8,6 +8,8 @@ import com.rackin.backend.model.PlanType;
 import com.rackin.backend.service.MemberService;
 import com.rackin.backend.web.dto.RegisterMemberRequest;
 import com.rackin.backend.web.dto.RegisterMemberResponse;
+import com.rackin.backend.web.dto.RosterMemberResponse;
+import com.rackin.backend.web.dto.RosterMemberSummary;
 import com.rackin.backend.web.dto.StatusResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +21,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -101,5 +104,32 @@ class MemberControllerTest {
         mockMvc.perform(get("/api/members/9999/status"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error").value("No member found for #9999"));
+    }
+
+    @Test
+    void listMembers_shouldReturn200WithTheRoster() throws Exception {
+        when(memberService.listMembers()).thenReturn(List.of(
+                new RosterMemberResponse(
+                        new RosterMemberSummary("1001", "Maria Santos", PlanType.monthly, "09171234567"),
+                        MembershipStatus.active, true)));
+
+        mockMvc.perform(get("/api/members"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].member.id").value("1001"))
+                .andExpect(jsonPath("$[0].member.name").value("Maria Santos"))
+                .andExpect(jsonPath("$[0].member.planType").value("monthly"))
+                .andExpect(jsonPath("$[0].member.phone").value("09171234567"))
+                .andExpect(jsonPath("$[0].status").value("active"))
+                .andExpect(jsonPath("$[0].isExpiringSoon").value(true));
+    }
+
+    @Test
+    void listMembers_whenRosterEmpty_shouldReturn200WithEmptyArray() throws Exception {
+        when(memberService.listMembers()).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/members"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$").isEmpty());
     }
 }
