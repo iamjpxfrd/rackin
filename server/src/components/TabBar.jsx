@@ -1,13 +1,16 @@
-import { Hash, PhoneCall, Users, UserPlus } from "lucide-react";
+import { Hash, PhoneCall, Users } from "lucide-react";
 
 // "Lapsed" named a state; the tab now holds two (expiring soon + stopped
 // coming) and one job. "Follow Up" names the job — and the pilot's success
 // condition is the owner acting on it (frontend-spec.md §5.2).
+//
+// "+ New" (member registration) is gone: android/ is the only client that
+// creates or edits data now
+// ([[Decisions/Web Becomes a Read-Only Dashboard]], accepted 2026-08-22).
 const TABS = [
   { id: "checkin", label: "Check-In", icon: Hash },
   { id: "followup", label: "Follow Up", icon: PhoneCall },
   { id: "members", label: "Members", icon: Users },
-  { id: "new", label: "+ New", icon: UserPlus },
 ];
 
 // Persistent, always visible, four destinations one tap away — no hamburger

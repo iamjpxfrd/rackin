@@ -1,19 +1,33 @@
 // S2 — Members (frontend-spec.md §6.2). The roster. Its job is lookup, not
 // analysis: a flat name-ascending list with no pinned groups, so a name is
 // always where the alphabet says it is. Expiring Soon lives on Follow Up.
+//
+// listMembers() now reads from the backend instead of local storage
+// ([[Decisions/Web Becomes a Read-Only Dashboard]]), so this is a plain
+// one-shot fetch rather than a live query. The "register the first member"
+// empty-state action is gone with it — registration happens on android/ now.
 
-import { useState } from "react";
-import { useLiveQuery } from "dexie-react-hooks";
+import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
 import { listMembers, filterMembers } from "../../domain/members.js";
 import { ScreenHeader, EmptyState, Panel } from "../ui/Layout.jsx";
 import MemberRow from "../ui/MemberRow.jsx";
 
-export default function MembersScreen({ onSelectMember, onRegisterFirst }) {
+export default function MembersScreen({ onSelectMember }) {
   const [query, setQuery] = useState("");
   // No default: `undefined` means "not loaded yet", which must not render as
   // the empty state (frontend-spec.md §9). Only a confirmed [] does.
-  const rows = useLiveQuery(() => listMembers());
+  const [rows, setRows] = useState(undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+    listMembers().then((result) => {
+      if (!cancelled) setRows(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const loading = rows === undefined;
   const matches = loading ? [] : filterMembers(rows, query);
@@ -39,16 +53,7 @@ export default function MembersScreen({ onSelectMember, onRegisterFirst }) {
         {loading ? null : rows.length === 0 ? (
           <EmptyState
             title="No members yet."
-            hint="Register the first member from the + New tab."
-            action={
-              <button
-                type="button"
-                onClick={onRegisterFirst}
-                className="h-14 rounded-ds-sm border border-steel-300 bg-surface-white px-6 font-body text-base font-semibold text-steel-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-steel-700"
-              >
-                Register the first member
-              </button>
-            }
+            hint="Members show up here once they've synced from the app."
           />
         ) : (
           <Panel>

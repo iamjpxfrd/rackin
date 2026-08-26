@@ -1,203 +1,119 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { db, resetDatabase } from "../../db/db.js";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { getFollowUp, getLapsedMembers, getExpiringMembers } from "./followUp.js";
 
-const DAY = 86_400_000;
-const NOW = new Date("2026-08-11T10:00:00.000Z");
+// followUp.js now fetches from the backend instead of deriving lists from
+// local storage ([[Decisions/Web Becomes a Read-Only Dashboard]]). These
+// tests exercise both states an unconfigured/failed build can be in: no
+// backend configured, and a configured backend answering with data.
 
-function iso(daysFromNow) {
-  return new Date(NOW.getTime() + daysFromNow * DAY).toISOString();
+const ORIGINAL_URL = import.meta.env.VITE_RACKIN_API_URL;
+const ORIGINAL_KEY = import.meta.env.VITE_RACKIN_API_KEY;
+
+function configureApi() {
+  import.meta.env.VITE_RACKIN_API_URL = "https://api.example.test";
+  import.meta.env.VITE_RACKIN_API_KEY = "test-key";
 }
 
-/** Seeds one member with an optional last visit and coverage end. */
-async function seed({
-  id,
-  name,
-  lastVisitDaysAgo = null,
-  coversInDays = null,
-  registeredDaysAgo = 400,
-  planType = "monthly",
-}) {
-  await db.members.add({
-    id,
-    name,
-    planType,
-    phone: null,
-    createdAt: iso(-registeredDaysAgo),
-  });
-  if (coversInDays !== null) {
-    await db.payments.add({
-      memberId: id,
-      amount: 500,
-      method: "cash",
-      paidAt: iso(coversInDays - 30),
-      coversUntil: iso(coversInDays),
-    });
-  }
-  if (lastVisitDaysAgo !== null) {
-    await db.checkIns.add({
-      memberId: id,
-      timestamp: iso(-lastVisitDaysAgo),
-      method: "numpad",
-    });
-  }
+function unconfigureApi() {
+  import.meta.env.VITE_RACKIN_API_URL = "";
+  import.meta.env.VITE_RACKIN_API_KEY = "";
 }
 
-beforeEach(async () => {
-  await resetDatabase();
+beforeEach(() => {
+  unconfigureApi();
 });
 
-describe("getLapsedMembers", () => {
-  it("includes members at exactly the 14-day threshold", async () => {
-    await seed({ id: "1001", name: "Exactly Fourteen", lastVisitDaysAgo: 14 });
-    const lapsed = await getLapsedMembers(NOW);
-    expect(lapsed.map((r) => r.member.id)).toEqual(["1001"]);
+afterEach(() => {
+  import.meta.env.VITE_RACKIN_API_URL = ORIGINAL_URL;
+  import.meta.env.VITE_RACKIN_API_KEY = ORIGINAL_KEY;
+  vi.unstubAllGlobals();
+});
+
+describe("when this build has no backend configured", () => {
+  it("returns empty lists rather than fetching anything", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    expect(await getLapsedMembers()).toEqual([]);
+    expect(await getExpiringMembers()).toEqual([]);
+    expect(await getFollowUp()).toEqual({ expiring: [], lapsed: [] });
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
+});
 
-  it("excludes a member who visited 13 days ago", async () => {
-    await seed({ id: "1001", name: "Recent", lastVisitDaysAgo: 13 });
-    expect(await getLapsedMembers(NOW)).toHaveLength(0);
-  });
-
-  it("sorts longest absence first", async () => {
-    await seed({ id: "1001", name: "Twenty", lastVisitDaysAgo: 20 });
-    await seed({ id: "1002", name: "Thirty", lastVisitDaysAgo: 30 });
-    await seed({ id: "1003", name: "Fifteen", lastVisitDaysAgo: 15 });
-
-    const ids = (await getLapsedMembers(NOW)).map((r) => r.member.id);
-    expect(ids).toEqual(["1002", "1001", "1003"]);
-  });
-
-  it("sorts never-visited members above everyone, as the oldest case", async () => {
-    await seed({ id: "1001", name: "Ninety", lastVisitDaysAgo: 90 });
-    await seed({ id: "1002", name: "Never Visited", lastVisitDaysAgo: null });
-
-    const rows = await getLapsedMembers(NOW);
-    expect(rows[0].member.id).toBe("1002");
-    expect(rows[0].daysSinceVisit).toBeNull();
-  });
-
-  it("does not flag a member who registered today and hasn't visited yet", async () => {
-    // Registration is not an absence. Listing someone an hour after signup
-    // is what teaches the owner to ignore the list.
-    await seed({ id: "1001", name: "Just Joined", registeredDaysAgo: 0 });
-    expect(await getLapsedMembers(NOW)).toHaveLength(0);
-  });
-
-  it("flags a never-visited member once 14 days have passed since registration", async () => {
-    await seed({ id: "1001", name: "Signed Up Then Vanished", registeredDaysAgo: 14 });
-    const rows = await getLapsedMembers(NOW);
-    expect(rows).toHaveLength(1);
-    expect(rows[0].daysSinceVisit).toBeNull();
-  });
-
-  it("still waits out the threshold for a member who registered 13 days ago", async () => {
-    await seed({ id: "1001", name: "Almost", registeredDaysAgo: 13 });
-    expect(await getLapsedMembers(NOW)).toHaveLength(0);
-  });
-
-  it("orders never-visited members by how long ago they registered", async () => {
-    await seed({ id: "1001", name: "Recent Signup", registeredDaysAgo: 20 });
-    await seed({ id: "1002", name: "Old Signup", registeredDaysAgo: 60 });
-
-    const ids = (await getLapsedMembers(NOW)).map((r) => r.member.id);
-    expect(ids).toEqual(["1002", "1001"]);
-  });
-
-  it("uses the most recent visit, not the oldest", async () => {
-    await seed({ id: "1001", name: "Returner", lastVisitDaysAgo: 40 });
-    await db.checkIns.add({
-      memberId: "1001",
-      timestamp: iso(-2),
-      method: "qr",
+describe("when the backend answers", () => {
+  it("fetches /api/checkins/lapsed and /api/payments/expiring and normalizes the rows", async () => {
+    configureApi();
+    const fetchSpy = vi.fn(async (url) => {
+      if (String(url).endsWith("/api/checkins/lapsed")) {
+        return jsonResponse([
+          {
+            member: { id: "1001", name: "Lapsed Member", planType: "monthly", phone: null },
+            status: "active",
+            isExpiringSoon: false,
+            daysRemaining: 10,
+            daysSinceVisit: 20,
+          },
+        ]);
+      }
+      if (String(url).endsWith("/api/payments/expiring")) {
+        return jsonResponse([
+          {
+            member: { id: "1002", name: "Expiring Member", planType: "weekly", phone: "555" },
+            status: "active",
+            isExpiringSoon: true,
+            daysRemaining: 2,
+            daysSinceVisit: 1,
+          },
+        ]);
+      }
+      throw new Error(`Unexpected URL: ${url}`);
     });
-    expect(await getLapsedMembers(NOW)).toHaveLength(0);
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const { expiring, lapsed } = await getFollowUp();
+
+    expect(lapsed).toEqual([
+      {
+        member: { id: "1001", name: "Lapsed Member", planType: "monthly", phone: null },
+        status: "active",
+        isExpiringSoon: false,
+        daysRemaining: 10,
+        daysSinceVisit: 20,
+      },
+    ]);
+    expect(expiring).toEqual([
+      {
+        member: { id: "1002", name: "Expiring Member", planType: "weekly", phone: "555" },
+        status: "active",
+        isExpiringSoon: true,
+        daysRemaining: 2,
+        daysSinceVisit: 1,
+      },
+    ]);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://api.example.test/api/checkins/lapsed",
+      expect.objectContaining({ headers: { Authorization: "Bearer test-key" } }),
+    );
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://api.example.test/api/payments/expiring",
+      expect.objectContaining({ headers: { Authorization: "Bearer test-key" } }),
+    );
+  });
+
+  it("falls back to an empty list rather than crashing on an unexpected shape", async () => {
+    configureApi();
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ not: "an array" })));
+
+    expect(await getLapsedMembers()).toEqual([]);
   });
 });
 
-describe("getExpiringMembers", () => {
-  it("includes coverage ending in exactly 7 days", async () => {
-    await seed({ id: "1001", name: "Seven", lastVisitDaysAgo: 1, coversInDays: 7 });
-    expect(await getExpiringMembers(NOW)).toHaveLength(1);
-  });
-
-  it("excludes coverage ending in 8 days", async () => {
-    await seed({ id: "1001", name: "Eight", lastVisitDaysAgo: 1, coversInDays: 8 });
-    expect(await getExpiringMembers(NOW)).toHaveLength(0);
-  });
-
-  it("excludes already-expired members — they are not saveable by a call", async () => {
-    await seed({ id: "1001", name: "Gone", lastVisitDaysAgo: 1, coversInDays: -2 });
-    expect(await getExpiringMembers(NOW)).toHaveLength(0);
-  });
-
-  it("excludes members who have never paid", async () => {
-    await seed({ id: "1001", name: "Unpaid", lastVisitDaysAgo: 1, coversInDays: null });
-    expect(await getExpiringMembers(NOW)).toHaveLength(0);
-  });
-
-  it("sorts soonest first", async () => {
-    await seed({ id: "1001", name: "Five", lastVisitDaysAgo: 1, coversInDays: 5 });
-    await seed({ id: "1002", name: "Two", lastVisitDaysAgo: 1, coversInDays: 2 });
-    await seed({ id: "1003", name: "Six", lastVisitDaysAgo: 1, coversInDays: 6 });
-
-    const ids = (await getExpiringMembers(NOW)).map((r) => r.member.id);
-    expect(ids).toEqual(["1002", "1001", "1003"]);
-  });
-
-  it("never lists a one-day session, which is inside the window from the moment it is sold", async () => {
-    await seed({
-      id: "1001",
-      name: "Drop In",
-      planType: "session",
-      lastVisitDaysAgo: 0,
-      coversInDays: 1,
-      registeredDaysAgo: 0,
-    });
-    expect(await getExpiringMembers(NOW)).toHaveLength(0);
-  });
-
-  it("still lists weekly members, which sit inside the same window", async () => {
-    // Guards the exclusion above from widening into "short plans don't count".
-    await seed({
-      id: "1001",
-      name: "Weekly Member",
-      planType: "weekly",
-      lastVisitDaysAgo: 1,
-      coversInDays: 3,
-    });
-    expect(await getExpiringMembers(NOW)).toHaveLength(1);
-  });
-});
-
-describe("getFollowUp", () => {
-  it("lists a member in BOTH sections when they qualify for both", async () => {
-    // Paid up but stopped coming, and coverage about to end: two different
-    // reasons to call, so hiding either would lose information.
-    await seed({ id: "1001", name: "Both", lastVisitDaysAgo: 30, coversInDays: 3 });
-
-    const { expiring, lapsed } = await getFollowUp(NOW);
-    expect(expiring.map((r) => r.member.id)).toEqual(["1001"]);
-    expect(lapsed.map((r) => r.member.id)).toEqual(["1001"]);
-  });
-
-  it("keeps a paid-up member who stopped coming visible as Active", async () => {
-    await seed({ id: "1001", name: "Paid But Absent", lastVisitDaysAgo: 23, coversInDays: 20 });
-    const { lapsed } = await getFollowUp(NOW);
-    expect(lapsed[0].status).toBe("active");
-    expect(lapsed[0].daysSinceVisit).toBe(23);
-  });
-
-  it("returns empty lists when nobody needs a call", async () => {
-    await seed({ id: "1001", name: "Fine", lastVisitDaysAgo: 1, coversInDays: 25 });
-    const { expiring, lapsed } = await getFollowUp(NOW);
-    expect(expiring).toHaveLength(0);
-    expect(lapsed).toHaveLength(0);
-  });
-
-  it("returns empty lists when there are no members at all", async () => {
-    const { expiring, lapsed } = await getFollowUp(NOW);
-    expect(expiring).toEqual([]);
-    expect(lapsed).toEqual([]);
-  });
-});
+function jsonResponse(body) {
+  return {
+    ok: true,
+    status: 200,
+    statusText: "OK",
+    json: async () => body,
+  };
+}

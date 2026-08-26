@@ -1,11 +1,14 @@
 // S3 — Member Profile (frontend-spec.md §6.3).
 //
 // A screen rather than a modal: it holds two history lists and must scroll.
-// Record Payment is sticky above the tab bar — the profile's one job and its
-// one yellow element, always reachable without scrolling.
+//
+// Record Payment used to be sticky above the tab bar — the profile's one job
+// and its one yellow element. Recording a payment is android/'s job now
+// ([[Decisions/Web Becomes a Read-Only Dashboard]], accepted 2026-08-22), so
+// this screen is read-only: it shows whatever getMemberProfile() returns from
+// the backend, with no write action.
 
-import { useState } from "react";
-import { useLiveQuery } from "dexie-react-hooks";
+import { useEffect, useState } from "react";
 import { ChevronLeft, Hash, ScanLine, Search } from "lucide-react";
 import { getMemberProfile } from "../../domain/members.js";
 import {
@@ -20,8 +23,6 @@ import {
 import { ScreenHeader, SectionHeader, Panel } from "../ui/Layout.jsx";
 import StatusBadge from "../ui/StatusBadge.jsx";
 import QrCode from "../ui/QrCode.jsx";
-import PressKey from "../ui/PressKey.jsx";
-import RecordPaymentSheet from "./RecordPaymentSheet.jsx";
 
 const METHOD_ICON = { numpad: Hash, qr: ScanLine, search: Search };
 const METHOD_LABEL = { numpad: "Numpad", qr: "QR", search: "Search" };
@@ -37,8 +38,27 @@ function statusGutter({ status, daysRemaining, coversUntil }) {
 }
 
 export default function MemberProfileScreen({ memberId, onBack }) {
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const profile = useLiveQuery(() => getMemberProfile(memberId), [memberId]);
+  const [fetched, setFetched] = useState(undefined);
+  // Which member `fetched` actually answers for — lets a still-in-flight
+  // fetch for a newly opened profile show "loading" instead of a flash of
+  // the previous member's data, without calling setState synchronously in
+  // the effect body itself.
+  const [loadedFor, setLoadedFor] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getMemberProfile(memberId).then((result) => {
+      if (!cancelled) {
+        setFetched(result);
+        setLoadedFor(memberId);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [memberId]);
+
+  const profile = loadedFor === memberId ? fetched : undefined;
 
   if (profile === undefined) {
     return <div className="flex min-h-0 flex-1 flex-col" />;
@@ -217,21 +237,6 @@ export default function MemberProfileScreen({ memberId, onBack }) {
           )}
         </section>
       </div>
-
-      <div className="shrink-0 border-t border-steel-300 bg-chalk-50 p-4">
-        <PressKey onClick={() => setSheetOpen(true)}>RECORD PAYMENT</PressKey>
-      </div>
-
-      {sheetOpen && (
-        <RecordPaymentSheet
-          profile={profile}
-          onClose={() => setSheetOpen(false)}
-          // The live query re-runs on the write, so the status block updates
-          // in place. No confirmation card: that celebration is check-in's
-          // alone, and spending it on bookkeeping would dilute it.
-          onRecorded={() => setSheetOpen(false)}
-        />
-      )}
     </div>
   );
 }

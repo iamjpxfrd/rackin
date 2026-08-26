@@ -1,169 +1,35 @@
-// Member registration and profile reads (frontend-spec.md §5.4, PRD 4.6/4.8).
+// Member reads (frontend-spec.md §5.4, PRD 4.8). Registration and profile
+// edits are android/'s job now
+// ([[Decisions/Web Becomes a Read-Only Dashboard]], accepted 2026-08-22):
+// registerMember, getNextMemberId, and suggestNames (the New Member flow's
+// name-completion helper) are gone along with the screens that called them.
 
-import { generateClientUuid, getNextMemberId, store } from "../storage/store.js";
-import { enqueue } from "../sync/outbox.js";
-import { HISTORY_PAGE_SIZE, PLAN_TYPES } from "./constants.js";
-import { computeCoversUntil, deriveStatus, latestPaymentOf } from "./membership.js";
-import { attributionFor, getOnDesk } from "./staff.js";
-
-/**
- * Registers a member and records their first payment in ONE action —
- * never two screens with a save-and-continue step (PRD 4.6 AC3).
- *
- * Both writes share a transaction: a member row with no payment row would
- * be a corrupt record, since status derives from payments and such a member
- * would read as permanently expired.
- *
- * @param {{
- *   name: string, phone?: string|null,
- *   planType: "session"|"weekly"|"monthly",
- *   amount: number, paymentMethod: "cash"|"transfer",
- *   recordedBy?: object|null,
- * }} input
- * @returns {Promise<{ member: object, payment: object }>}
- */
-export async function registerMember({
-  name,
-  phone = null,
-  planType,
-  amount,
-  paymentMethod,
-  recordedBy,
-}) {
-  const trimmedName = String(name ?? "").trim();
-  if (!trimmedName) {
-    throw new Error("Enter the member's name.");
-  }
-  if (!PLAN_TYPES.includes(planType)) {
-    throw new Error("Choose a plan.");
-  }
-  const numericAmount = Number(amount);
-  if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
-    throw new Error("Enter the amount received.");
-  }
-  if (paymentMethod !== "cash" && paymentMethod !== "transfer") {
-    throw new Error("Choose a payment method.");
-  }
-
-  const trimmedPhone = String(phone ?? "").trim() || null;
-
-  // Registration takes money, so its payment is attributed exactly as a
-  // renewal is. Resolved before the transaction opens — Dexie transactions do
-  // not survive an await on a table they were not given.
-  const attribution = attributionFor(
-    recordedBy === undefined ? await getOnDesk() : recordedBy,
-  );
-
-  // db.outbox joins the transaction so the queue entry commits with the rows it
-  // describes. Queuing afterwards would leave a crash-sized window in which the
-  // member exists locally but is never pushed — invisible, since the tablet
-  // would still show them (sync/outbox.js).
-  return store.transaction(["members", "payments", "outbox"], async (tx) => {
-    const id = await getNextMemberId();
-    const createdAt = new Date().toISOString();
-
-    const member = {
-      id,
-      name: trimmedName,
-      planType,
-      phone: trimmedPhone,
-      createdAt,
-      clientUuid: generateClientUuid(),
-    };
-    await tx.members.add(member);
-
-    const payment = {
-      memberId: id,
-      amount: numericAmount,
-      method: paymentMethod,
-      paidAt: createdAt,
-      coversUntil: computeCoversUntil(createdAt, planType),
-      clientUuid: generateClientUuid(),
-      ...attribution,
-    };
-    const paymentId = await tx.payments.add(payment);
-
-    // One operation, not two, mirroring POST /api/members: registration and its
-    // first payment are a single action on the backend as well (TRD 5).
-    // memberId carries this tablet's number so the backend keeps it rather than
-    // assigning its own — the QR card is already printed with it.
-    await enqueue(tx, "register", {
-      memberId: id,
-      name: trimmedName,
-      planType,
-      phone: trimmedPhone,
-      amount: numericAmount,
-      method: paymentMethod,
-      clientUuid: member.clientUuid,
-      paymentClientUuid: payment.clientUuid,
-      createdAt,
-      ...attribution,
-    });
-
-    return { member, payment: { ...payment, id: paymentId } };
-  });
-}
-
-/**
- * Everything the Member Profile screen renders, in one read.
- * @returns {Promise<object|null>}
- */
-export async function getMemberProfile(memberId) {
-  const member = await store.members.get(memberId);
-  if (!member) return null;
-
-  const [payments, checkIns] = await Promise.all([
-    store.payments.where("memberId").equals(memberId).toArray(),
-    store.checkIns.where("memberId").equals(memberId).toArray(),
-  ]);
-
-  payments.sort((a, b) => b.paidAt.localeCompare(a.paidAt));
-  checkIns.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-
-  const status = deriveStatus(latestPaymentOf(payments));
-  const monthStart = startOfUtcMonth(new Date());
-
-  return {
-    member,
-    ...status,
-    // Section headers show the true totals, so a capped list never lies
-    // about the count (frontend-spec.md §6.3).
-    payments: payments.slice(0, HISTORY_PAGE_SIZE),
-    checkIns: checkIns.slice(0, HISTORY_PAGE_SIZE),
-    paymentCount: payments.length,
-    checkInCount: checkIns.length,
-    visitCountThisMonth: checkIns.filter((c) => c.timestamp >= monthStart).length,
-  };
+// TODO(dashboard reads): no backend endpoint returns a member's full profile
+// (payment + check-in history) yet — only /api/members/{id}/status exists,
+// which is a status summary, not the history this screen wants. Stubbed
+// until a matching read endpoint exists. See
+// [[Decisions/Web Becomes a Read-Only Dashboard]].
+export async function getMemberProfile() {
+  return null;
 }
 
 /**
  * The full roster, name-ascending, each row carrying its derived status.
- * A flat list with no pinned groups — a name is always where the alphabet
- * says it is (frontend-spec.md §6.2).
+ *
+ * TODO(dashboard reads): no backend endpoint returns the full roster yet.
+ * Stubbed empty until one exists. See
+ * [[Decisions/Web Becomes a Read-Only Dashboard]].
  *
  * @returns {Promise<Array<{ member: object, status: string, isExpiringSoon: boolean }>>}
  */
 export async function listMembers() {
-  const [members, payments] = await Promise.all([
-    store.members.toArray(),
-    store.payments.toArray(),
-  ]);
-
-  const paymentsByMember = groupBy(payments, (payment) => payment.memberId);
-
-  return members
-    .map((member) => ({
-      member,
-      ...deriveStatus(latestPaymentOf(paymentsByMember.get(member.id))),
-    }))
-    .sort((a, b) => a.member.name.localeCompare(b.member.name));
+  return [];
 }
 
 /**
  * Roster filter for the Members tab: matches name OR member number, so
  * staff holding a physical card can find someone the same way they would
- * on Check-In. An empty query returns the whole roster — unlike Check-In's
- * findMembersByName, which deliberately returns nothing (frontend-spec.md §6.2).
+ * on Check-In. An empty query returns the whole roster.
  */
 export function filterMembers(rows, query) {
   const needle = String(query ?? "").trim().toLowerCase();
@@ -175,67 +41,12 @@ export function filterMembers(rows, query) {
 }
 
 /**
- * Names already on the roster, for completing the one being typed.
+ * Total members on the roster — drives the app's first-run empty states.
  *
- * Names repeat at a single gym — shared surnames, families on the same
- * plan — and the front desk is typing on a tablet keyboard mid-conversation.
- * Completing from names the gym has actually used beats retyping, and it
- * spells them consistently, which is what makes search find them later.
- *
- * Exact matches are surfaced (not blocked): two members may share a name,
- * and the member number disambiguates (PRODUCT.md).
- *
- * @returns {Promise<Array<{ name: string, id: string }>>}
+ * TODO(dashboard reads): no backend endpoint for a member count yet.
+ * Stubbed to 0 until one exists. See
+ * [[Decisions/Web Becomes a Read-Only Dashboard]].
  */
-export async function suggestNames(query, limit = 5) {
-  const needle = String(query ?? "").trim().toLowerCase();
-  if (needle.length < 2) return [];
-
-  const members = await store.members.toArray();
-  const seen = new Set();
-  const matches = [];
-
-  for (const member of members) {
-    const lower = member.name.toLowerCase();
-    if (!lower.includes(needle)) continue;
-    if (seen.has(lower)) continue;
-    seen.add(lower);
-    matches.push({ name: member.name, id: member.id, startsWith: lower.startsWith(needle) });
-  }
-
-  return matches
-    // Prefix matches first — that is what the typist is reaching for.
-    .sort((a, b) =>
-      a.startsWith === b.startsWith
-        ? a.name.localeCompare(b.name)
-        : a.startsWith
-          ? -1
-          : 1,
-    )
-    .slice(0, limit)
-    .map(({ name, id }) => ({ name, id }));
-}
-
-export { getNextMemberId };
-
-/** Total members on the roster — drives the app's first-run empty states. */
-export function memberCount() {
-  return store.members.count();
-}
-
-function startOfUtcMonth(date) {
-  return new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1),
-  ).toISOString();
-}
-
-export function groupBy(items, keyOf) {
-  const map = new Map();
-  for (const item of items) {
-    const key = keyOf(item);
-    const bucket = map.get(key);
-    if (bucket) bucket.push(item);
-    else map.set(key, [item]);
-  }
-  return map;
+export async function memberCount() {
+  return 0;
 }
