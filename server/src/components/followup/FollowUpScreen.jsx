@@ -8,8 +8,14 @@
 // two where a phone call changes the outcome before it happens. A member
 // qualifying for both appears in both: two different reasons to call, and
 // de-duplicating would hide the more urgent one.
+//
+// getFollowUp() now reads from the backend instead of local storage
+// ([[Decisions/Web Becomes a Read-Only Dashboard]]), so this is a plain
+// one-shot fetch rather than a live query. The "no members registered yet"
+// empty state is gone with it — registration happens on android/ now, this
+// screen just reports whether anyone currently needs a call.
 
-import { useLiveQuery } from "dexie-react-hooks";
+import { useEffect, useState } from "react";
 import { getFollowUp } from "../../domain/followUp.js";
 import { ScreenHeader, SectionHeader, EmptyState, Panel } from "../ui/Layout.jsx";
 import UrgencyRow from "../ui/UrgencyRow.jsx";
@@ -22,10 +28,20 @@ function QuietRow({ children }) {
   );
 }
 
-export default function FollowUpScreen({ onSelectMember, onRegisterFirst, hasMembers }) {
+export default function FollowUpScreen({ onSelectMember }) {
   // No default value: undefined is "not loaded", which must never render as
   // the empty state (frontend-spec.md §9).
-  const data = useLiveQuery(() => getFollowUp());
+  const [data, setData] = useState(undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+    getFollowUp().then((result) => {
+      if (!cancelled) setData(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (data === undefined) {
     return (
@@ -37,29 +53,6 @@ export default function FollowUpScreen({ onSelectMember, onRegisterFirst, hasMem
 
   const { expiring, lapsed } = data;
   const total = expiring.length + lapsed.length;
-
-  if (!hasMembers) {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col">
-        <ScreenHeader title="Follow Up" />
-        <div className="px-4">
-          <EmptyState
-            title="No members yet."
-            hint="Members show up here once they're registered and their plan starts running down."
-            action={
-              <button
-                type="button"
-                onClick={onRegisterFirst}
-                className="h-14 rounded-ds-sm border border-steel-300 bg-surface-white px-6 font-body text-base font-semibold text-steel-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-steel-700"
-              >
-                Register the first member
-              </button>
-            }
-          />
-        </div>
-      </div>
-    );
-  }
 
   if (total === 0) {
     return (

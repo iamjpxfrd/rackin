@@ -1,94 +1,16 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, it, expect } from "vitest";
 
-import { resetDatabase } from "../../db/db.js";
-import { checkInMember } from "./checkIn.js";
+import { getTodaysActivity } from "./checkIn.js";
 import { formatTime } from "./constants.js";
-import { registerMember } from "./members.js";
 
-beforeEach(async () => {
-  await resetDatabase();
-});
-
-function registerDefaultMember(overrides = {}) {
-  return registerMember({
-    name: "Maria Santos",
-    planType: "monthly",
-    amount: 1200,
-    paymentMethod: "cash",
-    ...overrides,
-  });
-}
-
-describe("repeat check-ins on the same day", () => {
-  it("reports no earlier visit the first time a member comes in", async () => {
-    const { member } = await registerDefaultMember();
-
-    const result = await checkInMember(member.id, "numpad");
-
-    expect(result.alreadyCheckedInAt).toBeNull();
-    expect(result.visitCountThisMonth).toBe(1);
-  });
-
-  it("reports the earlier visit on a repeat, and still records the new one", async () => {
-    const { member } = await registerDefaultMember();
-    const first = await checkInMember(member.id, "numpad");
-    expect(first.alreadyCheckedInAt).toBeNull();
-
-    const second = await checkInMember(member.id, "numpad");
-
-    // Reported, not blocked: a member can genuinely train twice in a day, and
-    // no check-in path may dead-end (Product Principle 2).
-    expect(second.alreadyCheckedInAt).not.toBeNull();
-    expect(second.visitCountThisMonth).toBe(2);
-  });
-
-  it("names the time of the earlier visit, not this one", async () => {
-    const { member } = await registerDefaultMember();
-    const first = await checkInMember(member.id, "numpad");
-    const firstVisit = await recordedVisits(member.id);
-
-    const second = await checkInMember(member.id, "qr");
-
-    // Reading after the write would make this visit its own "earlier" visit,
-    // so every check-in would claim the member had already been in.
-    expect(second.alreadyCheckedInAt).toBe(firstVisit[0].timestamp);
-    expect(first.alreadyCheckedInAt).toBeNull();
-  });
-
-  it("does not confuse one member's visit for another's", async () => {
-    const { member: maria } = await registerDefaultMember();
-    const { member: john } = await registerDefaultMember({ name: "John Doe" });
-    await checkInMember(maria.id, "numpad");
-
-    const johnsFirst = await checkInMember(john.id, "numpad");
-
-    expect(johnsFirst.alreadyCheckedInAt).toBeNull();
-  });
-
-  it("treats a visit from a previous day as not today", async () => {
-    const { member } = await registerDefaultMember();
-    const { db } = await import("../../db/db.js");
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    await db.checkIns.add({
-      memberId: member.id,
-      timestamp: yesterday.toISOString(),
-      method: "numpad",
-      clientUuid: "yesterdays-visit",
-    });
-
-    const today = await checkInMember(member.id, "numpad");
-
-    // Yesterday's attendance is not a double tap.
-    expect(today.alreadyCheckedInAt).toBeNull();
+describe("getTodaysActivity", () => {
+  it("is stubbed empty until a backend read endpoint exists", async () => {
+    // No local storage to read from any more
+    // ([[Decisions/Web Becomes a Read-Only Dashboard]]), and no matching
+    // backend endpoint yet either — see the TODO in checkIn.js.
+    expect(await getTodaysActivity()).toEqual([]);
   });
 });
-
-async function recordedVisits(memberId) {
-  const { db } = await import("../../db/db.js");
-  const visits = await db.checkIns.where("memberId").equals(memberId).toArray();
-  return visits.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-}
 
 describe("formatTime", () => {
   it("keeps the meridiem on one line with the time", () => {

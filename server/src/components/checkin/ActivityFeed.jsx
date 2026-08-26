@@ -1,4 +1,4 @@
-import { useLiveQuery } from "dexie-react-hooks";
+import { useEffect, useState } from "react";
 import { Hash, ScanLine, Search } from "lucide-react";
 import { getTodaysActivity } from "../../domain/checkIn.js";
 // Imported rather than redefined: this file used to carry its own copy, and two
@@ -7,11 +7,23 @@ import { formatTime } from "../../domain/constants.js";
 
 const METHOD_ICON = { numpad: Hash, qr: ScanLine, search: Search };
 
-// The live-updating equivalent of the old logbook page (PRD 4.4) — re-runs
-// automatically on every local write via Dexie's liveQuery, no manual
-// refresh, no network dependency.
+// The old logbook page (PRD 4.4). Used to re-run automatically on every
+// local write via Dexie's liveQuery; now reads from getTodaysActivity(),
+// which is a backend-read stub until a matching endpoint exists
+// ([[Decisions/Web Becomes a Read-Only Dashboard]]) — so this is a plain
+// one-shot fetch rather than a live query.
 export default function ActivityFeed() {
-  const activity = useLiveQuery(() => getTodaysActivity(), [], []);
+  const [activity, setActivity] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getTodaysActivity().then((rows) => {
+      if (!cancelled) setActivity(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="flex h-full flex-col">

@@ -1,110 +1,36 @@
 // The Follow Up tab's two questions (frontend-spec.md §6.1, PRD 4.5/4.9).
 //
-// Automatic lapsed and expiring-soon detection is the single thing a paper
-// logbook can never do, and the primary reason the system is worth building
-// (PRODUCT.md — Positioning). This file is that claim.
+// Previously this derived both lists itself from local Dexie reads (every
+// member's latest payment and last visit). That computation now lives on the
+// backend, which exposes it directly as /api/checkins/lapsed and
+// /api/payments/expiring — so this file's job shrinks to fetching those two
+// lists and normalizing whatever they return into the shape the screen
+// expects, rather than re-deriving anything locally
+// ([[Decisions/Web Becomes a Read-Only Dashboard]], accepted 2026-08-22).
 
-import { store } from "../storage/store.js";
-import { EXPIRING_WITHIN_DAYS, LAPSED_AFTER_DAYS, isDropIn } from "./constants.js";
-import { daysBetween, deriveStatus, latestPaymentOf } from "./membership.js";
-import { groupBy } from "./members.js";
-
-/**
- * Reads every member once and attaches their latest payment and last visit.
- * Both list builders share it so a single Follow Up render hits the database
- * one time, not twice per member.
- */
-async function loadMemberSnapshots(now) {
-  const [members, payments, checkIns] = await Promise.all([
-    store.members.toArray(),
-    store.payments.toArray(),
-    store.checkIns.toArray(),
-  ]);
-
-  const paymentsByMember = groupBy(payments, (payment) => payment.memberId);
-  const lastVisitByMember = new Map();
-  for (const checkIn of checkIns) {
-    const current = lastVisitByMember.get(checkIn.memberId);
-    if (!current || checkIn.timestamp > current) {
-      lastVisitByMember.set(checkIn.memberId, checkIn.timestamp);
-    }
-  }
-
-  const nowIso = now.toISOString();
-  return members.map((member) => {
-    const lastVisitAt = lastVisitByMember.get(member.id) ?? null;
-    return {
-      member,
-      lastVisitAt,
-      daysSinceVisit: lastVisitAt ? daysBetween(lastVisitAt, nowIso) : null,
-      // How long this member has been silent. For someone who has never
-      // checked in, silence is measured from the day they registered — a
-      // member who signed up an hour ago has not "stopped coming", and
-      // putting them on the call list on day one is exactly what would
-      // teach the owner to ignore it.
-      daysSinceContact: lastVisitAt
-        ? daysBetween(lastVisitAt, nowIso)
-        : member.createdAt
-          ? daysBetween(member.createdAt, nowIso)
-          : Infinity,
-      ...deriveStatus(latestPaymentOf(paymentsByMember.get(member.id)), now),
-    };
-  });
-}
-
-/** Members who have been silent for 14+ days, longest silence first. */
-function selectLapsed(snapshots) {
-  return snapshots
-    .filter((row) => row.daysSinceContact >= LAPSED_AFTER_DAYS)
-    .sort((a, b) => {
-      // Never-visited members sort above everyone: someone who signed up
-      // and never came is the most lapsed case there is.
-      if (a.daysSinceVisit === null && b.daysSinceVisit === null) {
-        return b.daysSinceContact - a.daysSinceContact;
-      }
-      if (a.daysSinceVisit === null) return -1;
-      if (b.daysSinceVisit === null) return 1;
-      return b.daysSinceVisit - a.daysSinceVisit;
-    });
-}
-
-/** Members whose coverage ends within 7 days, soonest first. */
-function selectExpiring(snapshots) {
-  return snapshots
-    .filter(
-      (row) =>
-        row.status === "active" &&
-        row.daysRemaining !== null &&
-        row.daysRemaining <= EXPIRING_WITHIN_DAYS &&
-        // A one-day drop-in is inside the 7-day window from the moment it is
-        // sold, so including sessions would put every day-pass on this list
-        // and drown the memberships actually worth a call. Nothing is being
-        // saved by phoning someone whose plan was only ever one day.
-        !isDropIn(row.member.planType),
-    )
-    .sort((a, b) => a.daysRemaining - b.daysRemaining);
-}
+import { getJson } from "../api/client.js";
 
 /**
- * Members with no check-in in 14+ days, longest absence first.
- * Never-visited members carry daysSinceVisit: null and sort as oldest —
- * someone who signed up and never came is the most lapsed case there is.
+ * Members whose coverage ends within 7 days, soonest first — from
+ * /api/payments/expiring.
  *
- * @param {Date} [now]
+ * TODO(dashboard reads): the exact response shape hasn't been confirmed
+ * against the live backend yet, so this maps defensively, assuming field
+ * names carry over from the pilot's Dexie schema (which matched the backend
+ * schema field-for-field). Confirm and tighten this mapping once the
+ * dashboard work picks the contract back up — see
+ * [[Decisions/Web Becomes a Read-Only Dashboard]].
  */
-export async function getLapsedMembers(now = new Date()) {
-  return selectLapsed(await loadMemberSnapshots(now));
+export async function getExpiringMembers() {
+  return normalizeRows(await getJson("/api/payments/expiring"));
 }
 
 /**
- * Members whose coverage ends within 7 days, soonest first. Acting here is
- * the only case where a phone call prevents a lapse rather than recovering
- * one, which is why this list sits above the lapsed one.
- *
- * @param {Date} [now]
+ * Members with no check-in in 14+ days, longest absence first — from
+ * /api/checkins/lapsed. Same shape caveat as getExpiringMembers.
  */
-export async function getExpiringMembers(now = new Date()) {
-  return selectExpiring(await loadMemberSnapshots(now));
+export async function getLapsedMembers() {
+  return normalizeRows(await getJson("/api/checkins/lapsed"));
 }
 
 /**
@@ -112,7 +38,26 @@ export async function getExpiringMembers(now = new Date()) {
  * A member can appear in both: they are two different reasons to call, and
  * de-duplicating would hide the more urgent one (frontend-spec.md §6.1).
  */
-export async function getFollowUp(now = new Date()) {
-  const snapshots = await loadMemberSnapshots(now);
-  return { expiring: selectExpiring(snapshots), lapsed: selectLapsed(snapshots) };
+export async function getFollowUp() {
+  const [expiring, lapsed] = await Promise.all([
+    getExpiringMembers(),
+    getLapsedMembers(),
+  ]);
+  return { expiring, lapsed };
+}
+
+function normalizeRows(data) {
+  if (!Array.isArray(data)) return [];
+  return data.map((row) => ({
+    member: {
+      id: row?.member?.id ?? row?.memberId ?? "",
+      name: row?.member?.name ?? row?.name ?? "",
+      planType: row?.member?.planType ?? row?.planType ?? null,
+      phone: row?.member?.phone ?? row?.phone ?? null,
+    },
+    status: row?.status ?? "expired",
+    isExpiringSoon: Boolean(row?.isExpiringSoon),
+    daysRemaining: row?.daysRemaining ?? null,
+    daysSinceVisit: row?.daysSinceVisit ?? null,
+  }));
 }
