@@ -10,10 +10,10 @@ import com.rackin.backend.model.PlanType;
 import com.rackin.backend.repository.ExpiringMemberProjection;
 import com.rackin.backend.repository.MemberRepository;
 import com.rackin.backend.repository.PaymentRepository;
-import com.rackin.backend.repository.RosterMemberProjection;
 import com.rackin.backend.web.dto.ExpiringMemberResponse;
 import com.rackin.backend.web.dto.PaymentResponse;
 import com.rackin.backend.web.dto.RosterMemberResponse;
+import jakarta.persistence.Tuple;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -423,36 +423,56 @@ class PaymentServiceTest {
         assertThat(result.get(0).coversUntil()).isEqualTo(Instant.parse("2026-07-14T00:00:00Z"));
     }
 
-    private RosterMemberProjection rosterProjection(String id, String name, PlanType planType, String phone,
-                                                      OffsetDateTime coversUntil) {
-        return new RosterMemberProjection() {
-            public String getId() {
-                return id;
+    // A hand-written fake rather than a Mockito mock: Tuple's get(String,
+    // Class<X>) is generic, and stubbing it through when(...) hits Mockito's
+    // strict-stubbing detection ("UnfinishedStubbing") on this JDK/Mockito
+    // combination. A Map-backed fake sidesteps that entirely. Mirrors what
+    // findRoster()'s native query aliases each column as — see
+    // PaymentRepository#findRoster.
+    private Tuple rosterTuple(String id, String name, PlanType planType, String phone, Instant coversUntil) {
+        java.util.Map<String, Object> values = new java.util.HashMap<>();
+        values.put("id", id);
+        values.put("name", name);
+        values.put("planType", planType.name());
+        values.put("phone", phone);
+        values.put("coversUntil", coversUntil);
+        return new Tuple() {
+            public <X> X get(jakarta.persistence.TupleElement<X> tupleElement) {
+                throw new UnsupportedOperationException();
             }
 
-            public String getName() {
-                return name;
+            public Object get(String alias) {
+                return values.get(alias);
             }
 
-            public String getPlanType() {
-                return planType.name();
+            @SuppressWarnings("unchecked")
+            public <X> X get(String alias, Class<X> type) {
+                return (X) values.get(alias);
             }
 
-            public String getPhone() {
-                return phone;
+            public Object get(int i) {
+                throw new UnsupportedOperationException();
             }
 
-            public OffsetDateTime getCoversUntil() {
-                return coversUntil;
+            public <X> X get(int i, Class<X> type) {
+                throw new UnsupportedOperationException();
+            }
+
+            public Object[] toArray() {
+                throw new UnsupportedOperationException();
+            }
+
+            public List<jakarta.persistence.TupleElement<?>> getElements() {
+                throw new UnsupportedOperationException();
             }
         };
     }
 
     @Test
     void getRoster_shouldMapProjectionsToResponses() {
-        OffsetDateTime coversUntil = OffsetDateTime.now().plusDays(20);
+        Instant coversUntil = Instant.now().plus(20, ChronoUnit.DAYS);
         when(paymentRepository.findRoster()).thenReturn(List.of(
-                rosterProjection("1098", "Mika Perez", PlanType.monthly, "555", coversUntil)));
+                rosterTuple("1098", "Mika Perez", PlanType.monthly, "555", coversUntil)));
 
         List<RosterMemberResponse> result = paymentService.getRoster();
 
@@ -468,7 +488,7 @@ class PaymentServiceTest {
     @Test
     void getRoster_whenNoPaymentAtAll_shouldReturnExpiredAndNotExpiringSoon() {
         when(paymentRepository.findRoster()).thenReturn(List.of(
-                rosterProjection("1098", "Mika Perez", PlanType.monthly, null, null)));
+                rosterTuple("1098", "Mika Perez", PlanType.monthly, null, null)));
 
         List<RosterMemberResponse> result = paymentService.getRoster();
 
@@ -479,8 +499,8 @@ class PaymentServiceTest {
     @Test
     void getRoster_whenCoverageAlreadyPast_shouldReturnExpiredAndNotExpiringSoon() {
         when(paymentRepository.findRoster()).thenReturn(List.of(
-                rosterProjection("1098", "Mika Perez", PlanType.monthly, null,
-                        OffsetDateTime.now().minusDays(1))));
+                rosterTuple("1098", "Mika Perez", PlanType.monthly, null,
+                        Instant.now().minus(1, ChronoUnit.DAYS))));
 
         List<RosterMemberResponse> result = paymentService.getRoster();
 
@@ -492,8 +512,8 @@ class PaymentServiceTest {
     void getRoster_whenActiveAndWithinConfiguredExpiringWindow_shouldMarkExpiringSoon() {
         // RackinProperties(14, 7) in setUp: expiringDaysDefault is 7.
         when(paymentRepository.findRoster()).thenReturn(List.of(
-                rosterProjection("1098", "Mika Perez", PlanType.monthly, null,
-                        OffsetDateTime.now().plusDays(3))));
+                rosterTuple("1098", "Mika Perez", PlanType.monthly, null,
+                        Instant.now().plus(3, ChronoUnit.DAYS))));
 
         List<RosterMemberResponse> result = paymentService.getRoster();
 
@@ -504,8 +524,8 @@ class PaymentServiceTest {
     @Test
     void getRoster_whenActiveButOutsideConfiguredExpiringWindow_shouldNotMarkExpiringSoon() {
         when(paymentRepository.findRoster()).thenReturn(List.of(
-                rosterProjection("1098", "Mika Perez", PlanType.monthly, null,
-                        OffsetDateTime.now().plusDays(20))));
+                rosterTuple("1098", "Mika Perez", PlanType.monthly, null,
+                        Instant.now().plus(20, ChronoUnit.DAYS))));
 
         List<RosterMemberResponse> result = paymentService.getRoster();
 
