@@ -125,19 +125,23 @@ describe("memberCount", () => {
     expect(await memberCount()).toBe(0);
   });
 
-  it("is the length of the roster listMembers() returns", async () => {
+  it("fetches /api/members/count rather than the full roster", async () => {
     configureApi();
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
-        jsonResponse([
-          { member: { id: "1001", name: "Ana Reyes" }, status: "active", isExpiringSoon: false },
-          { member: { id: "1002", name: "Zara Cruz" }, status: "expired", isExpiringSoon: false },
-        ]),
-      ),
-    );
+    const fetchSpy = vi.fn(async () => jsonResponse({ count: 2 }));
+    vi.stubGlobal("fetch", fetchSpy);
 
     expect(await memberCount()).toBe(2);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://api.example.test/api/members/count",
+      expect.objectContaining({ headers: { Authorization: "Bearer test-key" } }),
+    );
+  });
+
+  it("is 0 when the response is missing the count field", async () => {
+    configureApi();
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({})));
+
+    expect(await memberCount()).toBe(0);
   });
 });
 

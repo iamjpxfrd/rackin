@@ -3,6 +3,8 @@ package com.rackin.backend.service;
 import com.rackin.backend.model.MembershipStatus;
 import com.rackin.backend.model.PaymentMethod;
 import com.rackin.backend.model.PlanType;
+import com.rackin.backend.repository.MemberRepository;
+import com.rackin.backend.web.dto.MemberCountResponse;
 import com.rackin.backend.web.dto.RegisterMemberRequest;
 import com.rackin.backend.web.dto.RegisterMemberResponse;
 import com.rackin.backend.web.dto.RosterMemberResponse;
@@ -35,12 +37,15 @@ class MemberServiceTest {
     @Mock
     private PaymentService paymentService;
 
+    @Mock
+    private MemberRepository memberRepository;
+
     private final RegisterMemberRequest request = new RegisterMemberRequest(
             "Maria Santos", PlanType.monthly, new BigDecimal("1200.00"), PaymentMethod.cash, null, false, null, null, null, null, null, null);
 
     @Test
     void registerMember_whenNoConflict_shouldReturnOnFirstAttempt() {
-        MemberService memberService = new MemberService(registrar, paymentService);
+        MemberService memberService = new MemberService(registrar, paymentService, memberRepository);
         RegisterMemberResponse expected = new RegisterMemberResponse("1001", MembershipStatus.active, Instant.now());
         when(registrar.register(request)).thenReturn(expected);
 
@@ -52,7 +57,7 @@ class MemberServiceTest {
 
     @Test
     void registerMember_whenIdRaceThenClears_shouldRetryAndSucceed() {
-        MemberService memberService = new MemberService(registrar, paymentService);
+        MemberService memberService = new MemberService(registrar, paymentService, memberRepository);
         RegisterMemberResponse expected = new RegisterMemberResponse("1002", MembershipStatus.active, Instant.now());
         when(registrar.register(request))
                 .thenThrow(new DataIntegrityViolationException("duplicate key"))
@@ -66,7 +71,7 @@ class MemberServiceTest {
 
     @Test
     void registerMember_whenConflictNeverClears_shouldThrowAfterMaxAttempts() {
-        MemberService memberService = new MemberService(registrar, paymentService);
+        MemberService memberService = new MemberService(registrar, paymentService, memberRepository);
         DataIntegrityViolationException persistentConflict = new DataIntegrityViolationException("duplicate key");
         when(registrar.register(request)).thenThrow(persistentConflict);
 
@@ -77,7 +82,7 @@ class MemberServiceTest {
 
     @Test
     void registerMember_whenClientUuidAlreadyRegistered_shouldReplayOriginalWithoutRegisteringAgain() {
-        MemberService memberService = new MemberService(registrar, paymentService);
+        MemberService memberService = new MemberService(registrar, paymentService, memberRepository);
         RegisterMemberResponse original = new RegisterMemberResponse("1001", MembershipStatus.active, Instant.now());
         when(registrar.findAlreadyRegistered(request)).thenReturn(Optional.of(original));
 
@@ -92,7 +97,7 @@ class MemberServiceTest {
 
     @Test
     void registerMember_whenReplayLosesTheRaceWithItsOwnOriginal_shouldResolveOnTheNextAttempt() {
-        MemberService memberService = new MemberService(registrar, paymentService);
+        MemberService memberService = new MemberService(registrar, paymentService, memberRepository);
         RegisterMemberResponse original = new RegisterMemberResponse("1001", MembershipStatus.active, Instant.now());
         // First pass sees nothing committed yet and loses the unique index; by
         // the second the winner is visible. Re-checking every attempt, not just
@@ -110,7 +115,7 @@ class MemberServiceTest {
 
     @Test
     void getStatus_shouldDelegateToPaymentService() {
-        MemberService memberService = new MemberService(registrar, paymentService);
+        MemberService memberService = new MemberService(registrar, paymentService, memberRepository);
         when(paymentService.getStatus("1001")).thenReturn(MembershipStatus.expired);
 
         StatusResponse response = memberService.getStatus("1001");
@@ -120,7 +125,7 @@ class MemberServiceTest {
 
     @Test
     void listMembers_shouldDelegateToPaymentService() {
-        MemberService memberService = new MemberService(registrar, paymentService);
+        MemberService memberService = new MemberService(registrar, paymentService, memberRepository);
         List<RosterMemberResponse> roster = List.of(new RosterMemberResponse(
                 new RosterMemberSummary("1001", "Maria Santos", PlanType.monthly, null),
                 MembershipStatus.active, false));
@@ -129,5 +134,15 @@ class MemberServiceTest {
         List<RosterMemberResponse> response = memberService.listMembers();
 
         assertThat(response).isEqualTo(roster);
+    }
+
+    @Test
+    void getMemberCount_shouldReturnRepositoryRowCount() {
+        MemberService memberService = new MemberService(registrar, paymentService, memberRepository);
+        when(memberRepository.count()).thenReturn(42L);
+
+        MemberCountResponse response = memberService.getMemberCount();
+
+        assertThat(response).isEqualTo(new MemberCountResponse(42L));
     }
 }

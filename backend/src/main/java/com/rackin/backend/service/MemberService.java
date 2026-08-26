@@ -1,5 +1,7 @@
 package com.rackin.backend.service;
 
+import com.rackin.backend.repository.MemberRepository;
+import com.rackin.backend.web.dto.MemberCountResponse;
 import com.rackin.backend.web.dto.RegisterMemberRequest;
 import com.rackin.backend.web.dto.RegisterMemberResponse;
 import com.rackin.backend.web.dto.RosterMemberResponse;
@@ -25,10 +27,12 @@ public class MemberService {
 
     private final MemberRegistrar registrar;
     private final PaymentService paymentService;
+    private final MemberRepository memberRepository;
 
-    public MemberService(MemberRegistrar registrar, PaymentService paymentService) {
+    public MemberService(MemberRegistrar registrar, PaymentService paymentService, MemberRepository memberRepository) {
         this.registrar = registrar;
         this.paymentService = paymentService;
+        this.memberRepository = memberRepository;
     }
 
     // Deliberately not @Transactional: each attempt must run in its own
@@ -75,5 +79,13 @@ public class MemberService {
     @Transactional(readOnly = true)
     public List<RosterMemberResponse> listMembers() {
         return paymentService.getRoster();
+    }
+
+    // A plain row count, not the roster's size — the roster is a separate,
+    // heavier read (a join against every member's latest payment), and a
+    // caller that only wants "how many members" shouldn't have to pay for that.
+    @Transactional(readOnly = true)
+    public MemberCountResponse getMemberCount() {
+        return new MemberCountResponse(memberRepository.count());
     }
 }

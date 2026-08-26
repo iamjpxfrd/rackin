@@ -3,6 +3,7 @@ package com.rackin.backend.web;
 import com.rackin.backend.service.MemberService;
 import com.rackin.backend.web.dto.ErrorMessage;
 import com.rackin.backend.web.dto.FieldError;
+import com.rackin.backend.web.dto.MemberCountResponse;
 import com.rackin.backend.web.dto.RegisterMemberRequest;
 import com.rackin.backend.web.dto.RegisterMemberResponse;
 import com.rackin.backend.web.dto.RosterMemberResponse;
@@ -85,5 +86,15 @@ public class MemberController {
     @GetMapping
     public List<RosterMemberResponse> listMembers() {
         return memberService.listMembers();
+    }
+
+    @Operation(
+            summary = "Count all members",
+            description = "A plain row count — cheaper than fetching the full roster just to read "
+                    + "its length.")
+    @ApiResponse(responseCode = "200", description = "The current member count")
+    @GetMapping("/count")
+    public MemberCountResponse getMemberCount() {
+        return memberService.getMemberCount();
     }
 }

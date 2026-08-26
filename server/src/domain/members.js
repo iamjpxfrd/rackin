@@ -55,10 +55,9 @@ export function filterMembers(rows, query) {
 
 /**
  * Total members on the roster — drives the app's first-run empty states.
- * Derived from the same roster fetch listMembers() uses rather than a
- * separate endpoint; there's no count the backend can give any cheaper than
- * the length of the roster it already returns in full.
+ * From GET /api/members/count, a plain row count — cheaper than fetching the
+ * full roster just to read its length.
  */
 export async function memberCount() {
-  return (await listMembers()).length;
+  return (await getJson("/api/members/count"))?.count ?? 0;
 }

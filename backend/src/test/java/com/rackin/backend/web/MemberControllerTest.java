@@ -6,6 +6,7 @@ import com.rackin.backend.model.MembershipStatus;
 import com.rackin.backend.model.PaymentMethod;
 import com.rackin.backend.model.PlanType;
 import com.rackin.backend.service.MemberService;
+import com.rackin.backend.web.dto.MemberCountResponse;
 import com.rackin.backend.web.dto.RegisterMemberRequest;
 import com.rackin.backend.web.dto.RegisterMemberResponse;
 import com.rackin.backend.web.dto.RosterMemberResponse;
@@ -131,5 +132,14 @@ class MemberControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$").isEmpty());
+    }
+
+    @Test
+    void getMemberCount_shouldReturn200WithCount() throws Exception {
+        when(memberService.getMemberCount()).thenReturn(new MemberCountResponse(42));
+
+        mockMvc.perform(get("/api/members/count"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.count").value(42));
     }
 }
