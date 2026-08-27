@@ -3,8 +3,10 @@ package com.rackin.backend.web;
 import com.rackin.backend.service.MemberService;
 import com.rackin.backend.web.dto.ErrorMessage;
 import com.rackin.backend.web.dto.FieldError;
+import com.rackin.backend.web.dto.MemberCountResponse;
 import com.rackin.backend.web.dto.RegisterMemberRequest;
 import com.rackin.backend.web.dto.RegisterMemberResponse;
+import com.rackin.backend.web.dto.RosterMemberResponse;
 import com.rackin.backend.web.dto.StatusResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -23,6 +25,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/members")
@@ -71,5 +75,26 @@ public class MemberController {
     public StatusResponse getStatus(
             @Parameter(description = "Member id", example = "1217") @PathVariable("id") String id) {
         return memberService.getStatus(id);
+    }
+
+    @Operation(
+            summary = "List all members",
+            description = "The full roster, name-ascending. Each row carries its derived status and "
+                    + "whether it's expiring soon, using the same coverage-based rules as "
+                    + "`/{id}/status` and `/api/payments/expiring`.")
+    @ApiResponse(responseCode = "200", description = "The roster, may be empty")
+    @GetMapping
+    public List<RosterMemberResponse> listMembers() {
+        return memberService.listMembers();
+    }
+
+    @Operation(
+            summary = "Count all members",
+            description = "A plain row count — cheaper than fetching the full roster just to read "
+                    + "its length.")
+    @ApiResponse(responseCode = "200", description = "The current member count")
+    @GetMapping("/count")
+    public MemberCountResponse getMemberCount() {
+        return memberService.getMemberCount();
     }
 }

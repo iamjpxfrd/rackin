@@ -67,6 +67,12 @@ class ApiKeySecurityTest {
     }
 
     @Test
+    void readRosterWithoutAKey_shouldBeRejected() throws Exception {
+        mockMvc.perform(get("/api/members"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void wrongKey_shouldBeRejected() throws Exception {
         mockMvc.perform(post("/api/members")
                         .header("Authorization", "Bearer not-the-key")

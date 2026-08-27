@@ -4,12 +4,14 @@ import com.rackin.backend.model.Member;
 import com.rackin.backend.model.Payment;
 import com.rackin.backend.model.PaymentMethod;
 import com.rackin.backend.model.PlanType;
+import jakarta.persistence.Tuple;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
@@ -28,9 +30,13 @@ class PaymentRepositoryTest {
     private PaymentRepository paymentRepository;
 
     private Member persistMember(String id) {
+        return persistMember(id, "Maria Santos");
+    }
+
+    private Member persistMember(String id, String name) {
         Member member = new Member();
         member.setId(id);
-        member.setName("Maria Santos");
+        member.setName(name);
         member.setPlanType(PlanType.monthly);
         member.setCreatedAt(Instant.now());
         member.setClientUuid(UUID.randomUUID());
@@ -115,5 +121,67 @@ class PaymentRepositoryTest {
                 paymentRepository.findExpiring(now, now.plus(7, ChronoUnit.DAYS));
 
         assertThat(expiring).extracting(ExpiringMemberProjection::getId).containsExactly("1002", "1001");
+    }
+
+    // findRoster()'s query has no bound temporal parameter, so the driver's
+    // reported type for covers_until differs per engine: OffsetDateTime on
+    // H2 (this test suite), Instant on real Postgres — see
+    // PaymentRepository#findRoster and PaymentService#asInstant, which this
+    // mirrors for assertions.
+    private static Instant coversUntilOf(Tuple tuple) {
+        Object raw = tuple.get("coversUntil");
+        return switch (raw) {
+            case null -> null;
+            case Instant instant -> instant;
+            case OffsetDateTime offsetDateTime -> offsetDateTime.toInstant();
+            default -> throw new IllegalStateException("Unexpected temporal type: " + raw.getClass());
+        };
+    }
+
+    @Test
+    void findRoster_shouldReturnEveryMemberNameAscending() {
+        persistMember("1001", "Zara Cruz");
+        persistMember("1002", "Ana Reyes");
+
+        List<Tuple> roster = paymentRepository.findRoster();
+
+        assertThat(roster).extracting(t -> t.get("name", String.class)).containsExactly("Ana Reyes", "Zara Cruz");
+    }
+
+    @Test
+    void findRoster_whenMemberHasNoPayment_shouldStillIncludeThemWithNullCoverage() {
+        persistMember("1001", "Ana Reyes");
+
+        List<Tuple> roster = paymentRepository.findRoster();
+
+        assertThat(roster).hasSize(1);
+        assertThat(roster.get(0).get("id", String.class)).isEqualTo("1001");
+        assertThat(coversUntilOf(roster.get(0))).isNull();
+    }
+
+    @Test
+    void findRoster_shouldUseOnlyTheLatestPaymentPerMember() {
+        Instant now = Instant.now();
+        Member member = persistMember("1001", "Ana Reyes");
+        paymentRepository.saveAndFlush(payment(member, now.minus(40, ChronoUnit.DAYS), now.minus(10, ChronoUnit.DAYS)));
+        paymentRepository.saveAndFlush(payment(member, now, now.plus(30, ChronoUnit.DAYS)));
+
+        List<Tuple> roster = paymentRepository.findRoster();
+
+        assertThat(roster).hasSize(1);
+        assertThat(coversUntilOf(roster.get(0)))
+                .isCloseTo(now.plus(30, ChronoUnit.DAYS), within(1, ChronoUnit.SECONDS));
+    }
+
+    @Test
+    void findRoster_shouldIncludePlanTypeAndPhone() {
+        Member member = persistMember("1001", "Ana Reyes");
+        member.setPhone("09171234567");
+        memberRepository.saveAndFlush(member);
+
+        List<Tuple> roster = paymentRepository.findRoster();
+
+        assertThat(roster.get(0).get("planType", String.class)).isEqualTo("monthly");
+        assertThat(roster.get(0).get("phone", String.class)).isEqualTo("09171234567");
     }
 }

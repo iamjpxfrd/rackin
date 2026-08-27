@@ -11,11 +11,15 @@ import com.rackin.backend.repository.MemberRepository;
 import com.rackin.backend.repository.PaymentRepository;
 import com.rackin.backend.web.dto.ExpiringMemberResponse;
 import com.rackin.backend.web.dto.PaymentResponse;
+import com.rackin.backend.web.dto.RosterMemberResponse;
+import com.rackin.backend.web.dto.RosterMemberSummary;
+import jakarta.persistence.Tuple;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
@@ -145,5 +149,45 @@ public class PaymentService {
     // registration and must not carry a second copy of this rule.
     MembershipStatus deriveStatus(Instant coversUntil) {
         return !coversUntil.isBefore(Instant.now()) ? MembershipStatus.active : MembershipStatus.expired;
+    }
+
+    // The full roster (dashboard Members screen). Reuses deriveStatus and the
+    // same expiringDaysDefault threshold getExpiring applies, so a controller
+    // never has to decide what "active" or "expiring soon" means on its own.
+    @Transactional(readOnly = true)
+    public List<RosterMemberResponse> getRoster() {
+        Instant expiringUntil = Instant.now().plus(properties.expiringDaysDefault(), ChronoUnit.DAYS);
+        return paymentRepository.findRoster().stream()
+                .map(tuple -> toRosterMemberResponse(tuple, expiringUntil))
+                .toList();
+    }
+
+    private RosterMemberResponse toRosterMemberResponse(Tuple tuple, Instant expiringUntil) {
+        // No payment at all (a hand-seeded row; registration always creates
+        // one) has nothing to derive coverage from, so it's simply expired.
+        Instant coversUntil = asInstant(tuple.get("coversUntil"));
+        MembershipStatus status = coversUntil != null ? deriveStatus(coversUntil) : MembershipStatus.expired;
+        boolean isExpiringSoon = status == MembershipStatus.active && !coversUntil.isAfter(expiringUntil);
+
+        RosterMemberSummary summary = new RosterMemberSummary(
+                tuple.get("id", String.class), tuple.get("name", String.class),
+                PlanType.valueOf(tuple.get("planType", String.class)), tuple.get("phone", String.class));
+        return new RosterMemberResponse(summary, status, isExpiringSoon);
+    }
+
+    // findRoster()'s query has no bound temporal parameter to anchor
+    // Hibernate's type resolution against, so the driver hands back a
+    // different Java type for covers_until per engine: Instant on real
+    // Postgres, OffsetDateTime on H2 (the test suite). Normalizing here,
+    // rather than trusting a single declared projection type, is what keeps
+    // this correct on both — see PaymentRepository#findRoster.
+    private static Instant asInstant(Object temporal) {
+        return switch (temporal) {
+            case null -> null;
+            case Instant instant -> instant;
+            case OffsetDateTime offsetDateTime -> offsetDateTime.toInstant();
+            default -> throw new IllegalStateException(
+                    "Unexpected temporal type for covers_until: " + temporal.getClass());
+        };
     }
 }
