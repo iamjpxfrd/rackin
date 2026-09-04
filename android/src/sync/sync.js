@@ -85,9 +85,30 @@ async function drainUntilQuiet(options) {
     // looping here would just hammer an unreachable backend — or when nothing
     // new arrived while this pass was running.
     if (result.remaining > 0 || !rerunRequested) {
+      await reportSyncStatus(options);
       return total;
     }
     rerunRequested = false;
+  }
+}
+
+// Tells the backend how the queue looks after this drain settled — caught up
+// or still stuck, and how far behind — so the owner dashboard can tell a
+// current tablet from one that has gone quiet (ADR-002 Action Item 8). Runs
+// on every existing sync trigger rather than a new timer of its own, which
+// is enough: a queue only grows while the gym is actively recording
+// something, and that always runs through a drain.
+async function reportSyncStatus({ post = postJson } = {}) {
+  if (!isSyncConfigured()) return;
+  try {
+    const queued = await pendingOperations();
+    await post("/api/sync/status", {
+      pendingCount: queued.length,
+      oldestPendingAt: queued[0]?.queuedAt ?? null,
+    });
+  } catch {
+    // Best-effort, same as every other failure in this file (PRD 4.10) — a
+    // failed report must never surface to staff or block a retry.
   }
 }
 

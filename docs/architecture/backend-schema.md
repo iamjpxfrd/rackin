@@ -88,7 +88,27 @@ redundantly (per TRD 3.5).
 - `INDEX idx_checkin_timestamp ON check_in(timestamp)` — today's activity feed (PRD 4.4) and lapsed cutoff comparisons both range-scan on this
 - `UNIQUE INDEX idx_checkin_client_uuid ON check_in(client_uuid)`
 
-## 6. Derived query definitions
+## 6. Table: `sync_status`
+
+Not a synced domain record like the tables above — a single row the
+tablet overwrites every time it finishes a sync attempt, so the owner
+dashboard can tell a caught-up tablet from one that has gone quiet
+(ADR-002 Action Item 8, [[Task 6 — Dashboard and Android Polish]]).
+One tablet in the pilot (ADR-001), so one row is enough; there is no
+per-device identity to key on.
+
+| Column              | Type          | Constraints | Notes                                                                                                    |
+| ------------------- | ------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                | `BIGINT`      | PK          | Always `1` — not `@GeneratedValue`. The row is upserted in place, never inserted a second time.                                                                       |
+| `pending_count`     | `INT`         | NOT NULL    | Size of the tablet's outbox as of its last report.                                                                                                                     |
+| `oldest_pending_at` | `TIMESTAMPTZ` | NULL        | `queuedAt` of the oldest still-pending operation, or null when the queue was empty at report time.                                                                     |
+| `reported_at`       | `TIMESTAMPTZ` | NOT NULL    | Server-assigned when the report arrives, not client-supplied — so a stale reading is immune to the tablet's own clock being wrong, and reads as true silence if it stops reporting at all. |
+
+**Indexes:**
+
+- `PRIMARY KEY (id)`
+
+## 7. Derived query definitions
 
 These aren't stored columns — they're the exact queries the schema
 above needs to support efficiently, so the indexes above are chosen
@@ -137,7 +157,7 @@ WHERE member_id = :memberId
   AND timestamp >= date_trunc('month', now());
 ```
 
-## 7. JPA entity mapping notes
+## 8. JPA entity mapping notes
 
 - `Member.id` is a `String` primary key, **not** `@GeneratedValue` on
   the backend — the id is assigned by whichever side (tablet or
@@ -154,7 +174,7 @@ WHERE member_id = :memberId
   as readable strings, not ordinals, so the CHECK constraints above
   and the enum values never drift silently out of sync.
 
-## 8. Migration strategy
+## 9. Migration strategy
 
 - **Local dev:** `spring.jpa.hibernate.ddl-auto: update` against H2
   (per the Initializr setup doc) — fine for a single-developer pilot
@@ -165,7 +185,7 @@ WHERE member_id = :memberId
   the database. Not needed while the pilot runs fully offline with no
   backend deployed yet.
 
-## 9. What's deliberately not in this schema
+## 10. What's deliberately not in this schema
 
 Per PRD Section 5 (deferred features) — no tables for: authentication
 (no `user`/`staff` login table), multi-gym (no `gym_id` foreign key
@@ -174,7 +194,7 @@ class scheduling, or payment-processing transaction records (this
 schema _records_ a payment happened; it has no gateway/transaction-id
 fields, per the MVP overview's explicit non-goal).
 
-## 10. Resolved
+## 11. Resolved
 
 `phone` on `Member` is now included (Section 3) — resolved in
 `rackin-decision-phone-thresholds.md`. Lapsed/expiring thresholds
