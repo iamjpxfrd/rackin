@@ -2,6 +2,17 @@
 // These are deliberately NOT staff-configurable for the pilot (PRODUCT.md):
 // a settings screen would imply a flexibility the product doesn't have.
 
+/**
+ * The gym's own display name, shown in the dashboard's top bar and staggered
+ * menu instead of the RACKIN product wordmark (per the desktop dashboard
+ * design canvas — the owner's dashboard is branded to their gym, not to
+ * Rackin). Hardcoded: there is no backend concept of a gym profile/display
+ * name yet, so this is a placeholder pending that field, same TODO-stub
+ * convention as domain/checkIn.js and domain/members.js use for reads the
+ * backend can't answer yet.
+ */
+export const GYM_NAME = "Jack's Gym";
+
 /** No check-in in this many days ⇒ the member has "stopped coming". */
 export const LAPSED_AFTER_DAYS = 14;
 

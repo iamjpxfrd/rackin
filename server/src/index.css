@@ -1,7 +1,15 @@
 @import "tailwindcss";
 
-/* Self-hosted (offline-first: no runtime dependency on a fonts CDN) */
-@import "@fontsource/archivo-black";
+/* Self-hosted (offline-first: no runtime dependency on a fonts CDN) — same
+   Kinetic Court type system as android/ (see android/src/theme/colors.js and
+   tailwind.config.js): Fjalla One for labels/headings/big stat numerals,
+   Inter for body copy. No Zen Dots here — that's reserved for the RACKIN
+   product wordmark/numpad digits on the tablet, and the dashboard shows the
+   gym's own name, never the Rackin brand (see the design canvas's WebLogin
+   etc., which never reference it either). IBM Plex Mono stays for tabular
+   numerals (member IDs, amounts) — Kinetic Court never defined a mono role,
+   but dropping it would mean redesigning every aligned numeric column. */
+@import "@fontsource/fjalla-one";
 @import "@fontsource/inter/400.css";
 @import "@fontsource/inter/500.css";
 @import "@fontsource/inter/600.css";
@@ -9,46 +17,73 @@
 @import "@fontsource/ibm-plex-mono/500.css";
 
 @theme {
-  /* DESIGN.md — Colors */
-  --color-ink-900: #15181c;
-  --color-steel-700: #3a4046;
-  --color-steel-300: #c7cdd3;
-  --color-chalk-50: #f1f2f0;
-  --color-surface-white: #ffffff;
-  --color-signal-yellow: #f2b705;
-  --color-rubber-red: #c43d3d;
-  --color-turf-green: #3f8f5f;
+  /* Kinetic Court palette — same hex values as android/src/theme/colors.js.
+     A full dark reskin, not additive: the old DESIGN.md token names
+     (ink-900, chalk-50, signal-yellow, ...) are dropped rather than
+     repointed, same reasoning android's tailwind.config.js documents — a
+     name like "surface-white" would now mean the opposite of what it says. */
+  --color-page: #0a0a0a;
+  --color-surface: #141414;
+  --color-surface-2: #1a1a1a;
+  --color-border: #262626;
+  --color-hairline: #1e1e1e;
+  --color-text: #ffffff;
+  --color-text-muted: #8a8a8a;
+  --color-text-dim: #666666;
+  --color-accent: #d4ff3f;
+  --color-accent-soft: #e8ff8c;
+  /* Same hue as --color-accent (~122°), stepped dark instead of light — the
+     bright lime reads at ~1.16:1 contrast on a white surface, essentially
+     invisible. Use this wherever lime-hued text or an icon sits on the
+     staggered menu's white panel instead of the dark app surfaces. */
+  --color-accent-deep: #384700;
+  --color-danger: #ff5c5c;
+  --color-warning: #ffb23f;
 
-  /* DESIGN.md — Typography */
-  --font-numeral: "Archivo Black", system-ui, sans-serif;
+  /* Top bar reads darker than the rest of the app (pure black vs. #0a0a0a) —
+     per the desktop dashboard design canvas, one deliberate exception to the
+     shared surface scale. */
+  --color-topbar: #000000;
+  --color-topbar-border: #1c1c1c;
+
+  /* Typography */
+  --font-heading: "Fjalla One", system-ui, sans-serif;
   --font-body: "Inter", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 
-  /* DESIGN.md — Shapes */
-  --radius-ds-sm: 6px;
-  --radius-ds-lg: 12px;
-
-  /* DESIGN.md — Elevation & Depth */
-  --shadow-key-rest: 0 4px 0 var(--color-steel-300);
-  --shadow-key-pressed: 0 1px 0 var(--color-steel-300);
-  --shadow-card: 0 12px 32px rgba(21, 24, 28, 0.18);
+  /* Kinetic Court uses sharp corners everywhere except the diagonal-cut
+     chamfer (below) and circular avatars — no rounded-corner radius tokens. */
 }
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 body {
   margin: 0;
   font-family: var(--font-body);
-  color: var(--color-ink-900);
-  background: var(--color-chalk-50);
+  color: var(--color-text);
+  background: var(--color-page);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* The diagonal-cut chamfer motif (android's ui/DiagonalCut.jsx, drawn there
+   with react-native-svg since RN has no clip-path). The web has clip-path
+   natively, so one utility class covers every primary button / active state. */
+.chamfer {
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%);
+}
+
+/* height, not min-height: the dashboard shell (App.jsx) relies on h-full and
+   absolute inset-0 descendants (the staggered menu, flex-1 content areas)
+   resolving against a real viewport-sized box. min-height alone lets #root
+   shrink to its content when that content is shorter than the viewport,
+   which silently breaks every one of those descendants — the menu overlay
+   stops covering the bottom of the screen, and flex-1 content stops filling
+   it, even though nothing about their own styles looks wrong. */
 #root {
-  min-height: 100svh;
+  height: 100svh;
   display: flex;
   flex-direction: column;
 }
