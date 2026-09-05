@@ -20,9 +20,18 @@ export default function TopBar() {
 
   useEffect(() => {
     let cancelled = false;
-    getSyncStatus().then((result) => {
-      if (!cancelled) setStatus(result);
-    });
+    getSyncStatus()
+      .then((result) => {
+        if (!cancelled) setStatus(result);
+      })
+      .catch(() => {
+        // getJson throws on a non-2xx response or a transport failure. This is
+        // exactly the case the indicator exists to warn about, so a silent
+        // disappearance here would hide the reading the owner needs most —
+        // fall into an explicit error state instead of leaving `status`
+        // unset forever.
+        if (!cancelled) setStatus({ error: true });
+      });
     return () => {
       cancelled = true;
     };
